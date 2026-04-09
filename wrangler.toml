@@ -1,0 +1,6 @@
+# WhatsApp Seller OS — Cloudflare Pages (Workers Static Assets)
+name = "whatsapp-seller-os"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "./"
