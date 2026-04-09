@@ -1,3 +1,0 @@
-# Cloudflare Pages redirects
-# Clean URL for storefront
-/shop/* /shop/index.html 200
