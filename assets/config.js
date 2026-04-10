@@ -11,15 +11,10 @@ window.SUPABASE_URL = 'https://nizrqwvfuxbuhertypva.supabase.co';
 window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5penJxd3ZmdXhidWhlcnR5cHZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NTg3MjMsImV4cCI6MjA5MTMzNDcyM30.nqduzFlkaYWq2kYYFQysb8nBU_l1Eom88uoS7l6pkCw';
 window.SITE_URL = window.location.origin || 'https://selleros.co.za';
 
-// Convenience aliases for non-Babel scripts
-const SUPABASE_URL = window.SUPABASE_URL;
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
-const SITE_URL = window.SITE_URL;
-
 // Initialize Supabase
 window.supabaseClient = null;
 try {
-    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 } catch (e) {
     console.warn('Supabase initialization error:', e);
 }
