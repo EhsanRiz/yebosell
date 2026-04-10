@@ -64,6 +64,16 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        // Pull shared config from window (config.js attaches everything there)
+        const supabase = window.supabaseClient;
+        const SUPABASE_URL = window.SUPABASE_URL;
+        const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
+        const SITE_URL = window.SITE_URL;
+        const formatCurrency = window.formatCurrency;
+        const getStatusColor = window.getStatusColor;
+        const getStatusLabel = window.getStatusLabel;
+        const whatsappLink = window.whatsappLink;
+
         // ==================== STORE COMPONENT ====================
         function Store() {
             const [seller, setSeller] = useState(null);
