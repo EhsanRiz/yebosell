@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Seller OS â Dashboard</title>
+    <title>WhatsApp Seller OS Ã¢ÂÂ Dashboard</title>
 
     <!-- Shared Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -132,7 +132,7 @@
                 setLoading(true);
                 try {
                     let cleanPhone = phone.replace(/[^0-9+]/g, '');
-                    // Normalize: 0xx → +27xx, 27xx → +27xx, 266xx → +266xx
+                    // Normalize: 0xx â +27xx, 27xx â +27xx, 266xx â +266xx
                     if (cleanPhone.startsWith('0')) {
                         cleanPhone = '+27' + cleanPhone.slice(1);
                     } else if (/^27\d/.test(cleanPhone) && !cleanPhone.startsWith('+')) {
@@ -317,7 +317,7 @@
                     {/* Footer */}
                     <div className="absolute bottom-4 text-center text-gray-400 text-xs">
                         <p>Developed by 4D Climate Solutions</p>
-                        <p>Â© 2026 WhatsApp Seller OS. All rights reserved.</p>
+                        <p>ÃÂ© 2026 WhatsApp Seller OS. All rights reserved.</p>
                     </div>
                 </div>
             );
@@ -497,7 +497,8 @@
                         .order('sort_order', { ascending: true });
 
                     if (error) throw error;
-                    setProducts(data || []);
+                    // Map DB column is_active → active for UI
+                    setProducts((data || []).map(p => ({ ...p, active: p.is_active })));
                 } catch (err) {
                     console.error('Load products error:', err);
                 } finally {
@@ -544,17 +545,21 @@
                 }
 
                 try {
+                    // Map UI field 'active' → DB column 'is_active'
+                    const { active, ...rest } = formData;
+                    const dbData = { ...rest, is_active: active };
+
                     if (editingId) {
                         const { error } = await supabase
                             .from('products')
-                            .update(formData)
+                            .update(dbData)
                             .eq('id', editingId);
                         if (error) throw error;
                     } else {
                         const { error } = await supabase
                             .from('products')
                             .insert({
-                                ...formData,
+                                ...dbData,
                                 seller_id: seller.id,
                                 price: parseFloat(formData.price),
                                 sort_order: products.length
@@ -587,7 +592,7 @@
                 try {
                     const { error } = await supabase
                         .from('products')
-                        .update({ active: !currentActive })
+                        .update({ is_active: !currentActive })
                         .eq('id', id);
                     if (error) throw error;
                     loadProducts();
@@ -604,12 +609,12 @@
                 }
 
                 const lines = [
-                    `ðï¸ *${seller.business_name}* â New items available!\n`,
+                    `Ã°ÂÂÂÃ¯Â¸Â *${seller.business_name}* Ã¢ÂÂ New items available!\n`,
                     ...activeProducts.map((p, i) => {
                         const desc = p.description ? `\n     ${p.description}` : '';
-                        return `${i + 1}. *${p.name}* â ${formatCurrency(p.price)}${desc}`;
+                        return `${i + 1}. *${p.name}* Ã¢ÂÂ ${formatCurrency(p.price)}${desc}`;
                     }),
-                    `\nð Order here: ${SITE_URL}/shop/?s=${seller.slug}`
+                    `\nÃ°ÂÂÂ Order here: ${SITE_URL}/shop/?s=${seller.slug}`
                 ];
 
                 const message = lines.join('\n');
@@ -637,7 +642,7 @@
                     price: product.price.toString(),
                     category: product.category || 'other',
                     photo_url: product.photo_url || '',
-                    active: product.active
+                    active: product.active !== undefined ? product.active : product.is_active
                 });
                 setShowForm(true);
             };
@@ -938,7 +943,7 @@
                                 },
                                 body: JSON.stringify({ order_id: orderId, new_status: value }),
                             });
-                            console.log(`WhatsApp notification sent for order ${orderId} â ${value}`);
+                            console.log(`WhatsApp notification sent for order ${orderId} Ã¢ÂÂ ${value}`);
                         } catch (waErr) {
                             console.warn('WhatsApp notification failed (non-blocking):', waErr);
                         }
