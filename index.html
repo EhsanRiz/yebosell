@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Seller OS — Dashboard</title>
+    <title>WhatsApp Seller OS â Dashboard</title>
 
     <!-- Shared Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -131,7 +131,15 @@
 
                 setLoading(true);
                 try {
-                    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+                    let cleanPhone = phone.replace(/[^0-9+]/g, '');
+                    // Normalize: 0xx → +27xx, 27xx → +27xx, 266xx → +266xx
+                    if (cleanPhone.startsWith('0')) {
+                        cleanPhone = '+27' + cleanPhone.slice(1);
+                    } else if (/^27\d/.test(cleanPhone) && !cleanPhone.startsWith('+')) {
+                        cleanPhone = '+' + cleanPhone;
+                    } else if (/^266\d/.test(cleanPhone) && !cleanPhone.startsWith('+')) {
+                        cleanPhone = '+' + cleanPhone;
+                    }
                     const pinHash = hashPin(pin);
 
                     if (mode === 'login') {
@@ -309,7 +317,7 @@
                     {/* Footer */}
                     <div className="absolute bottom-4 text-center text-gray-400 text-xs">
                         <p>Developed by 4D Climate Solutions</p>
-                        <p>© 2026 WhatsApp Seller OS. All rights reserved.</p>
+                        <p>Â© 2026 WhatsApp Seller OS. All rights reserved.</p>
                     </div>
                 </div>
             );
@@ -596,12 +604,12 @@
                 }
 
                 const lines = [
-                    `🛍️ *${seller.business_name}* — New items available!\n`,
+                    `ðï¸ *${seller.business_name}* â New items available!\n`,
                     ...activeProducts.map((p, i) => {
                         const desc = p.description ? `\n     ${p.description}` : '';
-                        return `${i + 1}. *${p.name}* — ${formatCurrency(p.price)}${desc}`;
+                        return `${i + 1}. *${p.name}* â ${formatCurrency(p.price)}${desc}`;
                     }),
-                    `\n👉 Order here: ${SITE_URL}/shop/?s=${seller.slug}`
+                    `\nð Order here: ${SITE_URL}/shop/?s=${seller.slug}`
                 ];
 
                 const message = lines.join('\n');
@@ -930,7 +938,7 @@
                                 },
                                 body: JSON.stringify({ order_id: orderId, new_status: value }),
                             });
-                            console.log(`WhatsApp notification sent for order ${orderId} → ${value}`);
+                            console.log(`WhatsApp notification sent for order ${orderId} â ${value}`);
                         } catch (waErr) {
                             console.warn('WhatsApp notification failed (non-blocking):', waErr);
                         }
