@@ -902,6 +902,26 @@
                         .update({ [field]: value })
                         .eq('id', orderId);
                     if (error) throw error;
+
+                    // Auto-notify buyer via WhatsApp when main status changes
+                    if (field === 'status' && ['confirmed', 'paid', 'shipped', 'delivered', 'cancelled'].includes(value)) {
+                        try {
+                            const { data: session } = await supabase.auth.getSession();
+                            const token = session?.session?.access_token || SUPABASE_ANON_KEY;
+                            await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({ order_id: orderId, new_status: value }),
+                            });
+                            console.log(`WhatsApp notification sent for order ${orderId} → ${value}`);
+                        } catch (waErr) {
+                            console.warn('WhatsApp notification failed (non-blocking):', waErr);
+                        }
+                    }
+
                     loadOrders();
                 } catch (err) {
                     alert('Update failed: ' + err.message);
