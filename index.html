@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WhatsApp Seller OS — Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%2325D366'/><text x='50' y='68' text-anchor='middle' fill='white' font-size='50' font-weight='bold'>S</text></svg>">
 
     <!-- Shared Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -419,17 +420,28 @@
 
                     <div className="absolute bottom-6 text-center">
                         <div className="flex items-center justify-center gap-2 mb-1.5">
-                            <svg viewBox="0 0 120 40" width="100" height="34" className="opacity-80">
-                                <defs>
-                                    <linearGradient id="grad4d" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#22c55e"/>
-                                        <stop offset="100%" stopColor="#3b82f6"/>
-                                    </linearGradient>
-                                </defs>
-                                <rect x="2" y="6" width="28" height="28" rx="6" fill="url(#grad4d)" opacity="0.9"/>
-                                <text x="16" y="27" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontFamily="Inter, sans-serif">4D</text>
-                                <text x="38" y="19" fill="#94a3b8" fontSize="9" fontWeight="600" fontFamily="Inter, sans-serif">CLIMATE</text>
-                                <text x="38" y="31" fill="#94a3b8" fontSize="9" fontWeight="600" fontFamily="Inter, sans-serif">SOLUTIONS</text>
+                            <svg viewBox="0 0 220 50" width="180" height="40" className="opacity-90">
+                                {/* 3D Cubes */}
+                                <g transform="translate(5,5)">
+                                    {/* Blue cube */}
+                                    <polygon points="8,12 18,6 18,22 8,28" fill="#5bb8f0"/>
+                                    <polygon points="18,6 28,12 28,28 18,22" fill="#3a8fd4"/>
+                                    <polygon points="8,12 18,6 28,12 18,18" fill="#7ecbf5"/>
+                                    {/* Green cube */}
+                                    <polygon points="0,24 10,18 10,34 0,40" fill="#a3c83a"/>
+                                    <polygon points="10,18 20,24 20,40 10,34" fill="#7da82e"/>
+                                    <polygon points="0,24 10,18 20,24 10,30" fill="#c2de5a"/>
+                                    {/* Brown cube */}
+                                    <polygon points="16,24 26,18 26,34 16,40" fill="#c4a882"/>
+                                    <polygon points="26,18 36,24 36,40 26,34" fill="#a68c6a"/>
+                                    <polygon points="16,24 26,18 36,24 26,30" fill="#dcc4a0"/>
+                                </g>
+                                {/* 4D Text */}
+                                <text x="52" y="28" fill="#2e8b57" fontSize="22" fontWeight="bold" fontFamily="Inter, sans-serif">4D</text>
+                                <text x="78" y="22" fill="#2e8b57" fontSize="11" fontStyle="italic" fontWeight="600" fontFamily="Inter, sans-serif">Climate</text>
+                                <text x="78" y="36" fill="#2e8b57" fontSize="11" fontWeight="700" fontFamily="Inter, sans-serif">Solutions</text>
+                                {/* Tagline */}
+                                <text x="140" y="29" fill="#94a3b8" fontSize="5.5" fontFamily="Inter, sans-serif">creative · innovative · green · sustainable</text>
                             </svg>
                         </div>
                         <p className="text-gray-500 text-xs">&copy; 2026 WhatsApp Seller OS. All rights reserved.</p>
@@ -467,10 +479,10 @@
                     const today = now.toISOString().split('T')[0];
                     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
-                    // Fetch all orders, payments, products in parallel
-                    const [ordersRes, paymentsRes, productsRes, pendingPayRes] = await Promise.all([
+                    // Fetch all orders, payments, products, order_items in parallel
+                    const [ordersRes, paymentsRes, productsRes, pendingPayRes, itemsRes] = await Promise.all([
                         supabase.from('orders')
-                            .select('id, order_number, total, status, payment_status, delivery_status, created_at, customer_phone, customer_name, items')
+                            .select('id, order_number, total, status, payment_status, delivery_status, created_at, customer_phone, customer_name')
                             .eq('seller_id', seller.id)
                             .order('created_at', { ascending: false }),
                         supabase.from('payments')
@@ -484,12 +496,16 @@
                             .select('id, amount')
                             .eq('seller_id', seller.id)
                             .eq('status', 'pending'),
+                        supabase.from('order_items')
+                            .select('order_id, product_name, quantity, unit_price')
+                            .in('order_id', (await supabase.from('orders').select('id').eq('seller_id', seller.id)).data?.map(o => o.id) || []),
                     ]);
 
                     const allOrders = ordersRes.data || [];
                     const confirmedPayments = paymentsRes.data || [];
                     const products = productsRes.data || [];
                     const pendingPays = pendingPayRes.data || [];
+                    const allItems = itemsRes.data || [];
 
                     // Today's stats
                     const todaysOrders = allOrders.filter(o => o.created_at >= today);
@@ -530,16 +546,13 @@
                         dailyRevenue.push({ day: dayLabel, date: dateStr, revenue: dayRevenue });
                     }
 
-                    // Top products (from order items)
+                    // Top products (from order_items table)
                     const productSales = {};
-                    allOrders.forEach(o => {
-                        const items = typeof o.items === 'string' ? JSON.parse(o.items || '[]') : (o.items || []);
-                        items.forEach(item => {
-                            const name = item.name || item.product_name || 'Unknown';
-                            if (!productSales[name]) productSales[name] = { name, qty: 0, revenue: 0 };
-                            productSales[name].qty += (item.quantity || item.qty || 1);
-                            productSales[name].revenue += (item.quantity || item.qty || 1) * (parseFloat(item.price) || 0);
-                        });
+                    allItems.forEach(item => {
+                        const name = item.product_name || 'Unknown';
+                        if (!productSales[name]) productSales[name] = { name, qty: 0, revenue: 0 };
+                        productSales[name].qty += (item.quantity || 1);
+                        productSales[name].revenue += (item.quantity || 1) * (parseFloat(item.unit_price) || 0);
                     });
                     const topProds = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
@@ -2274,18 +2287,23 @@
                             >
                                 <Icons.logout /> Sign Out
                             </button>
-                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-center gap-2">
-                                <svg viewBox="0 0 130 36" width="110" height="30">
-                                    <defs>
-                                        <linearGradient id="grad4dSb" x1="0%" y1="0%" x2="100%" y2="0%">
-                                            <stop offset="0%" stopColor="#22c55e"/>
-                                            <stop offset="100%" stopColor="#3b82f6"/>
-                                        </linearGradient>
-                                    </defs>
-                                    <rect x="1" y="4" width="26" height="26" rx="5" fill="url(#grad4dSb)" opacity="0.85"/>
-                                    <text x="14" y="23" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="Inter, sans-serif">4D</text>
-                                    <text x="33" y="14" fill="#9ca3af" fontSize="8" fontWeight="500" fontFamily="Inter, sans-serif">Developed by</text>
-                                    <text x="33" y="27" fill="#6b7280" fontSize="10" fontWeight="700" fontFamily="Inter, sans-serif">4D Climate Solutions</text>
+                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-center">
+                                <svg viewBox="0 0 160 38" width="140" height="33">
+                                    <g transform="translate(2,4)">
+                                        <polygon points="6,8 12,4 12,16 6,20" fill="#5bb8f0"/>
+                                        <polygon points="12,4 18,8 18,20 12,16" fill="#3a8fd4"/>
+                                        <polygon points="6,8 12,4 18,8 12,12" fill="#7ecbf5"/>
+                                        <polygon points="0,16 6,12 6,24 0,28" fill="#a3c83a"/>
+                                        <polygon points="6,12 12,16 12,28 6,24" fill="#7da82e"/>
+                                        <polygon points="0,16 6,12 12,16 6,20" fill="#c2de5a"/>
+                                        <polygon points="10,16 16,12 16,24 10,28" fill="#c4a882"/>
+                                        <polygon points="16,12 22,16 22,28 16,24" fill="#a68c6a"/>
+                                        <polygon points="10,16 16,12 22,16 16,20" fill="#dcc4a0"/>
+                                    </g>
+                                    <text x="30" y="11" fill="#9ca3af" fontSize="7" fontFamily="Inter, sans-serif">Developed by</text>
+                                    <text x="30" y="22" fill="#2e8b57" fontSize="9" fontWeight="bold" fontFamily="Inter, sans-serif">4D</text>
+                                    <text x="46" y="22" fill="#2e8b57" fontSize="9" fontStyle="italic" fontWeight="600" fontFamily="Inter, sans-serif">Climate Solutions</text>
+                                    <text x="30" y="32" fill="#b0b0b0" fontSize="5" fontFamily="Inter, sans-serif">creative · innovative · green · sustainable</text>
                                 </svg>
                             </div>
                         </div>
