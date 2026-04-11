@@ -149,11 +149,12 @@
             transition: all 0.3s;
         }
         .feature-card:hover { border-color: var(--green-200); background: white; box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
+        .feature-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
         .feature-icon {
-            width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
-            font-size: 22px; margin-bottom: 16px;
+            width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 20px; flex-shrink: 0;
         }
-        .feature-card h3 { font-size: 16px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
+        .feature-card h3 { font-size: 16px; font-weight: 700; color: var(--gray-900); margin: 0; }
         .feature-card p { font-size: 13px; color: var(--gray-500); line-height: 1.6; }
 
         /* ===== WHY SECTION ===== */
@@ -227,7 +228,7 @@
                     <a href="#features">Features</a>
                     <a href="#find-store">Find a Store</a>
                     <a href="/dashboard/" class="btn btn-outline btn-sm">Seller Login</a>
-                    <a href="/dashboard/" class="btn btn-primary btn-sm">Start Selling</a>
+                    <a href="#get-started" class="btn btn-primary btn-sm">Get Started</a>
                 </div>
                 <button class="mobile-menu-btn" onclick="document.querySelector('.nav-links').style.display = document.querySelector('.nav-links').style.display === 'flex' ? 'none' : 'flex'">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
@@ -248,7 +249,7 @@
                     <h1>Turn WhatsApp into your <span class="gradient">online store</span></h1>
                     <p class="subtitle">The all-in-one platform for merchants to manage products, orders, payments, and deliveries — with automatic WhatsApp notifications to every customer.</p>
                     <div class="hero-buttons">
-                        <a href="/dashboard/" class="btn btn-primary btn-lg">Start Selling Free →</a>
+                        <a href="#get-started" class="btn btn-primary btn-lg">Start Selling Free →</a>
                         <a href="#find-store" class="btn btn-outline btn-lg">Find a Store</a>
                     </div>
                     <div class="hero-stats">
@@ -270,32 +271,32 @@
                     <div class="phone">
                         <div class="phone-screen">
                             <div class="phone-header">
-                                <div class="store-name">🛍️ Mama's Kitchen</div>
-                                <div class="store-sub">Fresh homemade food • Maseru</div>
+                                <div class="store-name">🛍️ StyleHub</div>
+                                <div class="store-sub">Accessories & Home • Johannesburg</div>
                             </div>
                             <div class="phone-products">
                                 <div class="phone-product">
-                                    <div class="img">🍲</div>
-                                    <div class="name">Mogodu</div>
-                                    <div class="price">R85.00</div>
+                                    <div class="img">👜</div>
+                                    <div class="name">Leather Bag</div>
+                                    <div class="price">R350.00</div>
                                 </div>
                                 <div class="phone-product">
-                                    <div class="img">🥘</div>
-                                    <div class="name">Pap & Stew</div>
-                                    <div class="price">R65.00</div>
+                                    <div class="img">⌚</div>
+                                    <div class="name">Smart Watch</div>
+                                    <div class="price">R499.00</div>
                                 </div>
                                 <div class="phone-product">
-                                    <div class="img">🥤</div>
-                                    <div class="name">Ginger Beer</div>
-                                    <div class="price">R25.00</div>
+                                    <div class="img">🎧</div>
+                                    <div class="name">Wireless Earbuds</div>
+                                    <div class="price">R199.00</div>
                                 </div>
                                 <div class="phone-product">
-                                    <div class="img">🍰</div>
-                                    <div class="name">Koeksister</div>
-                                    <div class="price">R15.00</div>
+                                    <div class="img">💡</div>
+                                    <div class="name">LED Desk Lamp</div>
+                                    <div class="price">R125.00</div>
                                 </div>
                             </div>
-                            <div class="phone-cart">🛒 View Cart • 2 items • R150.00</div>
+                            <div class="phone-cart">🛒 View Cart • 2 items • R849.00</div>
                         </div>
                     </div>
                     <div class="floating-notif">
@@ -355,43 +356,59 @@
             </div>
             <div class="grid-4">
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#dcfce7">📦</div>
-                    <h3>Product Catalog</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#dcfce7">📦</div>
+                        <h3>Product Catalog</h3>
+                    </div>
                     <p>Add products with photos, prices, stock tracking, sizes, colors, and categories.</p>
                 </div>
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#dbeafe">📋</div>
-                    <h3>Order Management</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#dbeafe">📋</div>
+                        <h3>Order Management</h3>
+                    </div>
                     <p>Track every order from new → confirmed → preparing → delivered with one-click status updates.</p>
                 </div>
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#fef9c3">💬</div>
-                    <h3>WhatsApp Notifications</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#fef9c3">💬</div>
+                        <h3>WhatsApp Notifications</h3>
+                    </div>
                     <p>Buyers get automatic WhatsApp messages for order confirmations, status updates, and delivery alerts.</p>
                 </div>
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#fce7f3">🚚</div>
-                    <h3>Delivery Management</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#fce7f3">🚚</div>
+                        <h3>Delivery Management</h3>
+                    </div>
                     <p>Offer pickup, self-delivery, or courier. Set delivery fees. Buyers track orders in real-time.</p>
                 </div>
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#e0e7ff">💰</div>
-                    <h3>Payment Tracking</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#e0e7ff">💰</div>
+                        <h3>Payment Tracking</h3>
+                    </div>
                     <p>Track payments by EFT, cash, or mobile money. Record partial payments and send receipts via WhatsApp.</p>
                 </div>
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#ccfbf1">🏷️</div>
-                    <h3>Discount Codes</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#ccfbf1">🏷️</div>
+                        <h3>Discount Codes</h3>
+                    </div>
                     <p>Create percentage or fixed-amount coupons with expiry dates, minimum orders, and usage limits.</p>
                 </div>
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#fef3c7">📊</div>
-                    <h3>Sales Dashboard</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#fef3c7">📊</div>
+                        <h3>Sales Dashboard</h3>
+                    </div>
                     <p>See revenue trends, top products, customer insights, and order analytics at a glance.</p>
                 </div>
                 <div class="feature-card fade-up">
-                    <div class="feature-icon" style="background:#f1f5f9">🌍</div>
-                    <h3>Bilingual</h3>
+                    <div class="feature-header">
+                        <div class="feature-icon" style="background:#f1f5f9">🌍</div>
+                        <h3>Bilingual</h3>
+                    </div>
                     <p>Full support for English and Sesotho — every customer notification is sent in both languages.</p>
                 </div>
             </div>
@@ -458,7 +475,7 @@
             <p class="section-desc center fade-up" style="margin-bottom:32px">Enter a seller's store name to visit their shop directly.</p>
             <div class="fade-up" style="display:flex;justify-content:center">
                 <div class="store-finder" id="store-finder-form">
-                    <input type="text" id="store-slug" placeholder="Enter store name (e.g. mamas-kitchen)" onkeydown="if(event.key==='Enter')goToStore()">
+                    <input type="text" id="store-slug" placeholder="Enter store name (e.g. stylehub)" onkeydown="if(event.key==='Enter')goToStore()">
                     <button class="btn btn-primary" onclick="goToStore()">Visit Store →</button>
                 </div>
             </div>
@@ -467,13 +484,13 @@
     </section>
 
     <!-- ===== CTA ===== -->
-    <section style="padding:40px 0 100px">
+    <section id="get-started" style="padding:40px 0 100px">
         <div class="container">
             <div class="cta-section text-center fade-up">
                 <h2>Ready to grow your business?</h2>
                 <p>Join sellers across Southern Africa who are turning WhatsApp conversations into real revenue.</p>
                 <div class="cta-buttons">
-                    <a href="/dashboard/" class="btn btn-white btn-lg">Start Selling Free →</a>
+                    <a href="/dashboard/" class="btn btn-white btn-lg">Create Your Store →</a>
                     <a href="#how-it-works" class="btn btn-lg" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)">Learn More</a>
                 </div>
             </div>
