@@ -897,8 +897,9 @@
                         product_id: product.id,
                         seller_id: sellerId,
                         reviewer_name: reviewName.trim(),
+                        reviewer_phone: '',
                         rating: reviewRating,
-                        comment: reviewText.trim(),
+                        review_text: reviewText.trim(),
                     }]).select().single();
                     if (error) throw error;
                     onReviewAdded(data);
@@ -1125,7 +1126,7 @@
                                                     <span className="text-[10px] text-gray-400">{new Date(r.created_at).toLocaleDateString()}</span>
                                                 </div>
                                                 <StarRating rating={r.rating} size={12} />
-                                                {r.comment && <p className="text-sm text-gray-600 mt-1">{r.comment}</p>}
+                                                {r.review_text && <p className="text-sm text-gray-600 mt-1">{r.review_text}</p>}
                                             </div>
                                         ))}
                                     </div>

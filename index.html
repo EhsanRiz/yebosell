@@ -3247,6 +3247,42 @@
         };
 
         // ============================================================================
+        // SETTINGS HELPERS (defined outside component to prevent re-mount on keystroke)
+        // ============================================================================
+
+        const SettingsInputField = ({ label, value, onChange, type = 'text', placeholder = '', textarea = false }) => (
+            <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">{label}</label>
+                {textarea ? (
+                    <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows="3"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none" />
+                ) : (
+                    <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50" />
+                )}
+            </div>
+        );
+
+        const SettingsSaveButton = ({ onClick, saving, label = 'Save Changes' }) => (
+            <button onClick={onClick} disabled={saving}
+                className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm disabled:opacity-50">
+                <Icons.save /> {saving ? 'Saving...' : label}
+            </button>
+        );
+
+        const SettingsSectionCard = ({ icon, title, children }) => (
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                    {icon}
+                    <h3 className="font-bold text-gray-900">{title}</h3>
+                </div>
+                <div className="p-5 space-y-4">
+                    {children}
+                </div>
+            </div>
+        );
+
+        // ============================================================================
         // SETTINGS SCREEN
         // ============================================================================
 
@@ -3395,38 +3431,7 @@
                 setSavingSocial(false);
             };
 
-            // Helpers
-            const InputField = ({ label, value, onChange, type = 'text', placeholder = '', textarea = false }) => (
-                <div>
-                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">{label}</label>
-                    {textarea ? (
-                        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows="3"
-                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none" />
-                    ) : (
-                        <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50" />
-                    )}
-                </div>
-            );
-
-            const SaveButton = ({ onClick, saving, label = 'Save Changes' }) => (
-                <button onClick={onClick} disabled={saving}
-                    className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm disabled:opacity-50">
-                    <Icons.save /> {saving ? 'Saving...' : label}
-                </button>
-            );
-
-            const SectionCard = ({ icon, title, children }) => (
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                        {icon}
-                        <h3 className="font-bold text-gray-900">{title}</h3>
-                    </div>
-                    <div className="p-5 space-y-4">
-                        {children}
-                    </div>
-                </div>
-            );
+            // Helpers — defined outside render to prevent re-creation
 
             return (
                 <div className="space-y-6">
@@ -3442,20 +3447,20 @@
                     )}
 
                     {/* 1. Profile & Store */}
-                    <SectionCard icon={<Icons.store />} title="Profile & Store">
+                    <SettingsSectionCardicon={<Icons.store />} title="Profile & Store">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="Full Name" value={profile.full_name} onChange={v => setProfile({...profile, full_name: v})} placeholder="Your name" />
-                            <InputField label="Business Name" value={profile.business_name} onChange={v => setProfile({...profile, business_name: v})} placeholder="Store name" />
+                            <SettingsInputFieldlabel="Full Name" value={profile.full_name} onChange={v => setProfile({...profile, full_name: v})} placeholder="Your name" />
+                            <SettingsInputFieldlabel="Business Name" value={profile.business_name} onChange={v => setProfile({...profile, business_name: v})} placeholder="Store name" />
                         </div>
-                        <InputField label="Business Description" value={profile.business_description} onChange={v => setProfile({...profile, business_description: v})} placeholder="What do you sell?" textarea />
+                        <SettingsInputFieldlabel="Business Description" value={profile.business_description} onChange={v => setProfile({...profile, business_description: v})} placeholder="What do you sell?" textarea />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+27..." type="tel" />
-                            <InputField label="Location" value={profile.location} onChange={v => setProfile({...profile, location: v})} placeholder="City, Province" />
+                            <SettingsInputFieldlabel="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+27..." type="tel" />
+                            <SettingsInputFieldlabel="Location" value={profile.location} onChange={v => setProfile({...profile, location: v})} placeholder="City, Province" />
                         </div>
-                        <InputField label="Address" value={profile.address} onChange={v => setProfile({...profile, address: v})} placeholder="Full street address" />
+                        <SettingsInputFieldlabel="Address" value={profile.address} onChange={v => setProfile({...profile, address: v})} placeholder="Full street address" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="Logo URL" value={profile.logo_url} onChange={v => setProfile({...profile, logo_url: v})} placeholder="https://..." />
-                            <InputField label="Banner URL" value={profile.banner_url} onChange={v => setProfile({...profile, banner_url: v})} placeholder="https://..." />
+                            <SettingsInputFieldlabel="Logo URL" value={profile.logo_url} onChange={v => setProfile({...profile, logo_url: v})} placeholder="https://..." />
+                            <SettingsInputFieldlabel="Banner URL" value={profile.banner_url} onChange={v => setProfile({...profile, banner_url: v})} placeholder="https://..." />
                         </div>
                         {(profile.logo_url || profile.banner_url) && (
                             <div className="flex gap-4">
@@ -3481,21 +3486,21 @@
                                 <option value="st">Sesotho</option>
                             </select>
                         </div>
-                        <SaveButton onClick={saveProfile} saving={savingProfile} />
-                    </SectionCard>
+                        <SettingsSaveButtononClick={saveProfile} saving={savingProfile} />
+                    </SettingsSectionCard>
 
                     {/* 2. Change PIN */}
-                    <SectionCard icon={<Icons.lock />} title="Change PIN">
-                        <InputField label="Current PIN" value={pinData.current} onChange={v => setPinData({...pinData, current: v})} type="password" placeholder="Enter current PIN" />
+                    <SettingsSectionCardicon={<Icons.lock />} title="Change PIN">
+                        <SettingsInputFieldlabel="Current PIN" value={pinData.current} onChange={v => setPinData({...pinData, current: v})} type="password" placeholder="Enter current PIN" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="New PIN" value={pinData.newPin} onChange={v => setPinData({...pinData, newPin: v})} type="password" placeholder="At least 4 digits" />
-                            <InputField label="Confirm New PIN" value={pinData.confirm} onChange={v => setPinData({...pinData, confirm: v})} type="password" placeholder="Re-enter new PIN" />
+                            <SettingsInputFieldlabel="New PIN" value={pinData.newPin} onChange={v => setPinData({...pinData, newPin: v})} type="password" placeholder="At least 4 digits" />
+                            <SettingsInputFieldlabel="Confirm New PIN" value={pinData.confirm} onChange={v => setPinData({...pinData, confirm: v})} type="password" placeholder="Re-enter new PIN" />
                         </div>
-                        <SaveButton onClick={changePin} saving={savingPin} label="Change PIN" />
-                    </SectionCard>
+                        <SettingsSaveButtononClick={changePin} saving={savingPin} label="Change PIN" />
+                    </SettingsSectionCard>
 
                     {/* 3. Business Hours */}
-                    <SectionCard icon={<Icons.clock />} title="Business Hours">
+                    <SettingsSectionCardicon={<Icons.clock />} title="Business Hours">
                         <p className="text-xs text-gray-400">Enter hours like "08:00 - 17:00" or "Closed"</p>
                         <div className="space-y-2">
                             {Object.keys(dayLabels).map(d => (
@@ -3507,12 +3512,12 @@
                                 </div>
                             ))}
                         </div>
-                        <SaveButton onClick={saveHours} saving={savingHours} />
-                    </SectionCard>
+                        <SettingsSaveButtononClick={saveHours} saving={savingHours} />
+                    </SettingsSectionCard>
 
                     {/* 4. Delivery Areas */}
-                    <SectionCard icon={<Icons.mapPin />} title="Delivery Areas">
-                        <InputField label="Areas (comma separated)" value={areasText} onChange={setAreasText} placeholder="Maseru, Ladybrand, Bloemfontein" textarea />
+                    <SettingsSectionCardicon={<Icons.mapPin />} title="Delivery Areas">
+                        <SettingsInputFieldlabel="Areas (comma separated)" value={areasText} onChange={setAreasText} placeholder="Maseru, Ladybrand, Bloemfontein" textarea />
                         {areasText && (
                             <div className="flex flex-wrap gap-2">
                                 {areasText.split(',').map(a => a.trim()).filter(Boolean).map((a, i) => (
@@ -3520,36 +3525,36 @@
                                 ))}
                             </div>
                         )}
-                        <SaveButton onClick={saveAreas} saving={savingAreas} />
-                    </SectionCard>
+                        <SettingsSaveButtononClick={saveAreas} saving={savingAreas} />
+                    </SettingsSectionCard>
 
                     {/* 5. Bank / Payment Details */}
-                    <SectionCard icon={<Icons.bank />} title="Bank / Payment Details">
+                    <SettingsSectionCardicon={<Icons.bank />} title="Bank / Payment Details">
                         <p className="text-xs text-gray-400">These details are shown to buyers when they select EFT payment.</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
-                            <InputField label="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
+                            <SettingsInputFieldlabel="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
+                            <SettingsInputFieldlabel="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
-                            <InputField label="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
+                            <SettingsInputFieldlabel="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
+                            <SettingsInputFieldlabel="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
                         </div>
-                        <InputField label="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
-                        <SaveButton onClick={saveBank} saving={savingBank} />
-                    </SectionCard>
+                        <SettingsInputFieldlabel="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
+                        <SettingsSaveButtononClick={saveBank} saving={savingBank} />
+                    </SettingsSectionCard>
 
                     {/* 6. Social Links */}
-                    <SectionCard icon={<Icons.externalLink />} title="Social Links">
+                    <SettingsSectionCardicon={<Icons.externalLink />} title="Social Links">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="Facebook" value={social.facebook} onChange={v => setSocial({...social, facebook: v})} placeholder="https://facebook.com/..." />
-                            <InputField label="Instagram" value={social.instagram} onChange={v => setSocial({...social, instagram: v})} placeholder="https://instagram.com/..." />
+                            <SettingsInputFieldlabel="Facebook" value={social.facebook} onChange={v => setSocial({...social, facebook: v})} placeholder="https://facebook.com/..." />
+                            <SettingsInputFieldlabel="Instagram" value={social.instagram} onChange={v => setSocial({...social, instagram: v})} placeholder="https://instagram.com/..." />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InputField label="TikTok" value={social.tiktok} onChange={v => setSocial({...social, tiktok: v})} placeholder="https://tiktok.com/@..." />
-                            <InputField label="Website" value={social.website} onChange={v => setSocial({...social, website: v})} placeholder="https://..." />
+                            <SettingsInputFieldlabel="TikTok" value={social.tiktok} onChange={v => setSocial({...social, tiktok: v})} placeholder="https://tiktok.com/@..." />
+                            <SettingsInputFieldlabel="Website" value={social.website} onChange={v => setSocial({...social, website: v})} placeholder="https://..." />
                         </div>
-                        <SaveButton onClick={saveSocial} saving={savingSocial} />
-                    </SectionCard>
+                        <SettingsSaveButtononClick={saveSocial} saving={savingSocial} />
+                    </SettingsSectionCard>
                 </div>
             );
         };
