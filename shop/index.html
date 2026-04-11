@@ -108,10 +108,20 @@
             const addToCart = (product) => {
                 const key = product.cartKey || `${product.id}`;
                 const existing = cart.find(i => (i.cartKey || `${i.id}`) === key);
-                if (existing) { setCart(cart.map(i => (i.cartKey || `${i.id}`) === key ? { ...i, quantity: i.quantity + 1 } : i)); }
-                else { setCart([...cart, { ...product, cartKey: key, quantity: 1 }]); }
+                const maxStock = product.variantStock !== null && product.variantStock !== undefined ? product.variantStock : 999;
+                if (existing) {
+                    if (existing.quantity >= maxStock) return; // already at max
+                    setCart(cart.map(i => (i.cartKey || `${i.id}`) === key ? { ...i, quantity: i.quantity + 1 } : i));
+                } else {
+                    setCart([...cart, { ...product, cartKey: key, quantity: 1 }]);
+                }
             };
-            const updateQuantity = (key, qty) => { if (qty <= 0) removeFromCart(key); else setCart(cart.map(i => (i.cartKey || `${i.id}`) === key ? { ...i, quantity: qty } : i)); };
+            const updateQuantity = (key, qty) => {
+                if (qty <= 0) { removeFromCart(key); return; }
+                const item = cart.find(i => (i.cartKey || `${i.id}`) === key);
+                const maxStock = item?.variantStock !== null && item?.variantStock !== undefined ? item.variantStock : 999;
+                setCart(cart.map(i => (i.cartKey || `${i.id}`) === key ? { ...i, quantity: Math.min(qty, maxStock) } : i));
+            };
             const removeFromCart = (key) => setCart(cart.filter(i => (i.cartKey || `${i.id}`) !== key));
             const cartTotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
@@ -137,6 +147,30 @@
                             quantity: i.quantity, unit_price: i.price
                         };
                     }));
+
+                    // Reduce inventory for each cart item
+                    for (const item of cart) {
+                        const hasVariant = item.selectedColor || item.selectedSize;
+                        if (hasVariant && item.variants) {
+                            // Update stock in variants JSONB
+                            const { data: prod } = await supabase.from('products').select('variants').eq('id', item.id).single();
+                            if (prod && Array.isArray(prod.variants)) {
+                                const updatedVariants = prod.variants.map(v => {
+                                    if (v.color === item.selectedColor && v.size === item.selectedSize) {
+                                        return { ...v, stock: Math.max(0, (parseInt(v.stock) || 0) - item.quantity) };
+                                    }
+                                    return v;
+                                });
+                                await supabase.from('products').update({ variants: updatedVariants }).eq('id', item.id);
+                            }
+                        } else if (item.stock !== null && item.stock !== undefined) {
+                            // Simple product — decrement stock column
+                            const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
+                            if (prod && prod.stock !== null) {
+                                await supabase.from('products').update({ stock: Math.max(0, prod.stock - item.quantity) }).eq('id', item.id);
+                            }
+                        }
+                    }
 
                     setOrderData({ order_number: orderNumber, total: cartTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name });
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
@@ -208,6 +242,7 @@
                             product={selectedProduct}
                             onAddToCart={addToCart}
                             onClose={() => setSelectedProduct(null)}
+                            cart={cart}
                         />
                     )}
 
@@ -522,10 +557,11 @@
         }
 
         // ==================== PRODUCT DETAIL MODAL ====================
-        function ProductDetailModal({ product, onAddToCart, onClose }) {
+        function ProductDetailModal({ product, onAddToCart, onClose, cart }) {
             const [activePhoto, setActivePhoto] = useState(0);
             const [selectedColor, setSelectedColor] = useState('');
             const [selectedSize, setSelectedSize] = useState('');
+            const [qty, setQty] = useState(1);
             const [added, setAdded] = useState(false);
 
             const photos = Array.isArray(product.photos) && product.photos.length > 0
@@ -549,24 +585,50 @@
             const displayPrice = hasVariants && matchedVariant && matchedVariant.price
                 ? parseFloat(matchedVariant.price) : product.price;
 
+            // Stock logic
+            const getStock = () => {
+                if (hasVariants && matchedVariant) return parseInt(matchedVariant.stock) || 0;
+                if (hasVariants && !matchedVariant) return null; // no variant selected yet
+                return product.stock !== null && product.stock !== undefined ? parseInt(product.stock) : null; // null = unlimited
+            };
+            const stock = getStock();
+            const cartKey = hasVariants ? `${product.id}-${selectedColor}-${selectedSize}` : `${product.id}`;
+            const inCart = (cart || []).find(i => (i.cartKey || `${i.id}`) === cartKey);
+            const alreadyInCart = inCart ? inCart.quantity : 0;
+            const maxQty = stock !== null ? Math.max(0, stock - alreadyInCart) : 99;
+            const isOutOfStock = stock !== null && stock <= 0;
+            const canAdd = !isOutOfStock && qty > 0 && qty <= maxQty;
+
+            // Reset qty when variant changes
+            useEffect(() => { setQty(1); }, [selectedColor, selectedSize]);
+
+            // Get stock for a specific variant (for size pills)
+            const getVariantStock = (color, size) => {
+                const v = variants.find(x => x.color === color && x.size === size);
+                return v ? (parseInt(v.stock) || 0) : 0;
+            };
+
             const handleAdd = () => {
                 if (hasVariants && colors.length > 0 && !selectedColor) { alert('Please select a color'); return; }
                 if (hasVariants && sizes.length > 0 && !selectedSize) { alert('Please select a size'); return; }
-                const cartItem = {
-                    ...product,
-                    price: displayPrice,
-                    cartKey: hasVariants ? `${product.id}-${selectedColor}-${selectedSize}` : `${product.id}`,
-                    selectedColor,
-                    selectedSize,
-                };
-                onAddToCart(cartItem);
+                if (!canAdd) { alert(isOutOfStock ? 'This item is out of stock' : 'Not enough stock available'); return; }
+                for (let n = 0; n < qty; n++) {
+                    onAddToCart({
+                        ...product,
+                        price: displayPrice,
+                        cartKey,
+                        selectedColor,
+                        selectedSize,
+                        variantStock: stock,
+                    });
+                }
                 setAdded(true);
                 setTimeout(() => { setAdded(false); onClose(); }, 800);
             };
 
             return (
                 <div className="fixed inset-0 bg-black/60 z-[55] flex items-center justify-center p-4 fade-in" onClick={onClose}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-enter" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-enter relative" onClick={e => e.stopPropagation()}>
                         {/* Close button */}
                         <button onClick={onClose}
                             className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-gray-600 hover:bg-white transition">
@@ -593,6 +655,11 @@
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                                     </button>
                                 </>
+                            )}
+                            {isOutOfStock && (
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-t-2xl">
+                                    <span className="bg-red-600 text-white font-bold px-4 py-2 rounded-xl text-sm shadow-lg">Out of Stock</span>
+                                </div>
                             )}
                         </div>
 
@@ -625,21 +692,30 @@
                                     <div className="flex flex-wrap gap-2">
                                         {colors.map(c => {
                                             const available = !selectedSize || availableColors.includes(c);
+                                            // Check if any variant of this color has stock
+                                            const colorVariants = variants.filter(v => v.color === c);
+                                            const colorStock = colorVariants.reduce((s, v) => s + (parseInt(v.stock) || 0), 0);
+                                            const colorOos = colorStock <= 0;
                                             const hex = getColorHex(c);
                                             const isLight = hex === '#fff' || hex === '#eab308' || hex === '#d4c5a9';
                                             return (
                                                 <button key={c} onClick={() => setSelectedColor(selectedColor === c ? '' : c)}
-                                                    disabled={!available}
-                                                    className={`relative w-9 h-9 rounded-full border-2 transition-all ${!available ? 'opacity-25 cursor-not-allowed' : 'hover:scale-110 cursor-pointer'}`}
+                                                    disabled={!available || colorOos}
+                                                    className={`relative w-9 h-9 rounded-full border-2 transition-all ${(!available || colorOos) ? 'opacity-25 cursor-not-allowed' : 'hover:scale-110 cursor-pointer'}`}
                                                     style={{
                                                         backgroundColor: hex,
                                                         borderColor: selectedColor === c ? '#25D366' : (isLight ? '#d1d5db' : hex),
                                                         boxShadow: selectedColor === c ? '0 0 0 3px rgba(37,211,102,0.3)' : 'inset 0 0 0 0 transparent'
                                                     }}
-                                                    title={c}>
+                                                    title={colorOos ? `${c} — Out of stock` : c}>
                                                     {selectedColor === c && (
                                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={isLight ? '#333' : '#fff'} strokeWidth="3" className="absolute inset-0 m-auto">
                                                             <polyline points="20 6 9 17 4 12"/>
+                                                        </svg>
+                                                    )}
+                                                    {colorOos && (
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" className="absolute inset-0 m-auto">
+                                                            <line x1="4" y1="4" x2="20" y2="20"/>
                                                         </svg>
                                                     )}
                                                 </button>
@@ -656,17 +732,22 @@
                                     <div className="flex flex-wrap gap-2">
                                         {sizes.map(s => {
                                             const available = !selectedColor || availableSizes.includes(s);
+                                            const sizeStock = selectedColor ? getVariantStock(selectedColor, s) : variants.filter(v => v.size === s).reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+                                            const sizeOos = sizeStock <= 0;
                                             return (
                                                 <button key={s} onClick={() => setSelectedSize(selectedSize === s ? '' : s)}
-                                                    disabled={!available}
+                                                    disabled={!available || sizeOos}
                                                     className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
                                                         selectedSize === s
                                                             ? 'bg-brand-500 text-white border-brand-500 shadow-md'
-                                                            : available
-                                                                ? 'bg-white text-gray-700 border-gray-200 hover:border-brand-400 hover:bg-brand-50'
-                                                                : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                                                            : (!available || sizeOos)
+                                                                ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed line-through'
+                                                                : 'bg-white text-gray-700 border-gray-200 hover:border-brand-400 hover:bg-brand-50'
                                                     }`}>
                                                     {s}
+                                                    {available && !sizeOos && sizeStock <= 3 && (
+                                                        <span className="block text-[9px] text-amber-600 font-normal mt-0.5">Only {sizeStock} left</span>
+                                                    )}
                                                 </button>
                                             );
                                         })}
@@ -674,16 +755,41 @@
                                 </div>
                             )}
 
-                            {/* Price + Add to Cart */}
-                            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                                <span className="text-2xl font-bold text-brand-600">{formatCurrency(displayPrice)}</span>
-                                <button onClick={handleAdd}
-                                    className={`px-6 py-3 rounded-xl font-bold text-base transition-all shadow-md ${
-                                        added
-                                            ? 'bg-brand-600 text-white scale-95'
-                                            : 'bg-brand-500 text-white hover:bg-brand-600 hover:shadow-lg'
+                            {/* Stock indicator */}
+                            {stock !== null && !isOutOfStock && (
+                                <p className="text-xs text-gray-500">
+                                    {stock <= 5
+                                        ? <span className="text-amber-600 font-semibold">Only {stock} left in stock!</span>
+                                        : <span className="text-green-600">{stock} available</span>
+                                    }
+                                    {alreadyInCart > 0 && <span className="text-gray-400 ml-1">({alreadyInCart} in your cart)</span>}
+                                </p>
+                            )}
+
+                            {/* Quantity selector + Price + Add to Cart */}
+                            <div className="pt-3 border-t border-gray-100 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-2xl font-bold text-brand-600">{formatCurrency(displayPrice)}</span>
+                                    {/* Quantity controls */}
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-semibold text-gray-500 uppercase">Qty</span>
+                                        <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
+                                            <button onClick={() => setQty(Math.max(1, qty - 1))}
+                                                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition font-bold text-lg">−</button>
+                                            <span className="w-10 text-center font-bold text-sm">{qty}</span>
+                                            <button onClick={() => setQty(Math.min(maxQty, qty + 1))}
+                                                disabled={qty >= maxQty}
+                                                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={handleAdd} disabled={!canAdd}
+                                    className={`w-full py-3.5 rounded-xl font-bold text-base transition-all shadow-md ${
+                                        added ? 'bg-brand-600 text-white scale-[0.98]'
+                                        : !canAdd ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                                        : 'bg-brand-500 text-white hover:bg-brand-600 hover:shadow-lg'
                                     }`}>
-                                    {added ? '✓ Added to Cart' : 'Add to Cart'}
+                                    {added ? '✓ Added to Cart' : isOutOfStock ? 'Out of Stock' : `Add to Cart — ${formatCurrency(displayPrice * qty)}`}
                                 </button>
                             </div>
                         </div>

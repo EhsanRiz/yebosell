@@ -878,7 +878,8 @@
                 category: 'other',
                 photos: [],
                 active: true,
-                variants: []
+                variants: [],
+                stock: ''
             });
             const [uploading, setUploading] = useState(false);
             const fileInputRef = useRef(null);
@@ -963,18 +964,24 @@
                 }
             };
 
-            // Variant helpers — stored internally as flat array [{color, size, price}]
-            // but edited as "variant groups" (one color + multiple sizes + one price)
+            // Variant helpers — stored as flat array [{color, size, price, stock}]
+            // edited as "variant groups" (one color + multiple sizes + one price + stock per size)
             const COMMON_COLORS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Navy', 'Grey', 'Brown', 'Pink', 'Yellow', 'Orange', 'Purple'];
             const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
 
             // Convert flat variants to groups for editing
+            // Each group: { color, sizes: ['S','M'], price, stockMap: { S: 10, M: 5 } }
             const variantsToGroups = (variants) => {
                 const map = {};
                 (variants || []).forEach(v => {
                     const key = `${v.color || ''}__${v.price || ''}`;
-                    if (!map[key]) map[key] = { color: v.color || '', sizes: [], price: v.price || '' };
-                    if (v.size) map[key].sizes.push(v.size);
+                    if (!map[key]) map[key] = { color: v.color || '', sizes: [], price: v.price || '', stockMap: {} };
+                    if (v.size) {
+                        map[key].sizes.push(v.size);
+                        map[key].stockMap[v.size] = v.stock !== undefined ? v.stock : '';
+                    } else {
+                        map[key].stockMap['_default'] = v.stock !== undefined ? v.stock : '';
+                    }
                 });
                 const groups = Object.values(map);
                 return groups.length > 0 ? groups : [];
@@ -985,9 +992,12 @@
                 const flat = [];
                 (groups || []).forEach(g => {
                     if (g.sizes.length === 0) {
-                        if (g.color) flat.push({ color: g.color, size: '', price: g.price });
+                        if (g.color) flat.push({ color: g.color, size: '', price: g.price, stock: parseInt(g.stockMap?.['_default']) || 0 });
                     } else {
-                        g.sizes.forEach(s => flat.push({ color: g.color, size: s, price: g.price }));
+                        g.sizes.forEach(s => flat.push({
+                            color: g.color, size: s, price: g.price,
+                            stock: parseInt(g.stockMap?.[s]) || 0
+                        }));
                     }
                 });
                 return flat;
@@ -995,13 +1005,13 @@
 
             const [variantGroups, setVariantGroups] = useState([]);
 
-            // Sync variantGroups when formData.variants changes (e.g. on startEdit)
+            // Sync variantGroups when form opens (e.g. on startEdit)
             useEffect(() => {
                 setVariantGroups(variantsToGroups(formData.variants));
             }, [showForm]);
 
             const addVariantGroup = () => {
-                setVariantGroups(prev => [...prev, { color: '', sizes: [], price: '' }]);
+                setVariantGroups(prev => [...prev, { color: '', sizes: [], price: '', stockMap: {} }]);
             };
             const updateVariantGroup = (index, field, value) => {
                 setVariantGroups(prev => {
@@ -1013,9 +1023,34 @@
             const toggleGroupSize = (index, size) => {
                 setVariantGroups(prev => {
                     const groups = [...prev];
-                    const g = { ...groups[index] };
-                    g.sizes = g.sizes.includes(size) ? g.sizes.filter(s => s !== size) : [...g.sizes, size];
+                    const g = { ...groups[index], stockMap: { ...groups[index].stockMap } };
+                    if (g.sizes.includes(size)) {
+                        g.sizes = g.sizes.filter(s => s !== size);
+                        delete g.stockMap[size];
+                    } else {
+                        g.sizes = [...g.sizes, size];
+                        g.stockMap[size] = g.stockMap[size] || '';
+                    }
                     groups[index] = g;
+                    return groups;
+                });
+            };
+            const updateGroupStock = (groupIndex, size, value) => {
+                setVariantGroups(prev => {
+                    const groups = [...prev];
+                    groups[groupIndex] = {
+                        ...groups[groupIndex],
+                        stockMap: { ...groups[groupIndex].stockMap, [size]: value }
+                    };
+                    return groups;
+                });
+            };
+            const setAllGroupStock = (groupIndex, value) => {
+                setVariantGroups(prev => {
+                    const groups = [...prev];
+                    const g = { ...groups[groupIndex], stockMap: { ...groups[groupIndex].stockMap } };
+                    g.sizes.forEach(s => { g.stockMap[s] = value; });
+                    groups[groupIndex] = g;
                     return groups;
                 });
             };
@@ -1033,14 +1068,16 @@
                 }
 
                 try {
-                    const { active, photos, variants: _v, ...rest } = formData;
+                    const { active, photos, variants: _v, stock: stockStr, ...rest } = formData;
                     const computedVariants = syncVariantsFromGroups();
+                    const hasVars = computedVariants.filter(v => v.color || v.size).length > 0;
                     const dbData = {
                         ...rest,
                         is_active: active,
                         photos: photos,
                         photo_url: photos.length > 0 ? photos[0] : '',
                         variants: computedVariants.filter(v => v.color || v.size),
+                        stock: hasVars ? null : (stockStr !== '' ? parseInt(stockStr) : null),
                     };
 
                     if (editingId) {
@@ -1125,7 +1162,8 @@
                     category: 'other',
                     photos: [],
                     active: true,
-                    variants: []
+                    variants: [],
+                    stock: ''
                 });
             };
 
@@ -1138,7 +1176,8 @@
                     category: product.category || 'other',
                     photos: Array.isArray(product.photos) ? product.photos : (product.photo_url ? [product.photo_url] : []),
                     active: product.active !== undefined ? product.active : product.is_active,
-                    variants: Array.isArray(product.variants) ? product.variants : []
+                    variants: Array.isArray(product.variants) ? product.variants : [],
+                    stock: product.stock !== undefined && product.stock !== null ? product.stock.toString() : ''
                 });
                 setShowForm(true);
             };
@@ -1188,7 +1227,7 @@
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-3 gap-3">
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Price (ZAR) *</label>
                                         <input
@@ -1197,6 +1236,20 @@
                                             onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                                             step="0.01"
                                             className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                            Stock {variantGroups.length > 0 && <span className="normal-case text-gray-400">(per variant)</span>}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={formData.stock}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
+                                            min="0"
+                                            placeholder={variantGroups.length > 0 ? 'Set below' : 'Unlimited'}
+                                            disabled={variantGroups.length > 0}
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
                                         />
                                     </div>
                                     <div>
@@ -1384,12 +1437,33 @@
                                                             </button>
                                                         ))}
                                                     </div>
-                                                    {group.sizes.length > 0 && (
-                                                        <p className="text-xs text-gray-400 mt-1.5">
-                                                            Selected: <span className="font-medium text-gray-600">{group.sizes.join(', ')}</span>
-                                                        </p>
-                                                    )}
                                                 </div>
+                                                {/* Stock per size */}
+                                                {group.sizes.length > 0 && (
+                                                    <div>
+                                                        <div className="flex items-center justify-between mb-1.5">
+                                                            <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Stock per size</label>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[10px] text-gray-400">Set all:</span>
+                                                                <input type="number" min="0" placeholder="qty"
+                                                                    className="w-16 px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 bg-gray-50"
+                                                                    onChange={(e) => setAllGroupStock(i, e.target.value)} />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {group.sizes.map(s => (
+                                                                <div key={s} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100">
+                                                                    <span className="text-xs font-semibold text-gray-700 w-8">{s}</span>
+                                                                    <input type="number" min="0"
+                                                                        value={group.stockMap?.[s] ?? ''}
+                                                                        onChange={(e) => updateGroupStock(i, s, e.target.value)}
+                                                                        placeholder="0"
+                                                                        className="w-14 px-2 py-1 border border-gray-200 rounded-md text-xs text-center focus:outline-none focus:ring-1 focus:ring-green-500 bg-white" />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -1500,6 +1574,19 @@
                                                         {product.variants.length} variant{product.variants.length !== 1 ? 's' : ''}
                                                     </span>
                                                 )}
+                                                {(() => {
+                                                    const totalStock = product.variants && product.variants.length > 0
+                                                        ? product.variants.reduce((s, v) => s + (parseInt(v.stock) || 0), 0)
+                                                        : product.stock;
+                                                    if (totalStock === null || totalStock === undefined) return null;
+                                                    return (
+                                                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                                                            totalStock <= 0 ? 'bg-red-50 text-red-600' : totalStock <= 5 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-600'
+                                                        }`}>
+                                                            {totalStock <= 0 ? 'Out of stock' : `${totalStock} in stock`}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="flex gap-1.5">
                                                 <button
