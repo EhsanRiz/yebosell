@@ -193,6 +193,26 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
                     <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                 </svg>
+            ),
+            discount: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>
+                </svg>
+            ),
+            alertTriangle: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+            ),
+            trash: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+            ),
+            edit: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
             )
         };
 
@@ -599,6 +619,7 @@
             const [dashPopup, setDashPopup] = useState(null);
             const [detailOrder, setDetailOrder] = useState(null);
             const [allOrdersData, setAllOrdersData] = useState([]);
+            const [lowStockProducts, setLowStockProducts] = useState([]);
             const [stats, setStats] = useState({
                 todayOrders: 0, todayRevenue: 0,
                 monthOrders: 0, monthRevenue: 0,
@@ -631,7 +652,7 @@
                             .eq('seller_id', seller.id)
                             .eq('status', 'confirmed'),
                         supabase.from('products')
-                            .select('id, name, is_active')
+                            .select('id, name, is_active, stock, variants')
                             .eq('seller_id', seller.id),
                         supabase.from('order_items')
                             .select('order_id, product_name, quantity, unit_price')
@@ -705,6 +726,27 @@
                     setRecentOrders(allOrders.slice(0, 8));
                     setTopProducts(topProds);
                     setAllOrdersData(allOrders);
+
+                    // Low stock detection (threshold: 5 units)
+                    const LOW_STOCK_THRESHOLD = 5;
+                    const lowStock = products.filter(p => {
+                        if (!p.is_active) return false;
+                        const vars = Array.isArray(p.variants) ? p.variants : [];
+                        if (vars.length > 0) {
+                            return vars.some(v => typeof v.stock === 'number' && v.stock <= LOW_STOCK_THRESHOLD);
+                        }
+                        return typeof p.stock === 'number' && p.stock <= LOW_STOCK_THRESHOLD;
+                    }).map(p => {
+                        const vars = Array.isArray(p.variants) ? p.variants : [];
+                        let lowestStock = p.stock;
+                        let lowVariants = [];
+                        if (vars.length > 0) {
+                            lowVariants = vars.filter(v => typeof v.stock === 'number' && v.stock <= LOW_STOCK_THRESHOLD);
+                            lowestStock = Math.min(...vars.map(v => typeof v.stock === 'number' ? v.stock : 999));
+                        }
+                        return { ...p, lowestStock, lowVariants };
+                    }).sort((a, b) => a.lowestStock - b.lowestStock);
+                    setLowStockProducts(lowStock);
                 } catch (err) {
                     console.error('Dashboard data load error:', err);
                 } finally {
@@ -915,6 +957,44 @@
                             </div>
                         </div>
                     </div>
+
+                    {/* ===== LOW STOCK ALERTS ===== */}
+                    {lowStockProducts.length > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Icons.alertTriangle className="text-amber-500" style={{ width: 18, height: 18 }} />
+                                <p className="text-sm font-semibold text-amber-800">
+                                    Low Stock Alert — {lowStockProducts.length} product{lowStockProducts.length > 1 ? 's' : ''} running low
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                {lowStockProducts.slice(0, 5).map(p => (
+                                    <div key={p.id} className="flex items-center justify-between bg-white rounded-xl px-3 py-2 border border-amber-100">
+                                        <span className="text-sm font-medium text-gray-900 truncate flex-1">{p.name}</span>
+                                        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                                            {p.lowVariants.length > 0 ? (
+                                                <span className="text-xs text-amber-700">
+                                                    {p.lowVariants.map(v => {
+                                                        const label = [v.color, v.size].filter(Boolean).join('/') || 'Default';
+                                                        return `${label}: ${v.stock}`;
+                                                    }).join(', ')}
+                                                </span>
+                                            ) : (
+                                                <span className={`text-xs font-bold ${p.lowestStock === 0 ? 'text-red-600' : 'text-amber-700'}`}>
+                                                    {p.lowestStock === 0 ? 'Out of stock' : `${p.lowestStock} left`}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {lowStockProducts.length > 5 && (
+                                    <p className="text-xs text-amber-600 text-center pt-1">
+                                        +{lowStockProducts.length - 5} more products with low stock
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* ===== STOREFRONT LINK ===== */}
                     <div className="card card-shadow p-5 mb-6">
@@ -3560,6 +3640,307 @@
         };
 
         // ============================================================================
+        // DISCOUNTS SCREEN
+        // ============================================================================
+
+        const DiscountsScreen = ({ seller }) => {
+            const [codes, setCodes] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [showForm, setShowForm] = useState(false);
+            const [editingCode, setEditingCode] = useState(null);
+            const [saving, setSaving] = useState(false);
+            const [form, setForm] = useState({
+                code: '', type: 'percentage', value: '', min_order: '',
+                max_uses: '', expires_at: '', is_active: true
+            });
+
+            const supabase = window.supabaseClient;
+
+            useEffect(() => { loadCodes(); }, [seller.id]);
+
+            const loadCodes = async () => {
+                setLoading(true);
+                const { data } = await supabase
+                    .from('discount_codes')
+                    .select('*')
+                    .eq('seller_id', seller.id)
+                    .order('created_at', { ascending: false });
+                setCodes(data || []);
+                setLoading(false);
+            };
+
+            const resetForm = () => {
+                setForm({ code: '', type: 'percentage', value: '', min_order: '', max_uses: '', expires_at: '', is_active: true });
+                setEditingCode(null);
+                setShowForm(false);
+            };
+
+            const openEdit = (dc) => {
+                setForm({
+                    code: dc.code,
+                    type: dc.type,
+                    value: dc.value.toString(),
+                    min_order: dc.min_order ? dc.min_order.toString() : '',
+                    max_uses: dc.max_uses ? dc.max_uses.toString() : '',
+                    expires_at: dc.expires_at ? dc.expires_at.slice(0, 16) : '',
+                    is_active: dc.is_active
+                });
+                setEditingCode(dc);
+                setShowForm(true);
+            };
+
+            const handleSave = async () => {
+                if (!form.code.trim() || !form.value) return;
+                setSaving(true);
+                const payload = {
+                    seller_id: seller.id,
+                    code: form.code.trim().toUpperCase(),
+                    type: form.type,
+                    value: parseFloat(form.value),
+                    min_order: form.min_order ? parseFloat(form.min_order) : 0,
+                    max_uses: form.max_uses ? parseInt(form.max_uses) : null,
+                    expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
+                    is_active: form.is_active
+                };
+
+                if (editingCode) {
+                    await supabase.from('discount_codes').update(payload).eq('id', editingCode.id);
+                } else {
+                    await supabase.from('discount_codes').insert(payload);
+                }
+
+                setSaving(false);
+                resetForm();
+                loadCodes();
+            };
+
+            const toggleActive = async (dc) => {
+                await supabase.from('discount_codes').update({ is_active: !dc.is_active }).eq('id', dc.id);
+                loadCodes();
+            };
+
+            const deleteCode = async (dc) => {
+                if (!confirm(`Delete discount code "${dc.code}"?`)) return;
+                await supabase.from('discount_codes').delete().eq('id', dc.id);
+                loadCodes();
+            };
+
+            const isExpired = (dc) => dc.expires_at && new Date(dc.expires_at) < new Date();
+            const isMaxedOut = (dc) => dc.max_uses && dc.used_count >= dc.max_uses;
+
+            if (loading) return (
+                <div className="flex items-center justify-center py-20">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500"></div>
+                </div>
+            );
+
+            return (
+                <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900">Discount Codes</h2>
+                            <p className="text-sm text-gray-500 mt-0.5">Create codes your buyers can apply at checkout</p>
+                        </div>
+                        <button
+                            onClick={() => { resetForm(); setShowForm(true); }}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors"
+                        >
+                            <Icons.plus style={{ width: 16, height: 16 }} /> New Code
+                        </button>
+                    </div>
+
+                    {/* Create / Edit Form */}
+                    {showForm && (
+                        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6 shadow-sm">
+                            <h3 className="font-semibold text-gray-900 mb-4">
+                                {editingCode ? 'Edit Discount Code' : 'Create Discount Code'}
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Code */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Code</label>
+                                    <input
+                                        type="text"
+                                        value={form.code}
+                                        onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                                        placeholder="e.g. SAVE10"
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none font-mono tracking-wider"
+                                    />
+                                </div>
+                                {/* Type */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Discount Type</label>
+                                    <select
+                                        value={form.type}
+                                        onChange={e => setForm({ ...form, type: e.target.value })}
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none bg-white"
+                                    >
+                                        <option value="percentage">Percentage (%)</option>
+                                        <option value="fixed">Fixed Amount (R)</option>
+                                    </select>
+                                </div>
+                                {/* Value */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                        {form.type === 'percentage' ? 'Percentage Off' : 'Amount Off (R)'}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={form.value}
+                                        onChange={e => setForm({ ...form, value: e.target.value })}
+                                        placeholder={form.type === 'percentage' ? 'e.g. 10' : 'e.g. 25.00'}
+                                        min="0"
+                                        step={form.type === 'percentage' ? '1' : '0.01'}
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+                                    />
+                                </div>
+                                {/* Min Order */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Minimum Order (R)</label>
+                                    <input
+                                        type="number"
+                                        value={form.min_order}
+                                        onChange={e => setForm({ ...form, min_order: e.target.value })}
+                                        placeholder="0 = no minimum"
+                                        min="0"
+                                        step="0.01"
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+                                    />
+                                </div>
+                                {/* Max Uses */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Max Uses</label>
+                                    <input
+                                        type="number"
+                                        value={form.max_uses}
+                                        onChange={e => setForm({ ...form, max_uses: e.target.value })}
+                                        placeholder="Empty = unlimited"
+                                        min="1"
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+                                    />
+                                </div>
+                                {/* Expires At */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Expires At</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={form.expires_at}
+                                        onChange={e => setForm({ ...form, expires_at: e.target.value })}
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-brand-400 focus:ring-1 focus:ring-brand-400 outline-none"
+                                    />
+                                </div>
+                            </div>
+                            {/* Active Toggle */}
+                            <div className="flex items-center gap-2 mt-4">
+                                <input
+                                    type="checkbox"
+                                    checked={form.is_active}
+                                    onChange={e => setForm({ ...form, is_active: e.target.checked })}
+                                    className="rounded border-gray-300"
+                                    id="dc-active"
+                                />
+                                <label htmlFor="dc-active" className="text-sm text-gray-700">Active</label>
+                            </div>
+                            {/* Actions */}
+                            <div className="flex gap-3 mt-5">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving || !form.code.trim() || !form.value}
+                                    className="px-5 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving...' : editingCode ? 'Update Code' : 'Create Code'}
+                                </button>
+                                <button
+                                    onClick={resetForm}
+                                    className="px-5 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Codes List */}
+                    {codes.length === 0 ? (
+                        <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
+                            <Icons.discount style={{ width: 40, height: 40, margin: '0 auto 12px', color: '#9ca3af' }} />
+                            <p className="text-gray-500 text-sm">No discount codes yet. Create one to share with your buyers!</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {codes.map(dc => {
+                                const expired = isExpired(dc);
+                                const maxedOut = isMaxedOut(dc);
+                                const inactive = !dc.is_active || expired || maxedOut;
+
+                                return (
+                                    <div key={dc.id} className={`bg-white rounded-2xl border ${inactive ? 'border-gray-200 opacity-70' : 'border-gray-200'} p-4 shadow-sm`}>
+                                        <div className="flex items-start justify-between gap-3">
+                                            {/* Left: Code info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="font-mono font-bold text-base tracking-wider text-gray-900">{dc.code}</span>
+                                                    {dc.is_active && !expired && !maxedOut && (
+                                                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">Active</span>
+                                                    )}
+                                                    {!dc.is_active && (
+                                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs font-semibold rounded-full">Disabled</span>
+                                                    )}
+                                                    {expired && (
+                                                        <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-semibold rounded-full">Expired</span>
+                                                    )}
+                                                    {maxedOut && (
+                                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-xs font-semibold rounded-full">Limit Reached</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
+                                                    <span className="font-semibold text-brand-600">
+                                                        {dc.type === 'percentage' ? `${dc.value}% off` : `R${parseFloat(dc.value).toFixed(2)} off`}
+                                                    </span>
+                                                    {dc.min_order > 0 && <span>Min order: R{parseFloat(dc.min_order).toFixed(2)}</span>}
+                                                    {dc.max_uses && <span>Uses: {dc.used_count}/{dc.max_uses}</span>}
+                                                    {!dc.max_uses && <span>Uses: {dc.used_count} (unlimited)</span>}
+                                                    {dc.expires_at && (
+                                                        <span>Expires: {new Date(dc.expires_at).toLocaleDateString()}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {/* Right: Actions */}
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                <button
+                                                    onClick={() => toggleActive(dc)}
+                                                    className={`p-2 rounded-lg text-xs font-medium transition-colors ${dc.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                                                    title={dc.is_active ? 'Disable' : 'Enable'}
+                                                >
+                                                    {dc.is_active ? 'Disable' : 'Enable'}
+                                                </button>
+                                                <button
+                                                    onClick={() => openEdit(dc)}
+                                                    className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Icons.edit />
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteCode(dc)}
+                                                    className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Icons.trash />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // ============================================================================
         // MAIN APP COMPONENT — RESPONSIVE SIDEBAR + BOTTOM NAV
         // ============================================================================
 
@@ -3595,6 +3976,7 @@
                 { id: 'products', label: 'Products', Icon: Icons.products },
                 { id: 'orders', label: 'Orders', Icon: Icons.orders },
                 { id: 'payments', label: 'Payments', Icon: Icons.payments },
+                { id: 'discounts', label: 'Discounts', Icon: Icons.discount },
                 { id: 'templates', label: 'Templates', Icon: Icons.templates },
                 { id: 'settings', label: 'Settings', Icon: Icons.settings },
             ];
@@ -3687,6 +4069,7 @@
                                 {currentTab === 'products' && <ProductsScreen seller={currentUser} />}
                                 {currentTab === 'orders' && <OrdersScreen seller={currentUser} />}
                                 {currentTab === 'payments' && <PaymentsScreen seller={currentUser} />}
+                                {currentTab === 'discounts' && <DiscountsScreen seller={currentUser} />}
                                 {currentTab === 'templates' && <TemplatesScreen seller={currentUser} />}
                                 {currentTab === 'settings' && <SettingsScreen seller={currentUser} onSellerUpdate={setCurrentUser} />}
                             </div>

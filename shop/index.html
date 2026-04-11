@@ -168,6 +168,10 @@
             const [submittingOrder, setSubmittingOrder] = useState(false);
             const [showTrackOrder, setShowTrackOrder] = useState(false);
             const [trackingOrder, setTrackingOrder] = useState(null);
+            const [discountCode, setDiscountCode] = useState('');
+            const [discountApplied, setDiscountApplied] = useState(null);
+            const [discountError, setDiscountError] = useState('');
+            const [applyingDiscount, setApplyingDiscount] = useState(false);
 
             const getSellerSlug = () => new URLSearchParams(window.location.search).get('s');
             const getTrackParam = () => new URLSearchParams(window.location.search).get('track');
@@ -313,6 +317,38 @@
             const cartTotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
+            // Discount calculations
+            const discountAmount = discountApplied
+                ? (discountApplied.type === 'percentage'
+                    ? Math.min(cartTotal, cartTotal * discountApplied.value / 100)
+                    : Math.min(cartTotal, discountApplied.value))
+                : 0;
+            const finalTotal = Math.max(0, cartTotal - discountAmount);
+
+            const applyDiscount = async () => {
+                if (!discountCode.trim()) return;
+                setApplyingDiscount(true);
+                setDiscountError('');
+                try {
+                    const { data, error } = await supabase
+                        .from('discount_codes')
+                        .select('*')
+                        .eq('seller_id', seller.id)
+                        .eq('is_active', true)
+                        .ilike('code', discountCode.trim())
+                        .single();
+                    if (error || !data) { setDiscountError('Invalid discount code'); setDiscountApplied(null); setApplyingDiscount(false); return; }
+                    if (data.expires_at && new Date(data.expires_at) < new Date()) { setDiscountError('This code has expired'); setDiscountApplied(null); setApplyingDiscount(false); return; }
+                    if (data.max_uses && data.used_count >= data.max_uses) { setDiscountError('This code has reached its usage limit'); setDiscountApplied(null); setApplyingDiscount(false); return; }
+                    if (data.min_order > 0 && cartTotal < data.min_order) { setDiscountError(`Minimum order of R${parseFloat(data.min_order).toFixed(2)} required`); setDiscountApplied(null); setApplyingDiscount(false); return; }
+                    setDiscountApplied(data);
+                    setDiscountError('');
+                } catch (err) { setDiscountError('Could not validate code'); }
+                setApplyingDiscount(false);
+            };
+
+            const removeDiscount = () => { setDiscountApplied(null); setDiscountCode(''); setDiscountError(''); };
+
             const submitOrder = async (e) => {
                 e.preventDefault();
                 if (submittingOrder) return; // Prevent double-click
@@ -324,7 +360,9 @@
                     const { data: order, error: orderError } = await supabase.from('orders').insert([{
                         seller_id: seller.id, customer_name: formData.name, customer_phone: formData.phone,
                         order_number: orderNumber, status: 'new', delivery_method: formData.delivery_method,
-                        payment_method: formData.payment_method, total: cartTotal, notes: formData.notes, source: 'storefront'
+                        payment_method: formData.payment_method, total: finalTotal, notes: formData.notes, source: 'storefront',
+                        discount_code: discountApplied ? discountApplied.code : null,
+                        discount_amount: discountAmount
                     }]).select().single();
                     if (orderError) { alert('Failed to create order. Please try again.'); return; }
 
@@ -359,6 +397,11 @@
                         }
                     }
 
+                    // Increment discount code usage
+                    if (discountApplied) {
+                        await supabase.from('discount_codes').update({ used_count: discountApplied.used_count + 1 }).eq('id', discountApplied.id);
+                    }
+
                     // WhatsApp notification
                     try {
                         await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
@@ -369,11 +412,11 @@
                     } catch (waErr) { console.warn('Buyer WhatsApp notification failed:', waErr); }
 
                     const trackUrl = `${SITE_URL}/shop/?s=${getSellerSlug()}&track=${orderNumber}`;
-                    setOrderData({ order_number: orderNumber, total: cartTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl });
+                    setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount });
                     // Save buyer info for next time
                     try { localStorage.setItem(`buyer_${getSellerSlug()}`, JSON.stringify({ name: formData.name, phone: formData.phone })); } catch(e) {}
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
-                    setSubmittingOrder(false);
+                    setSubmittingOrder(false); setDiscountApplied(null); setDiscountCode(''); setDiscountError('');
                 } catch (err) { setSubmittingOrder(false); alert('An error occurred. Please try again.'); }
             };
 
@@ -755,10 +798,55 @@
                                             placeholder="Any special requests..." rows="2"
                                             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none"/>
                                     </div>
+                                    {/* Discount Code */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Discount Code</label>
+                                        {discountApplied ? (
+                                            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
+                                                <div>
+                                                    <span className="text-sm font-mono font-bold text-green-700">{discountApplied.code}</span>
+                                                    <span className="text-xs text-green-600 ml-2">
+                                                        {discountApplied.type === 'percentage' ? `${discountApplied.value}% off` : `R${parseFloat(discountApplied.value).toFixed(2)} off`}
+                                                    </span>
+                                                </div>
+                                                <button type="button" onClick={removeDiscount} className="text-xs text-red-500 font-semibold hover:text-red-700">Remove</button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={discountCode}
+                                                    onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError(''); }}
+                                                    placeholder="Enter code"
+                                                    className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 font-mono tracking-wider"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={applyDiscount}
+                                                    disabled={applyingDiscount || !discountCode.trim()}
+                                                    className="px-4 py-2.5 bg-gray-800 text-white rounded-xl text-sm font-semibold hover:bg-gray-900 transition-colors disabled:opacity-50"
+                                                >
+                                                    {applyingDiscount ? '...' : 'Apply'}
+                                                </button>
+                                            </div>
+                                        )}
+                                        {discountError && <p className="text-xs text-red-500 mt-1">{discountError}</p>}
+                                    </div>
+
                                     <div className="pt-2 border-t border-gray-100">
+                                        <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                            <span>Subtotal ({cartCount} item{cartCount !== 1 ? 's' : ''})</span>
+                                            <span>{formatCurrency(cartTotal)}</span>
+                                        </div>
+                                        {discountApplied && (
+                                            <div className="flex justify-between text-sm text-green-600 mb-1">
+                                                <span>Discount ({discountApplied.code})</span>
+                                                <span>-{formatCurrency(discountAmount)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between mb-3">
-                                            <span className="text-sm text-gray-600">{cartCount} item{cartCount !== 1 ? 's' : ''}</span>
-                                            <span className="text-lg font-bold text-gray-900">{formatCurrency(cartTotal)}</span>
+                                            <span className="text-sm font-semibold text-gray-900">Total</span>
+                                            <span className="text-lg font-bold text-gray-900">{formatCurrency(finalTotal)}</span>
                                         </div>
                                         <button type="submit" disabled={submittingOrder} className={`w-full font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${submittingOrder ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}>
                                             {submittingOrder ? (<><svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="text-white">Placing Order...</span></>) : 'Place Order'}
@@ -793,6 +881,12 @@
                                             </div>
                                         ))}
                                     </div>
+                                    {orderData.discount_amount > 0 && (
+                                        <div className="flex justify-between text-sm text-green-600 pt-1">
+                                            <span>Discount ({orderData.discount_code})</span>
+                                            <span>-{formatCurrency(orderData.discount_amount)}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                                         <span className="font-semibold text-gray-700">Total</span>
                                         <span className="text-2xl font-bold text-brand-600">{formatCurrency(orderData.total)}</span>
