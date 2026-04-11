@@ -52,7 +52,8 @@ window.getStatusColor = (status) => {
         shipped: '#f59e0b', delivered: '#059669', cancelled: '#ef4444',
         pending: '#f59e0b', in_transit: '#3b82f6', dispatched: '#8b5cf6',
         preparing: '#6b7280', failed: '#ef4444',
-        rejected: '#ef4444'
+        rejected: '#ef4444',
+        ready_for_pickup: '#8b5cf6', out_for_delivery: '#f59e0b'
     };
     return map[status] || '#6b7280';
 };
