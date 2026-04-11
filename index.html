@@ -3447,20 +3447,20 @@
                     )}
 
                     {/* 1. Profile & Store */}
-                    <SettingsSectionCardicon={<Icons.store />} title="Profile & Store">
+                    <SettingsSectionCard icon={<Icons.store />} title="Profile & Store">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="Full Name" value={profile.full_name} onChange={v => setProfile({...profile, full_name: v})} placeholder="Your name" />
-                            <SettingsInputFieldlabel="Business Name" value={profile.business_name} onChange={v => setProfile({...profile, business_name: v})} placeholder="Store name" />
+                            <SettingsInputField label="Full Name" value={profile.full_name} onChange={v => setProfile({...profile, full_name: v})} placeholder="Your name" />
+                            <SettingsInputField label="Business Name" value={profile.business_name} onChange={v => setProfile({...profile, business_name: v})} placeholder="Store name" />
                         </div>
-                        <SettingsInputFieldlabel="Business Description" value={profile.business_description} onChange={v => setProfile({...profile, business_description: v})} placeholder="What do you sell?" textarea />
+                        <SettingsInputField label="Business Description" value={profile.business_description} onChange={v => setProfile({...profile, business_description: v})} placeholder="What do you sell?" textarea />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+27..." type="tel" />
-                            <SettingsInputFieldlabel="Location" value={profile.location} onChange={v => setProfile({...profile, location: v})} placeholder="City, Province" />
+                            <SettingsInputField label="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+27..." type="tel" />
+                            <SettingsInputField label="Location" value={profile.location} onChange={v => setProfile({...profile, location: v})} placeholder="City, Province" />
                         </div>
-                        <SettingsInputFieldlabel="Address" value={profile.address} onChange={v => setProfile({...profile, address: v})} placeholder="Full street address" />
+                        <SettingsInputField label="Address" value={profile.address} onChange={v => setProfile({...profile, address: v})} placeholder="Full street address" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="Logo URL" value={profile.logo_url} onChange={v => setProfile({...profile, logo_url: v})} placeholder="https://..." />
-                            <SettingsInputFieldlabel="Banner URL" value={profile.banner_url} onChange={v => setProfile({...profile, banner_url: v})} placeholder="https://..." />
+                            <SettingsInputField label="Logo URL" value={profile.logo_url} onChange={v => setProfile({...profile, logo_url: v})} placeholder="https://..." />
+                            <SettingsInputField label="Banner URL" value={profile.banner_url} onChange={v => setProfile({...profile, banner_url: v})} placeholder="https://..." />
                         </div>
                         {(profile.logo_url || profile.banner_url) && (
                             <div className="flex gap-4">
@@ -3486,21 +3486,21 @@
                                 <option value="st">Sesotho</option>
                             </select>
                         </div>
-                        <SettingsSaveButtononClick={saveProfile} saving={savingProfile} />
+                        <SettingsSaveButton onClick={saveProfile} saving={savingProfile} />
                     </SettingsSectionCard>
 
                     {/* 2. Change PIN */}
-                    <SettingsSectionCardicon={<Icons.lock />} title="Change PIN">
-                        <SettingsInputFieldlabel="Current PIN" value={pinData.current} onChange={v => setPinData({...pinData, current: v})} type="password" placeholder="Enter current PIN" />
+                    <SettingsSectionCard icon={<Icons.lock />} title="Change PIN">
+                        <SettingsInputField label="Current PIN" value={pinData.current} onChange={v => setPinData({...pinData, current: v})} type="password" placeholder="Enter current PIN" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="New PIN" value={pinData.newPin} onChange={v => setPinData({...pinData, newPin: v})} type="password" placeholder="At least 4 digits" />
-                            <SettingsInputFieldlabel="Confirm New PIN" value={pinData.confirm} onChange={v => setPinData({...pinData, confirm: v})} type="password" placeholder="Re-enter new PIN" />
+                            <SettingsInputField label="New PIN" value={pinData.newPin} onChange={v => setPinData({...pinData, newPin: v})} type="password" placeholder="At least 4 digits" />
+                            <SettingsInputField label="Confirm New PIN" value={pinData.confirm} onChange={v => setPinData({...pinData, confirm: v})} type="password" placeholder="Re-enter new PIN" />
                         </div>
-                        <SettingsSaveButtononClick={changePin} saving={savingPin} label="Change PIN" />
+                        <SettingsSaveButton onClick={changePin} saving={savingPin} label="Change PIN" />
                     </SettingsSectionCard>
 
                     {/* 3. Business Hours */}
-                    <SettingsSectionCardicon={<Icons.clock />} title="Business Hours">
+                    <SettingsSectionCard icon={<Icons.clock />} title="Business Hours">
                         <p className="text-xs text-gray-400">Enter hours like "08:00 - 17:00" or "Closed"</p>
                         <div className="space-y-2">
                             {Object.keys(dayLabels).map(d => (
@@ -3512,12 +3512,12 @@
                                 </div>
                             ))}
                         </div>
-                        <SettingsSaveButtononClick={saveHours} saving={savingHours} />
+                        <SettingsSaveButton onClick={saveHours} saving={savingHours} />
                     </SettingsSectionCard>
 
                     {/* 4. Delivery Areas */}
-                    <SettingsSectionCardicon={<Icons.mapPin />} title="Delivery Areas">
-                        <SettingsInputFieldlabel="Areas (comma separated)" value={areasText} onChange={setAreasText} placeholder="Maseru, Ladybrand, Bloemfontein" textarea />
+                    <SettingsSectionCard icon={<Icons.mapPin />} title="Delivery Areas">
+                        <SettingsInputField label="Areas (comma separated)" value={areasText} onChange={setAreasText} placeholder="Maseru, Ladybrand, Bloemfontein" textarea />
                         {areasText && (
                             <div className="flex flex-wrap gap-2">
                                 {areasText.split(',').map(a => a.trim()).filter(Boolean).map((a, i) => (
@@ -3525,35 +3525,35 @@
                                 ))}
                             </div>
                         )}
-                        <SettingsSaveButtononClick={saveAreas} saving={savingAreas} />
+                        <SettingsSaveButton onClick={saveAreas} saving={savingAreas} />
                     </SettingsSectionCard>
 
                     {/* 5. Bank / Payment Details */}
-                    <SettingsSectionCardicon={<Icons.bank />} title="Bank / Payment Details">
+                    <SettingsSectionCard icon={<Icons.bank />} title="Bank / Payment Details">
                         <p className="text-xs text-gray-400">These details are shown to buyers when they select EFT payment.</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
-                            <SettingsInputFieldlabel="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
+                            <SettingsInputField label="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
+                            <SettingsInputField label="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
-                            <SettingsInputFieldlabel="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
+                            <SettingsInputField label="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
+                            <SettingsInputField label="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
                         </div>
-                        <SettingsInputFieldlabel="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
-                        <SettingsSaveButtononClick={saveBank} saving={savingBank} />
+                        <SettingsInputField label="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
+                        <SettingsSaveButton onClick={saveBank} saving={savingBank} />
                     </SettingsSectionCard>
 
                     {/* 6. Social Links */}
-                    <SettingsSectionCardicon={<Icons.externalLink />} title="Social Links">
+                    <SettingsSectionCard icon={<Icons.externalLink />} title="Social Links">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="Facebook" value={social.facebook} onChange={v => setSocial({...social, facebook: v})} placeholder="https://facebook.com/..." />
-                            <SettingsInputFieldlabel="Instagram" value={social.instagram} onChange={v => setSocial({...social, instagram: v})} placeholder="https://instagram.com/..." />
+                            <SettingsInputField label="Facebook" value={social.facebook} onChange={v => setSocial({...social, facebook: v})} placeholder="https://facebook.com/..." />
+                            <SettingsInputField label="Instagram" value={social.instagram} onChange={v => setSocial({...social, instagram: v})} placeholder="https://instagram.com/..." />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputFieldlabel="TikTok" value={social.tiktok} onChange={v => setSocial({...social, tiktok: v})} placeholder="https://tiktok.com/@..." />
-                            <SettingsInputFieldlabel="Website" value={social.website} onChange={v => setSocial({...social, website: v})} placeholder="https://..." />
+                            <SettingsInputField label="TikTok" value={social.tiktok} onChange={v => setSocial({...social, tiktok: v})} placeholder="https://tiktok.com/@..." />
+                            <SettingsInputField label="Website" value={social.website} onChange={v => setSocial({...social, website: v})} placeholder="https://..." />
                         </div>
-                        <SettingsSaveButtononClick={saveSocial} saving={savingSocial} />
+                        <SettingsSaveButton onClick={saveSocial} saving={savingSocial} />
                     </SettingsSectionCard>
                 </div>
             );
