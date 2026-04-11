@@ -226,23 +226,16 @@
 
         const Logo = ({ className = '', size = 48 }) => (
             <svg viewBox="0 0 200 200" width={size} height={size} className={className}>
-                <circle cx="100" cy="100" r="85" fill="none" stroke="#25D366" strokeWidth="2" opacity="0.3"/>
-                <path d="M 100 20 A 80 80 0 0 1 140 25" fill="none" stroke="#25D366" strokeWidth="3" strokeLinecap="round"/>
-                <path d="M 150 45 A 80 80 0 0 1 175 85" fill="none" stroke="#FF9500" strokeWidth="3" strokeLinecap="round"/>
-                <path d="M 175 100 A 80 80 0 0 1 100 175" fill="none" stroke="#3B82F6" strokeWidth="3" strokeLinecap="round"/>
-                <circle cx="100" cy="15" r="5" fill="#25D366"/>
-                <circle cx="175" cy="85" r="5" fill="#FF9500"/>
-                <circle cx="100" cy="175" r="5" fill="#3B82F6"/>
-                <defs>
-                    <radialGradient id="greenGrad" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stopColor="#2ecc71"/>
-                        <stop offset="100%" stopColor="#1a8a4a"/>
-                    </radialGradient>
-                </defs>
-                <circle cx="100" cy="100" r="50" fill="url(#greenGrad)"/>
-                <g fill="white">
-                    <path d="M 75 85 Q 75 75 85 75 L 115 75 Q 125 75 125 85 L 125 110 Q 125 120 115 120 L 95 120 L 85 130 L 90 120 L 85 120 Q 75 120 75 110 Z"/>
-                </g>
+                <circle cx="100" cy="100" r="92" fill="none" stroke="#166534" strokeWidth="4"/>
+                <circle cx="100" cy="100" r="86" fill="none" stroke="#e2e8f0" strokeWidth="1.5"/>
+                <rect x="40" y="50" width="72" height="55" rx="14" fill="#25A65A"/>
+                <circle cx="58" cy="78" r="5.5" fill="white"/><circle cx="76" cy="78" r="5.5" fill="white"/><circle cx="94" cy="78" r="5.5" fill="white"/>
+                <polygon points="52,105 52,122 68,105" fill="#25A65A"/>
+                <rect x="88" y="85" width="72" height="55" rx="14" fill="#D4A017"/>
+                <circle cx="106" cy="113" r="5.5" fill="#166534"/><circle cx="124" cy="113" r="5.5" fill="#166534"/><circle cx="142" cy="113" r="5.5" fill="#166534"/>
+                <polygon points="148,140 148,157 132,140" fill="#D4A017"/>
+                <circle cx="112" cy="88" r="8" fill="white" stroke="#166534" strokeWidth="2"/>
+                <circle cx="112" cy="88" r="3.5" fill="#D4A017"/>
             </svg>
         );
 
@@ -478,14 +471,9 @@
                     </div>
 
                     <div className="absolute bottom-6 text-center">
-                        <div className="flex items-center justify-center gap-3 mb-2">
-                            <img src="/assets/4d-logo.png" alt="4D Climate Solutions" className="w-10 h-10 opacity-80" />
-                            <div className="text-left">
-                                <p className="text-gray-500 text-xs">Developed by</p>
-                                <p className="text-gray-400 text-sm font-semibold">4D <span className="italic">Climate Solutions</span></p>
-                            </div>
-                        </div>
-                        <p className="text-gray-600 text-xs">&copy; 2026 Khotso Connect. All rights reserved.</p>
+                        <p className="text-gray-500 text-xs mb-1">Developed by</p>
+                        <a href="https://4dcs.co.za" target="_blank" rel="noopener noreferrer" className="text-gray-400 text-sm font-semibold hover:text-white transition-colors">4D <span className="italic">Climate Solutions</span></a>
+                        <p className="text-gray-600 text-xs mt-2">&copy; 2026 Khotso Connect. All rights reserved.</p>
                     </div>
                 </div>
             );
@@ -4127,15 +4115,10 @@
                         </div>
 
                         {/* Footer branding */}
-                        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
-                            <div className="flex items-center justify-center gap-2">
-                                <img src="/assets/4d-logo.png" alt="4D" className="w-7 h-7 opacity-75" />
-                                <div className="text-left">
-                                    <p className="text-[10px] text-gray-400 leading-tight">Developed by</p>
-                                    <p className="text-[11px] font-semibold text-gray-500 leading-tight">4D <span className="italic">Climate Solutions</span></p>
-                                </div>
-                            </div>
-                            <p className="text-[10px] text-gray-300 text-center mt-1.5">&copy; 2026 All rights reserved</p>
+                        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 text-center">
+                            <p className="text-[10px] text-gray-400 leading-tight">Developed by</p>
+                            <a href="https://4dcs.co.za" target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-gray-500 hover:text-green-600 transition-colors leading-tight">4D <span className="italic">Climate Solutions</span></a>
+                            <p className="text-[10px] text-gray-300 text-center mt-1.5">&copy; 2026 Khotso Connect</p>
                         </div>
                     </aside>
 
