@@ -207,6 +207,7 @@
                         const { data: sellerData, error: sellerError } = await supabase
                             .from('sellers').select('*').eq('slug', slug).single();
                         if (sellerError || !sellerData) { setError("This store doesn't exist. Please check the link."); setLoading(false); return; }
+                        if (sellerData.seller_status === 'suspended') { setError("This store is temporarily unavailable. Please check back later."); setLoading(false); return; }
                         setSeller(sellerData);
                         document.title = `${sellerData.business_name} | WhatsApp Seller OS`;
 
@@ -401,6 +402,20 @@
                     if (discountApplied) {
                         await supabase.from('discount_codes').update({ used_count: discountApplied.used_count + 1 }).eq('id', discountApplied.id);
                     }
+
+                    // Create platform fee record
+                    try {
+                        const { data: pConfig } = await supabase.from('platform_config').select('fee_type, fee_value').limit(1).single();
+                        if (pConfig) {
+                            const feeAmt = pConfig.fee_type === 'percentage'
+                                ? finalTotal * Number(pConfig.fee_value) / 100
+                                : Number(pConfig.fee_value);
+                            await supabase.from('platform_fees').insert({
+                                order_id: order.id, seller_id: seller.id,
+                                order_total: finalTotal, fee_amount: Math.round(feeAmt * 100) / 100
+                            });
+                        }
+                    } catch (feeErr) { console.warn('Platform fee creation failed:', feeErr); }
 
                     // WhatsApp notification
                     try {
