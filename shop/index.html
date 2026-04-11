@@ -159,6 +159,7 @@
             const openLightbox = (photos, index) => setLightbox({ open: true, photos, index });
             const closeLightbox = () => setLightbox({ open: false, photos: [], index: 0 });
             const [selectedProduct, setSelectedProduct] = useState(null);
+            const [submittingOrder, setSubmittingOrder] = useState(false);
 
             const getSellerSlug = () => new URLSearchParams(window.location.search).get('s');
 
@@ -257,8 +258,10 @@
 
             const submitOrder = async (e) => {
                 e.preventDefault();
+                if (submittingOrder) return; // Prevent double-click
                 if (!formData.name || !formData.phone) { alert('Please fill in name and phone number'); return; }
                 if (cart.length === 0) { alert('Cart is empty'); return; }
+                setSubmittingOrder(true);
                 try {
                     const orderNumber = generateOrderNumber();
                     const { data: order, error: orderError } = await supabase.from('orders').insert([{
@@ -310,7 +313,8 @@
 
                     setOrderData({ order_number: orderNumber, total: cartTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name });
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
-                } catch (err) { alert('An error occurred. Please try again.'); }
+                    setSubmittingOrder(false);
+                } catch (err) { setSubmittingOrder(false); alert('An error occurred. Please try again.'); }
             };
 
             const handleCheckout = () => { if (cart.length === 0) { alert('Your cart is empty'); return; } setShowCheckout(true); setShowCart(false); };
@@ -663,8 +667,8 @@
                                             <span className="text-sm text-gray-600">{cartCount} item{cartCount !== 1 ? 's' : ''}</span>
                                             <span className="text-lg font-bold text-gray-900">{formatCurrency(cartTotal)}</span>
                                         </div>
-                                        <button type="submit" className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
-                                            Place Order
+                                        <button type="submit" disabled={submittingOrder} className={`w-full font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${submittingOrder ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}>
+                                            {submittingOrder ? (<><svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="text-white">Placing Order...</span></>) : 'Place Order'}
                                         </button>
                                     </div>
                                 </form>
