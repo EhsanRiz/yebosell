@@ -1146,6 +1146,8 @@
             const [orders, setOrders] = useState([]);
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
+            const [sendingHistory, setSendingHistory] = useState(false);
+            const [historySent, setHistorySent] = useState(false);
 
             const normalizePhone = (p) => {
                 let cleaned = p.replace(/[\s()-]/g, '');
@@ -1201,6 +1203,50 @@
                     setStep('orders');
                 } catch (err) { setError('Verification failed. Please try again.'); }
                 setLoading(false);
+            };
+
+            const sendOrderHistoryToWhatsApp = async () => {
+                setSendingHistory(true);
+                const normalized = normalizePhone(phone);
+                try {
+                    // Build a summary of all orders
+                    let lines = [];
+                    lines.push('🛍️ *Your Order History*');
+                    lines.push('━━━━━━━━━━━━━━━');
+                    let grandTotal = 0;
+                    orders.forEach((order, idx) => {
+                        const date = new Date(order.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+                        const statusLabel = window.getStatusLabel(order.status);
+                        lines.push('');
+                        lines.push(`📦 *Order ${order.order_number}*`);
+                        lines.push(`📅 ${date} — ${statusLabel}`);
+                        if (order.order_items) {
+                            order.order_items.forEach(item => {
+                                lines.push(`  • ${item.product_name} ×${item.quantity} — ${formatCurrency(item.unit_price * item.quantity)}`);
+                            });
+                        }
+                        lines.push(`💰 Total: *${formatCurrency(order.total)}*`);
+                        grandTotal += Number(order.total) || 0;
+                    });
+                    lines.push('');
+                    lines.push('━━━━━━━━━━━━━━━');
+                    lines.push(`📊 *${orders.length} order${orders.length !== 1 ? 's' : ''}* — Grand Total: *${formatCurrency(grandTotal)}*`);
+                    lines.push('');
+                    lines.push('_Sent from WhatsApp Seller OS_');
+
+                    const message = lines.join('\n');
+
+                    await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}` },
+                        body: JSON.stringify({ type: 'order_history', phone: normalized, message: message }),
+                    });
+                    setHistorySent(true);
+                    setTimeout(() => setHistorySent(false), 5000);
+                } catch (err) {
+                    alert('Failed to send order history. Please try again.');
+                }
+                setSendingHistory(false);
             };
 
             const statusTimeline = ['new', 'confirmed', 'paid', 'shipped', 'delivered'];
@@ -1263,6 +1309,17 @@
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
+                                            {/* Send to WhatsApp button */}
+                                            <button onClick={sendOrderHistoryToWhatsApp} disabled={sendingHistory}
+                                                className={`w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all shadow-sm ${
+                                                    historySent
+                                                        ? 'bg-green-500 text-white'
+                                                        : 'bg-brand-500 hover:bg-brand-600 text-white'
+                                                } disabled:opacity-50`}>
+                                                <WhatsAppIcon size={18} />
+                                                {historySent ? 'Sent to your WhatsApp!' : sendingHistory ? 'Sending...' : 'Send Order History to My WhatsApp'}
+                                            </button>
+
                                             {orders.map(order => (
                                                 <div key={order.id} className="bg-gray-50 rounded-xl p-4 space-y-3">
                                                     <div className="flex items-center justify-between">
