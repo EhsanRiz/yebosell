@@ -15,7 +15,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=4"></script>
+    <script src="/assets/config.js?v=5"></script>
 
     <script>
         tailwind.config = {
@@ -33,8 +33,17 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
+        .hero-gradient {
+            background: linear-gradient(135deg, #166534 0%, #15803d 40%, #25D366 100%);
+        }
+        .glass { background: rgba(255,255,255,0.12); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.18); }
+        .product-card { transition: all 0.3s cubic-bezier(.4,0,.2,1); }
+        .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
         .product-image { width: 100%; height: 220px; object-fit: cover; }
         @media (min-width: 768px) { .product-image { height: 260px; } }
+
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -45,17 +54,26 @@
         .fade-in { animation: fadeIn 0.2s ease-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Custom scrollbar for modals */
+        .badge-cart {
+            position: absolute; top: -6px; right: -6px;
+            background: #ef4444; color: white; font-size: 10px; font-weight: 700;
+            width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        }
+
         .modal-scroll::-webkit-scrollbar { width: 5px; }
         .modal-scroll::-webkit-scrollbar-track { background: transparent; }
         .modal-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+
+        .category-pill { scroll-snap-align: start; }
+        .category-bar { scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+        .category-bar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
         const supabase = window.supabaseClient;
         const SUPABASE_URL = window.SUPABASE_URL;
@@ -63,14 +81,74 @@
         const formatCurrency = window.formatCurrency;
         const generateOrderNumber = window.generateOrderNumber;
 
+        // ==================== ICONS ====================
+        const HeartIcon = ({ filled }) => filled
+            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
+
+        const CartIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>;
+
+        const SearchIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+
+        const ClockIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+
+        const MapPinIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
+
+        const TruckIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>;
+
+        const WhatsAppIcon = ({ size = 16 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>;
+
+        // ==================== STAR RATING ====================
+        const StarRating = ({ rating, size = 14, count }) => (
+            <div className="flex items-center gap-1">
+                {[1,2,3,4,5].map(i => (
+                    <svg key={i} width={size} height={size} viewBox="0 0 24 24"
+                        fill={i <= Math.round(rating) ? '#f59e0b' : '#e5e7eb'}
+                        stroke={i <= Math.round(rating) ? '#f59e0b' : '#e5e7eb'} strokeWidth="1">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                ))}
+                {count !== undefined && <span className="text-xs text-gray-400 ml-1">({count})</span>}
+            </div>
+        );
+
+        const StarInput = ({ value, onChange }) => (
+            <div className="flex gap-1">
+                {[1,2,3,4,5].map(i => (
+                    <button key={i} type="button" onClick={() => onChange(i)}
+                        className="focus:outline-none transition-transform hover:scale-110">
+                        <svg width="24" height="24" viewBox="0 0 24 24"
+                            fill={i <= value ? '#f59e0b' : '#e5e7eb'}
+                            stroke={i <= value ? '#f59e0b' : '#d1d5db'} strokeWidth="1.5">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                    </button>
+                ))}
+            </div>
+        );
+
+        // ==================== COLOR HELPER ====================
+        const colorMap = {
+            black:'#111',white:'#fff',red:'#ef4444',blue:'#3b82f6',green:'#22c55e',navy:'#1e3a5f',
+            grey:'#9ca3af',gray:'#9ca3af',brown:'#92400e',pink:'#ec4899',yellow:'#eab308',
+            orange:'#f97316',purple:'#a855f7',beige:'#d4c5a9',maroon:'#7f1d1d',teal:'#14b8a6'
+        };
+        const getColorHex = (name) => colorMap[(name || '').toLowerCase()] || '#d1d5db';
+
         // ==================== STORE ====================
         function Store() {
             const [seller, setSeller] = useState(null);
             const [products, setProducts] = useState([]);
+            const [reviews, setReviews] = useState([]);
             const [cart, setCart] = useState([]);
+            const [wishlist, setWishlist] = useState([]);
+            const [search, setSearch] = useState('');
+            const [activeCategory, setActiveCategory] = useState('All');
             const [showCart, setShowCart] = useState(false);
             const [showCheckout, setShowCheckout] = useState(false);
             const [showConfirmation, setShowConfirmation] = useState(false);
+            const [showMyOrders, setShowMyOrders] = useState(false);
+            const [showStoreInfo, setShowStoreInfo] = useState(false);
             const [orderData, setOrderData] = useState(null);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
@@ -83,6 +161,23 @@
             const [selectedProduct, setSelectedProduct] = useState(null);
 
             const getSellerSlug = () => new URLSearchParams(window.location.search).get('s');
+
+            // Load wishlist from localStorage
+            useEffect(() => {
+                try {
+                    const slug = getSellerSlug();
+                    const saved = JSON.parse(localStorage.getItem(`wishlist_${slug}`) || '[]');
+                    setWishlist(saved);
+                } catch(e) {}
+            }, []);
+
+            const toggleWishlist = (productId) => {
+                setWishlist(prev => {
+                    const next = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
+                    try { localStorage.setItem(`wishlist_${getSellerSlug()}`, JSON.stringify(next)); } catch(e) {}
+                    return next;
+                });
+            };
 
             useEffect(() => {
                 const loadStore = async () => {
@@ -99,11 +194,42 @@
                         const { data: productsData } = await supabase
                             .from('products').select('*').eq('seller_id', sellerData.id).eq('is_active', true).order('sort_order', { ascending: true });
                         setProducts(productsData || []);
+
+                        // Load reviews
+                        const productIds = (productsData || []).map(p => p.id);
+                        if (productIds.length > 0) {
+                            const { data: reviewsData } = await supabase
+                                .from('product_reviews').select('*').in('product_id', productIds).order('created_at', { ascending: false });
+                            setReviews(reviewsData || []);
+                        }
                     } catch (err) { setError('Something went wrong. Please try again.'); }
                     setLoading(false);
                 };
                 loadStore();
             }, []);
+
+            // Categories derived from products
+            const categories = useMemo(() => {
+                const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
+                return ['All', ...cats.sort()];
+            }, [products]);
+
+            // Filtered products
+            const filteredProducts = useMemo(() => {
+                return products.filter(p => {
+                    const matchCategory = activeCategory === 'All' || p.category === activeCategory;
+                    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.description || '').toLowerCase().includes(search.toLowerCase());
+                    return matchCategory && matchSearch;
+                });
+            }, [products, activeCategory, search]);
+
+            // Review helpers
+            const getProductReviews = (productId) => reviews.filter(r => r.product_id === productId);
+            const getProductRating = (productId) => {
+                const pReviews = getProductReviews(productId);
+                if (pReviews.length === 0) return 0;
+                return pReviews.reduce((s, r) => s + r.rating, 0) / pReviews.length;
+            };
 
             const addToCart = (product) => {
                 const key = product.cartKey || `${product.id}`;
@@ -151,11 +277,10 @@
                         };
                     }));
 
-                    // Reduce inventory for each cart item
+                    // Reduce inventory
                     for (const item of cart) {
                         const hasVariant = item.selectedColor || item.selectedSize;
                         if (hasVariant && item.variants) {
-                            // Update stock in variants JSONB
                             const { data: prod } = await supabase.from('products').select('variants').eq('id', item.id).single();
                             if (prod && Array.isArray(prod.variants)) {
                                 const updatedVariants = prod.variants.map(v => {
@@ -167,7 +292,6 @@
                                 await supabase.from('products').update({ variants: updatedVariants }).eq('id', item.id);
                             }
                         } else if (item.stock !== null && item.stock !== undefined) {
-                            // Simple product — decrement stock column
                             const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
                             if (prod && prod.stock !== null) {
                                 await supabase.from('products').update({ stock: Math.max(0, prod.stock - item.quantity) }).eq('id', item.id);
@@ -175,7 +299,7 @@
                         }
                     }
 
-                    // Send WhatsApp order confirmation to buyer
+                    // WhatsApp notification
                     try {
                         await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
                             method: 'POST',
@@ -248,6 +372,7 @@
                             </div>
                         </div>
                     )}
+
                     {/* ===== PRODUCT DETAIL MODAL ===== */}
                     {selectedProduct && (
                         <ProductDetailModal
@@ -255,45 +380,127 @@
                             onAddToCart={addToCart}
                             onClose={() => setSelectedProduct(null)}
                             cart={cart}
+                            reviews={getProductReviews(selectedProduct.id)}
+                            avgRating={getProductRating(selectedProduct.id)}
+                            sellerId={seller.id}
+                            onReviewAdded={(r) => setReviews(prev => [r, ...prev])}
+                            isWishlisted={wishlist.includes(selectedProduct.id)}
+                            onToggleWishlist={() => toggleWishlist(selectedProduct.id)}
                         />
                     )}
 
-                    {/* ===== STORE HEADER ===== */}
-                    <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-                        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                                    {seller?.business_name?.charAt(0)?.toUpperCase() || 'S'}
+                    {/* ===== MY ORDERS MODAL ===== */}
+                    {showMyOrders && (
+                        <MyOrdersModal sellerId={seller.id} onClose={() => setShowMyOrders(false)} />
+                    )}
+
+                    {/* ===== STORE INFO MODAL ===== */}
+                    {showStoreInfo && (
+                        <StoreInfoModal seller={seller} onClose={() => setShowStoreInfo(false)} />
+                    )}
+
+                    {/* ===== HERO HEADER ===== */}
+                    <header className="hero-gradient relative overflow-hidden">
+                        {seller?.banner_url && (
+                            <div className="absolute inset-0">
+                                <img src={seller.banner_url} alt="" className="w-full h-full object-cover opacity-20" />
+                            </div>
+                        )}
+                        <div className="relative max-w-5xl mx-auto px-4 py-8 sm:py-12">
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                                {/* Logo / Initial */}
+                                <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center overflow-hidden shadow-lg flex-shrink-0">
+                                    {seller?.logo_url
+                                        ? <img src={seller.logo_url} alt={seller.business_name} className="w-full h-full object-cover" />
+                                        : <span className="text-white text-3xl font-bold">{seller?.business_name?.charAt(0)?.toUpperCase() || 'S'}</span>
+                                    }
                                 </div>
-                                <div>
-                                    <h1 className="text-lg font-bold text-gray-900 leading-tight">{seller?.business_name}</h1>
-                                    {seller?.business_description && <p className="text-xs text-gray-500 line-clamp-1">{seller.business_description}</p>}
+                                <div className="text-center sm:text-left flex-1">
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{seller?.business_name}</h1>
+                                    {seller?.business_description && <p className="text-white/70 text-sm max-w-md">{seller.business_description}</p>}
+                                    {seller?.location && (
+                                        <p className="text-white/60 text-xs mt-1 flex items-center gap-1 justify-center sm:justify-start">
+                                            <MapPinIcon /> {seller.location}
+                                        </p>
+                                    )}
+                                    {/* Action buttons */}
+                                    <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
+                                        {seller?.phone && (
+                                            <a href={`https://wa.me/${seller.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener"
+                                                className="glass text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-white/20 transition">
+                                                <WhatsAppIcon size={14} /> Chat with Us
+                                            </a>
+                                        )}
+                                        <button onClick={() => setShowStoreInfo(true)}
+                                            className="glass text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-white/20 transition">
+                                            <ClockIcon /> Store Info
+                                        </button>
+                                        <button onClick={() => setShowMyOrders(true)}
+                                            className="glass text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-white/20 transition">
+                                            <TruckIcon /> My Orders
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            {seller?.phone && (
-                                <a href={`https://wa.me/${seller.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener"
-                                    className="flex items-center gap-1.5 bg-brand-50 text-brand-600 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-brand-100 transition">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                    Chat
-                                </a>
-                            )}
                         </div>
                     </header>
 
+                    {/* ===== SEARCH + CATEGORY BAR ===== */}
+                    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
+                        <div className="max-w-5xl mx-auto px-4 py-3">
+                            <div className="relative mb-2">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon /></span>
+                                <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                                    placeholder="Search products..."
+                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                                {search && (
+                                    <button onClick={() => setSearch('')}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-bold">✕</button>
+                                )}
+                            </div>
+                            {categories.length > 2 && (
+                                <div className="flex gap-2 overflow-x-auto category-bar pb-1">
+                                    {categories.map(cat => (
+                                        <button key={cat} onClick={() => setActiveCategory(cat)}
+                                            className={`category-pill whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                                                activeCategory === cat
+                                                    ? 'bg-brand-500 text-white shadow-md'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}>
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* ===== PRODUCTS ===== */}
                     <main className="max-w-5xl mx-auto px-4 py-6">
-                        {products.length === 0 ? (
+                        {filteredProducts.length === 0 ? (
                             <div className="text-center py-16">
-                                <div className="text-5xl mb-4">📦</div>
-                                <p className="text-gray-500 text-lg">No products available yet</p>
-                                <p className="text-gray-400 text-sm mt-1">Check back soon!</p>
+                                <div className="text-5xl mb-4">{search || activeCategory !== 'All' ? '🔍' : '📦'}</div>
+                                <p className="text-gray-500 text-lg">{search ? 'No products match your search' : 'No products available yet'}</p>
+                                <p className="text-gray-400 text-sm mt-1">{search ? 'Try a different keyword' : 'Check back soon!'}</p>
+                                {(search || activeCategory !== 'All') && (
+                                    <button onClick={() => { setSearch(''); setActiveCategory('All'); }}
+                                        className="mt-4 text-brand-600 text-sm font-semibold hover:underline">Clear filters</button>
+                                )}
                             </div>
                         ) : (
                             <>
-                                <p className="text-sm text-gray-400 mb-4">{products.length} product{products.length !== 1 ? 's' : ''}</p>
+                                <p className="text-sm text-gray-400 mb-4">{filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}{activeCategory !== 'All' ? ` in ${activeCategory}` : ''}</p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                    {products.map(product => (
-                                        <ProductCard key={product.id} product={product} onClick={setSelectedProduct} />
+                                    {filteredProducts.map(product => (
+                                        <ProductCard
+                                            key={product.id}
+                                            product={product}
+                                            onClick={setSelectedProduct}
+                                            rating={getProductRating(product.id)}
+                                            reviewCount={getProductReviews(product.id).length}
+                                            isWishlisted={wishlist.includes(product.id)}
+                                            onToggleWishlist={(e) => { e.stopPropagation(); toggleWishlist(product.id); }}
+                                        />
                                     ))}
                                 </div>
                             </>
@@ -304,15 +511,15 @@
                     {cartCount > 0 && (
                         <button onClick={() => setShowCart(true)}
                             className="fixed bottom-6 right-6 bg-brand-500 text-white rounded-2xl px-5 py-3.5 shadow-xl hover:bg-brand-600 transition-all flex items-center gap-2.5 z-20 hover:shadow-2xl hover:scale-105">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                            </svg>
-                            <span className="font-bold">{cartCount}</span>
-                            <span className="text-brand-100 text-sm font-medium hidden sm:inline">· {formatCurrency(cartTotal)}</span>
+                            <div className="relative">
+                                <CartIcon />
+                                <span className="badge-cart">{cartCount}</span>
+                            </div>
+                            <span className="font-bold ml-1">{formatCurrency(cartTotal)}</span>
                         </button>
                     )}
 
-                    {/* ===== CART MODAL (centered popup) ===== */}
+                    {/* ===== CART MODAL ===== */}
                     {showCart && (
                         <div className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-4 fade-in" onClick={() => setShowCart(false)}>
                             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter" onClick={e => e.stopPropagation()}>
@@ -433,6 +640,17 @@
                                                 </label>
                                             ))}
                                         </div>
+                                        {/* Show bank details for EFT */}
+                                        {formData.payment_method === 'eft' && seller?.bank_details && (
+                                            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
+                                                <p className="font-bold text-blue-900">Bank Details for EFT:</p>
+                                                {seller.bank_details.bank_name && <p>Bank: {seller.bank_details.bank_name}</p>}
+                                                {seller.bank_details.account_holder && <p>Account Holder: {seller.bank_details.account_holder}</p>}
+                                                {seller.bank_details.account_number && <p>Account No: {seller.bank_details.account_number}</p>}
+                                                {seller.bank_details.branch_code && <p>Branch Code: {seller.bank_details.branch_code}</p>}
+                                                {seller.bank_details.reference && <p>Reference: {seller.bank_details.reference}</p>}
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Special Instructions</label>
@@ -472,7 +690,7 @@
                                     </div>
                                     <div>
                                         {orderData.items.map(item => (
-                                            <div key={item.id} className="flex justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
+                                            <div key={item.cartKey || item.id} className="flex justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
                                                 <span className="text-gray-600">{item.name} × {item.quantity}</span>
                                                 <span className="font-semibold text-gray-900">{formatCurrency(item.price * item.quantity)}</span>
                                             </div>
@@ -485,7 +703,7 @@
                                     <a href={`https://wa.me/${(orderData.seller_phone || '').replace(/[^0-9]/g, '')}?text=Hi, I just placed order %23${orderData.order_number} for ${formatCurrency(orderData.total)} on your store.`}
                                         target="_blank" rel="noopener"
                                         className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                        <WhatsAppIcon size={18} />
                                         Message {orderData.seller_name} on WhatsApp
                                     </a>
                                     <button onClick={continueShopping}
@@ -500,6 +718,31 @@
                     {/* ===== FOOTER ===== */}
                     <footer className="bg-white border-t border-gray-200 py-8 mt-12">
                         <div className="max-w-5xl mx-auto px-4 text-center">
+                            {/* Social links */}
+                            {seller?.social_links && (
+                                <div className="flex justify-center gap-3 mb-4">
+                                    {seller.social_links.facebook && (
+                                        <a href={seller.social_links.facebook} target="_blank" rel="noopener" className="w-9 h-9 rounded-full bg-gray-100 hover:bg-blue-100 flex items-center justify-center text-gray-500 hover:text-blue-600 transition" title="Facebook">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                        </a>
+                                    )}
+                                    {seller.social_links.instagram && (
+                                        <a href={seller.social_links.instagram} target="_blank" rel="noopener" className="w-9 h-9 rounded-full bg-gray-100 hover:bg-pink-100 flex items-center justify-center text-gray-500 hover:text-pink-600 transition" title="Instagram">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                                        </a>
+                                    )}
+                                    {seller.social_links.tiktok && (
+                                        <a href={seller.social_links.tiktok} target="_blank" rel="noopener" className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-900 transition" title="TikTok">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.51a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46V13a8.28 8.28 0 005.58 2.17V11.7a4.83 4.83 0 01-3.77-1.61V6.69h3.77z"/></svg>
+                                        </a>
+                                    )}
+                                    {seller.social_links.website && (
+                                        <a href={seller.social_links.website} target="_blank" rel="noopener" className="w-9 h-9 rounded-full bg-gray-100 hover:bg-brand-100 flex items-center justify-center text-gray-500 hover:text-brand-600 transition" title="Website">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                        </a>
+                                    )}
+                                </div>
+                            )}
                             <p className="text-gray-500 text-sm mb-3">
                                 Powered by <a href="/" className="text-brand-600 font-semibold hover:underline">WhatsApp Seller OS</a>
                             </p>
@@ -517,16 +760,8 @@
             );
         }
 
-        // ==================== COLOR HELPER ====================
-        const colorMap = {
-            black:'#111',white:'#fff',red:'#ef4444',blue:'#3b82f6',green:'#22c55e',navy:'#1e3a5f',
-            grey:'#9ca3af',gray:'#9ca3af',brown:'#92400e',pink:'#ec4899',yellow:'#eab308',
-            orange:'#f97316',purple:'#a855f7',beige:'#d4c5a9',maroon:'#7f1d1d',teal:'#14b8a6'
-        };
-        const getColorHex = (name) => colorMap[(name || '').toLowerCase()] || '#d1d5db';
-
-        // ==================== PRODUCT CARD (simple — opens detail popup) ====================
-        function ProductCard({ product, onClick }) {
+        // ==================== PRODUCT CARD ====================
+        function ProductCard({ product, onClick, rating, reviewCount, isWishlisted, onToggleWishlist }) {
             const photos = Array.isArray(product.photos) && product.photos.length > 0
                 ? product.photos : (product.photo_url ? [product.photo_url] : []);
             const variants = Array.isArray(product.variants) ? product.variants.filter(v => v.color || v.size) : [];
@@ -537,7 +772,7 @@
 
             return (
                 <div onClick={() => onClick(product)}
-                     className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 group border border-gray-100 cursor-pointer">
+                     className="product-card bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 cursor-pointer relative group">
                     <div className="relative overflow-hidden">
                         {photos.length > 0 ? (
                             <img src={photos[0]} alt={product.name} className="product-image bg-gray-100 group-hover:scale-105 transition-transform duration-500" loading="lazy" />
@@ -546,6 +781,11 @@
                                 <span className="text-white text-center px-3 font-bold text-base drop-shadow">{product.name}</span>
                             </div>
                         )}
+                        {/* Wishlist heart */}
+                        <button onClick={onToggleWishlist}
+                            className="absolute top-2 left-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-md hover:bg-white transition z-[1]">
+                            <HeartIcon filled={isWishlisted} />
+                        </button>
                         {photos.length > 1 && (
                             <span className="absolute top-2 right-2 bg-black/50 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm">
                                 {photos.length} photos
@@ -561,6 +801,7 @@
                     </div>
                     <div className="p-3.5">
                         <h3 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-1">{product.name}</h3>
+                        {rating > 0 && <div className="mb-1"><StarRating rating={rating} size={12} count={reviewCount} /></div>}
                         {product.description && <p className="text-xs text-gray-400 line-clamp-1 mb-2">{product.description}</p>}
                         <div className="flex items-center justify-between">
                             {hasVariants && minPrice !== maxPrice ? (
@@ -576,12 +817,17 @@
         }
 
         // ==================== PRODUCT DETAIL MODAL ====================
-        function ProductDetailModal({ product, onAddToCart, onClose, cart }) {
+        function ProductDetailModal({ product, onAddToCart, onClose, cart, reviews, avgRating, sellerId, onReviewAdded, isWishlisted, onToggleWishlist }) {
             const [activePhoto, setActivePhoto] = useState(0);
             const [selectedColor, setSelectedColor] = useState('');
             const [selectedSize, setSelectedSize] = useState('');
             const [qty, setQty] = useState(1);
             const [added, setAdded] = useState(false);
+            const [showReviewForm, setShowReviewForm] = useState(false);
+            const [reviewRating, setReviewRating] = useState(5);
+            const [reviewText, setReviewText] = useState('');
+            const [reviewName, setReviewName] = useState('');
+            const [submittingReview, setSubmittingReview] = useState(false);
 
             const photos = Array.isArray(product.photos) && product.photos.length > 0
                 ? product.photos : (product.photo_url ? [product.photo_url] : []);
@@ -604,11 +850,10 @@
             const displayPrice = hasVariants && matchedVariant && matchedVariant.price
                 ? parseFloat(matchedVariant.price) : product.price;
 
-            // Stock logic
             const getStock = () => {
                 if (hasVariants && matchedVariant) return parseInt(matchedVariant.stock) || 0;
-                if (hasVariants && !matchedVariant) return null; // no variant selected yet
-                return product.stock !== null && product.stock !== undefined ? parseInt(product.stock) : null; // null = unlimited
+                if (hasVariants && !matchedVariant) return null;
+                return product.stock !== null && product.stock !== undefined ? parseInt(product.stock) : null;
             };
             const stock = getStock();
             const cartKey = hasVariants ? `${product.id}-${selectedColor}-${selectedSize}` : `${product.id}`;
@@ -618,10 +863,8 @@
             const isOutOfStock = stock !== null && stock <= 0;
             const canAdd = !isOutOfStock && qty > 0 && qty <= maxQty;
 
-            // Reset qty when variant changes
             useEffect(() => { setQty(1); }, [selectedColor, selectedSize]);
 
-            // Get stock for a specific variant (for size pills)
             const getVariantStock = (color, size) => {
                 const v = variants.find(x => x.color === color && x.size === size);
                 return v ? (parseInt(v.stock) || 0) : 0;
@@ -645,13 +888,41 @@
                 setTimeout(() => { setAdded(false); onClose(); }, 800);
             };
 
+            const submitReview = async () => {
+                if (!reviewName.trim()) { alert('Please enter your name'); return; }
+                if (!reviewText.trim()) { alert('Please write a review'); return; }
+                setSubmittingReview(true);
+                try {
+                    const { data, error } = await supabase.from('product_reviews').insert([{
+                        product_id: product.id,
+                        seller_id: sellerId,
+                        reviewer_name: reviewName.trim(),
+                        rating: reviewRating,
+                        comment: reviewText.trim(),
+                    }]).select().single();
+                    if (error) throw error;
+                    onReviewAdded(data);
+                    setShowReviewForm(false);
+                    setReviewText('');
+                    setReviewRating(5);
+                } catch (err) {
+                    alert('Failed to submit review. Please try again.');
+                }
+                setSubmittingReview(false);
+            };
+
             return (
                 <div className="fixed inset-0 bg-black/60 z-[55] flex items-center justify-center p-4 fade-in" onClick={onClose}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-enter relative" onClick={e => e.stopPropagation()}>
-                        {/* Close button */}
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-enter relative modal-scroll" onClick={e => e.stopPropagation()}>
                         <button onClick={onClose}
                             className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-gray-600 hover:bg-white transition">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+
+                        {/* Wishlist button */}
+                        <button onClick={(e) => { e.stopPropagation(); onToggleWishlist(); }}
+                            className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition">
+                            <HeartIcon filled={isWishlisted} />
                         </button>
 
                         {/* Photo gallery */}
@@ -699,6 +970,7 @@
                         <div className="p-5 space-y-4">
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">{product.name}</h2>
+                                {avgRating > 0 && <div className="mt-1"><StarRating rating={avgRating} count={reviews.length} /></div>}
                                 {product.description && <p className="text-sm text-gray-500 mt-1">{product.description}</p>}
                             </div>
 
@@ -711,7 +983,6 @@
                                     <div className="flex flex-wrap gap-2">
                                         {colors.map(c => {
                                             const available = !selectedSize || availableColors.includes(c);
-                                            // Check if any variant of this color has stock
                                             const colorVariants = variants.filter(v => v.color === c);
                                             const colorStock = colorVariants.reduce((s, v) => s + (parseInt(v.stock) || 0), 0);
                                             const colorOos = colorStock <= 0;
@@ -785,11 +1056,10 @@
                                 </p>
                             )}
 
-                            {/* Quantity selector + Price + Add to Cart */}
+                            {/* Price + Qty + Add */}
                             <div className="pt-3 border-t border-gray-100 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-2xl font-bold text-brand-600">{formatCurrency(displayPrice)}</span>
-                                    {/* Quantity controls */}
                                     <div className="flex items-center gap-3">
                                         <span className="text-xs font-semibold text-gray-500 uppercase">Qty</span>
                                         <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
@@ -798,18 +1068,68 @@
                                             <span className="w-10 text-center font-bold text-sm">{qty}</span>
                                             <button onClick={() => setQty(Math.min(maxQty, qty + 1))}
                                                 disabled={qty >= maxQty}
-                                                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed">+</button>
+                                                className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition font-bold text-lg disabled:opacity-30">+</button>
                                         </div>
                                     </div>
                                 </div>
                                 <button onClick={handleAdd} disabled={!canAdd}
-                                    className={`w-full py-3.5 rounded-xl font-bold text-base transition-all shadow-md ${
-                                        added ? 'bg-brand-600 text-white scale-[0.98]'
-                                        : !canAdd ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-                                        : 'bg-brand-500 text-white hover:bg-brand-600 hover:shadow-lg'
+                                    className={`w-full font-bold py-3 rounded-xl transition-all shadow-md text-white ${
+                                        added ? 'bg-green-500' : canAdd ? 'bg-brand-500 hover:bg-brand-600' : 'bg-gray-300 cursor-not-allowed'
                                     }`}>
-                                    {added ? '✓ Added to Cart' : isOutOfStock ? 'Out of Stock' : `Add to Cart — ${formatCurrency(displayPrice * qty)}`}
+                                    {added ? '✓ Added to Cart!' : isOutOfStock ? 'Out of Stock' : `Add to Cart · ${formatCurrency(displayPrice * qty)}`}
                                 </button>
+                            </div>
+
+                            {/* Reviews section */}
+                            <div className="pt-4 border-t border-gray-100">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-bold text-gray-900">Reviews ({reviews.length})</h3>
+                                    <button onClick={() => setShowReviewForm(!showReviewForm)}
+                                        className="text-xs font-semibold text-brand-600 hover:underline">
+                                        {showReviewForm ? 'Cancel' : 'Write a Review'}
+                                    </button>
+                                </div>
+
+                                {showReviewForm && (
+                                    <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-3 slide-up">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">Your Name</label>
+                                            <input type="text" value={reviewName} onChange={e => setReviewName(e.target.value)}
+                                                placeholder="Enter your name" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">Rating</label>
+                                            <StarInput value={reviewRating} onChange={setReviewRating} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">Your Review</label>
+                                            <textarea value={reviewText} onChange={e => setReviewText(e.target.value)}
+                                                placeholder="Share your experience..." rows="3"
+                                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+                                        </div>
+                                        <button onClick={submitReview} disabled={submittingReview}
+                                            className="bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition disabled:opacity-50">
+                                            {submittingReview ? 'Submitting...' : 'Submit Review'}
+                                        </button>
+                                    </div>
+                                )}
+
+                                {reviews.length === 0 ? (
+                                    <p className="text-sm text-gray-400 text-center py-4">No reviews yet. Be the first!</p>
+                                ) : (
+                                    <div className="space-y-3 max-h-60 overflow-y-auto modal-scroll">
+                                        {reviews.slice(0, 10).map(r => (
+                                            <div key={r.id} className="border-b border-gray-50 pb-3 last:border-0">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="font-semibold text-sm text-gray-800">{r.reviewer_name}</span>
+                                                    <span className="text-[10px] text-gray-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                                <StarRating rating={r.rating} size={12} />
+                                                {r.comment && <p className="text-sm text-gray-600 mt-1">{r.comment}</p>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -817,9 +1137,280 @@
             );
         }
 
+        // ==================== MY ORDERS MODAL ====================
+        function MyOrdersModal({ sellerId, onClose }) {
+            const [step, setStep] = useState('phone'); // phone → otp → orders
+            const [phone, setPhone] = useState('');
+            const [otp, setOtp] = useState('');
+            const [orders, setOrders] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const normalizePhone = (p) => {
+                let cleaned = p.replace(/[\s()-]/g, '');
+                if (cleaned.startsWith('0') && cleaned.length === 10) cleaned = '+27' + cleaned.slice(1);
+                else if (cleaned.startsWith('27') && !cleaned.startsWith('+')) cleaned = '+' + cleaned;
+                else if (cleaned.startsWith('266') && !cleaned.startsWith('+')) cleaned = '+' + cleaned;
+                return cleaned;
+            };
+
+            const requestOtp = async () => {
+                if (!phone.trim()) { setError('Please enter your phone number'); return; }
+                setLoading(true); setError('');
+                const normalized = normalizePhone(phone);
+                try {
+                    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+                    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+                    await supabase.from('buyer_otps').insert([{
+                        phone: normalized, otp_code: otpCode, expires_at: expiresAt, seller_id: sellerId
+                    }]);
+                    // Send OTP via WhatsApp
+                    try {
+                        await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}` },
+                            body: JSON.stringify({ phone: normalized, otp_code: otpCode, type: 'buyer_otp' }),
+                        });
+                    } catch (e) { console.warn('OTP WhatsApp send failed:', e); }
+                    setStep('otp');
+                } catch (err) { setError('Failed to send OTP. Please try again.'); }
+                setLoading(false);
+            };
+
+            const verifyOtp = async () => {
+                if (!otp.trim()) { setError('Please enter the OTP'); return; }
+                setLoading(true); setError('');
+                const normalized = normalizePhone(phone);
+                try {
+                    const { data: otpRecord } = await supabase.from('buyer_otps')
+                        .select('*').eq('phone', normalized).eq('otp_code', otp.trim())
+                        .eq('seller_id', sellerId).gt('expires_at', new Date().toISOString())
+                        .order('created_at', { ascending: false }).limit(1).single();
+
+                    if (!otpRecord) { setError('Invalid or expired OTP. Please try again.'); setLoading(false); return; }
+
+                    // Load orders
+                    const { data: ordersData } = await supabase.from('orders')
+                        .select('*, order_items(*)')
+                        .eq('seller_id', sellerId)
+                        .eq('customer_phone', normalized)
+                        .order('created_at', { ascending: false });
+
+                    setOrders(ordersData || []);
+                    setStep('orders');
+                } catch (err) { setError('Verification failed. Please try again.'); }
+                setLoading(false);
+            };
+
+            const statusTimeline = ['new', 'confirmed', 'paid', 'shipped', 'delivered'];
+            const getStatusIndex = (status) => statusTimeline.indexOf(status);
+
+            return (
+                <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4 fade-in" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                            <h2 className="text-lg font-bold text-gray-900">My Orders</h2>
+                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto modal-scroll p-5">
+                            {step === 'phone' && (
+                                <div className="space-y-4 slide-up">
+                                    <p className="text-sm text-gray-500">Enter your WhatsApp number to view your orders. We'll send you a verification code.</p>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">WhatsApp Number</label>
+                                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                                            placeholder="+27... or 0..." className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50"
+                                            onKeyDown={e => e.key === 'Enter' && requestOtp()} />
+                                    </div>
+                                    {error && <p className="text-red-500 text-xs">{error}</p>}
+                                    <button onClick={requestOtp} disabled={loading}
+                                        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition disabled:opacity-50">
+                                        {loading ? 'Sending...' : 'Send OTP via WhatsApp'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {step === 'otp' && (
+                                <div className="space-y-4 slide-up">
+                                    <p className="text-sm text-gray-500">We sent a 6-digit code to your WhatsApp. Enter it below.</p>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Verification Code</label>
+                                        <input type="text" value={otp} onChange={e => setOtp(e.target.value)}
+                                            placeholder="123456" maxLength={6}
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-2xl font-bold tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50"
+                                            onKeyDown={e => e.key === 'Enter' && verifyOtp()} />
+                                    </div>
+                                    {error && <p className="text-red-500 text-xs">{error}</p>}
+                                    <button onClick={verifyOtp} disabled={loading}
+                                        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition disabled:opacity-50">
+                                        {loading ? 'Verifying...' : 'Verify & View Orders'}
+                                    </button>
+                                    <button onClick={() => { setStep('phone'); setOtp(''); setError(''); }}
+                                        className="w-full text-gray-500 text-sm font-medium hover:text-gray-700">
+                                        Back
+                                    </button>
+                                </div>
+                            )}
+
+                            {step === 'orders' && (
+                                <div className="slide-up">
+                                    {orders.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <div className="text-4xl mb-3">📦</div>
+                                            <p className="text-gray-500">No orders found for this number.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {orders.map(order => (
+                                                <div key={order.id} className="bg-gray-50 rounded-xl p-4 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="font-bold text-gray-900 text-sm">{order.order_number}</p>
+                                                            <p className="text-[11px] text-gray-400">{new Date(order.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                                        </div>
+                                                        <span className="text-sm font-bold" style={{ color: window.getStatusColor(order.status) }}>
+                                                            {window.getStatusLabel(order.status)}
+                                                        </span>
+                                                    </div>
+                                                    {/* Status timeline */}
+                                                    {order.status !== 'cancelled' && (
+                                                        <div className="flex items-center gap-1">
+                                                            {statusTimeline.map((s, i) => (
+                                                                <React.Fragment key={s}>
+                                                                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${i <= getStatusIndex(order.status) ? 'bg-brand-500' : 'bg-gray-200'}`} title={window.getStatusLabel(s)} />
+                                                                    {i < statusTimeline.length - 1 && (
+                                                                        <div className={`flex-1 h-0.5 ${i < getStatusIndex(order.status) ? 'bg-brand-500' : 'bg-gray-200'}`} />
+                                                                    )}
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {/* Items */}
+                                                    {order.order_items && order.order_items.map(item => (
+                                                        <div key={item.id} className="flex justify-between text-xs text-gray-600">
+                                                            <span>{item.product_name} × {item.quantity}</span>
+                                                            <span className="font-semibold">{formatCurrency(item.unit_price * item.quantity)}</span>
+                                                        </div>
+                                                    ))}
+                                                    <div className="flex justify-between pt-2 border-t border-gray-200">
+                                                        <span className="text-xs font-medium text-gray-500">Total</span>
+                                                        <span className="font-bold text-brand-600">{formatCurrency(order.total)}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ==================== STORE INFO MODAL ====================
+        function StoreInfoModal({ seller, onClose }) {
+            const hours = seller?.business_hours || {};
+            const areas = seller?.delivery_areas || [];
+            const bank = seller?.bank_details || {};
+            const social = seller?.social_links || {};
+            const dayNames = ['mon','tue','wed','thu','fri','sat','sun'];
+            const dayLabels = { mon:'Monday', tue:'Tuesday', wed:'Wednesday', thu:'Thursday', fri:'Friday', sat:'Saturday', sun:'Sunday' };
+
+            return (
+                <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4 fade-in" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                            <h2 className="text-lg font-bold text-gray-900">Store Info</h2>
+                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">
+                            {/* Logo + Name */}
+                            <div className="text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mx-auto mb-2 overflow-hidden">
+                                    {seller?.logo_url
+                                        ? <img src={seller.logo_url} alt="" className="w-full h-full object-cover" />
+                                        : <span className="text-brand-600 text-2xl font-bold">{seller?.business_name?.charAt(0)}</span>
+                                    }
+                                </div>
+                                <h3 className="font-bold text-gray-900 text-lg">{seller?.business_name}</h3>
+                                {seller?.business_description && <p className="text-sm text-gray-500 mt-1">{seller.business_description}</p>}
+                            </div>
+
+                            {/* Address */}
+                            {(seller?.address || seller?.location) && (
+                                <div>
+                                    <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1"><MapPinIcon /> Address</h4>
+                                    <p className="text-sm text-gray-700">{seller.address || seller.location}</p>
+                                </div>
+                            )}
+
+                            {/* Business Hours */}
+                            {Object.keys(hours).length > 0 && (
+                                <div>
+                                    <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1"><ClockIcon /> Business Hours</h4>
+                                    <div className="space-y-1">
+                                        {dayNames.map(d => (
+                                            <div key={d} className="flex justify-between text-sm">
+                                                <span className="text-gray-500">{dayLabels[d]}</span>
+                                                <span className="text-gray-800 font-medium">{hours[d] || 'Closed'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Delivery Areas */}
+                            {areas.length > 0 && (
+                                <div>
+                                    <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1"><TruckIcon /> Delivery Areas</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {areas.map((a, i) => (
+                                            <span key={i} className="bg-brand-50 text-brand-700 text-xs font-medium px-3 py-1 rounded-full">{a}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Payment Methods */}
+                            <div>
+                                <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Payment Methods</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg">🏦 EFT</span>
+                                    <span className="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg">📱 Mobile Money</span>
+                                    <span className="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg">💵 Cash</span>
+                                </div>
+                            </div>
+
+                            {/* Bank Details */}
+                            {bank.bank_name && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
+                                    <p className="font-bold text-blue-900">Bank Details for EFT:</p>
+                                    {bank.bank_name && <p>Bank: {bank.bank_name}</p>}
+                                    {bank.account_holder && <p>Account Holder: {bank.account_holder}</p>}
+                                    {bank.account_number && <p>Account No: {bank.account_number}</p>}
+                                    {bank.branch_code && <p>Branch Code: {bank.branch_code}</p>}
+                                    {bank.reference && <p>Reference: {bank.reference}</p>}
+                                </div>
+                            )}
+
+                            {/* WhatsApp chat */}
+                            {seller?.phone && (
+                                <a href={`https://wa.me/${seller.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener"
+                                    className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
+                                    <WhatsAppIcon size={18} /> Chat on WhatsApp
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         // ==================== RENDER ====================
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<Store />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<Store />);
     </script>
 </body>
 </html>

@@ -158,6 +158,41 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                 </svg>
+            ),
+            settings: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            ),
+            camera: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                </svg>
+            ),
+            save: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                </svg>
+            ),
+            lock: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            ),
+            clock: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+            ),
+            mapPin: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+            ),
+            bank: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
             )
         };
 
@@ -3212,6 +3247,314 @@
         };
 
         // ============================================================================
+        // SETTINGS SCREEN
+        // ============================================================================
+
+        const SettingsScreen = ({ seller, onSellerUpdate }) => {
+            const supabase = window.supabaseClient;
+            const hashPin = window.hashPin;
+
+            const [flash, setFlash] = useState({ show: false, message: '', type: 'success' });
+            const showFlash = (message, type = 'success') => {
+                setFlash({ show: true, message, type });
+                setTimeout(() => setFlash({ show: false, message: '', type: 'success' }), 3000);
+            };
+
+            // ---- Profile & Store ----
+            const [profile, setProfile] = useState({
+                full_name: seller.full_name || '',
+                business_name: seller.business_name || '',
+                business_description: seller.business_description || '',
+                seller_phone: seller.seller_phone || seller.phone || '',
+                location: seller.location || '',
+                address: seller.address || '',
+                logo_url: seller.logo_url || '',
+                banner_url: seller.banner_url || '',
+                preferred_language: seller.preferred_language || 'en',
+            });
+            const [savingProfile, setSavingProfile] = useState(false);
+
+            const saveProfile = async () => {
+                setSavingProfile(true);
+                try {
+                    const { error } = await supabase.from('sellers').update(profile).eq('id', seller.id);
+                    if (error) throw error;
+                    const updated = { ...seller, ...profile };
+                    onSellerUpdate(updated);
+                    localStorage.setItem('current_seller', JSON.stringify(updated));
+                    showFlash('Profile updated successfully!');
+                } catch (err) { showFlash('Failed to update profile: ' + err.message, 'error'); }
+                setSavingProfile(false);
+            };
+
+            // ---- Change PIN ----
+            const [pinData, setPinData] = useState({ current: '', newPin: '', confirm: '' });
+            const [savingPin, setSavingPin] = useState(false);
+
+            const changePin = async () => {
+                if (!pinData.current || !pinData.newPin || !pinData.confirm) {
+                    showFlash('Please fill in all PIN fields', 'error'); return;
+                }
+                if (pinData.newPin.length < 4) {
+                    showFlash('New PIN must be at least 4 digits', 'error'); return;
+                }
+                if (pinData.newPin !== pinData.confirm) {
+                    showFlash('New PIN and confirmation do not match', 'error'); return;
+                }
+                if (hashPin(pinData.current) !== seller.pin_hash) {
+                    showFlash('Current PIN is incorrect', 'error'); return;
+                }
+                setSavingPin(true);
+                try {
+                    const newHash = hashPin(pinData.newPin);
+                    const { error } = await supabase.from('sellers').update({ pin_hash: newHash }).eq('id', seller.id);
+                    if (error) throw error;
+                    const updated = { ...seller, pin_hash: newHash };
+                    onSellerUpdate(updated);
+                    localStorage.setItem('current_seller', JSON.stringify(updated));
+                    setPinData({ current: '', newPin: '', confirm: '' });
+                    showFlash('PIN changed successfully!');
+                } catch (err) { showFlash('Failed to change PIN: ' + err.message, 'error'); }
+                setSavingPin(false);
+            };
+
+            // ---- Business Hours ----
+            const defaultHours = { mon: '', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '' };
+            const [hours, setHours] = useState({ ...defaultHours, ...(seller.business_hours || {}) });
+            const [savingHours, setSavingHours] = useState(false);
+            const dayLabels = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+
+            const saveHours = async () => {
+                setSavingHours(true);
+                try {
+                    const { error } = await supabase.from('sellers').update({ business_hours: hours }).eq('id', seller.id);
+                    if (error) throw error;
+                    const updated = { ...seller, business_hours: hours };
+                    onSellerUpdate(updated);
+                    localStorage.setItem('current_seller', JSON.stringify(updated));
+                    showFlash('Business hours saved!');
+                } catch (err) { showFlash('Failed to save hours: ' + err.message, 'error'); }
+                setSavingHours(false);
+            };
+
+            // ---- Delivery Areas ----
+            const [areasText, setAreasText] = useState((seller.delivery_areas || []).join(', '));
+            const [savingAreas, setSavingAreas] = useState(false);
+
+            const saveAreas = async () => {
+                setSavingAreas(true);
+                const areasArray = areasText.split(',').map(a => a.trim()).filter(Boolean);
+                try {
+                    const { error } = await supabase.from('sellers').update({ delivery_areas: areasArray }).eq('id', seller.id);
+                    if (error) throw error;
+                    const updated = { ...seller, delivery_areas: areasArray };
+                    onSellerUpdate(updated);
+                    localStorage.setItem('current_seller', JSON.stringify(updated));
+                    showFlash('Delivery areas saved!');
+                } catch (err) { showFlash('Failed to save areas: ' + err.message, 'error'); }
+                setSavingAreas(false);
+            };
+
+            // ---- Bank / Payment Details ----
+            const [bankDetails, setBankDetails] = useState({
+                bank_name: '', account_holder: '', account_number: '', branch_code: '', reference: '',
+                ...(seller.bank_details || {})
+            });
+            const [savingBank, setSavingBank] = useState(false);
+
+            const saveBank = async () => {
+                setSavingBank(true);
+                try {
+                    const { error } = await supabase.from('sellers').update({ bank_details: bankDetails }).eq('id', seller.id);
+                    if (error) throw error;
+                    const updated = { ...seller, bank_details: bankDetails };
+                    onSellerUpdate(updated);
+                    localStorage.setItem('current_seller', JSON.stringify(updated));
+                    showFlash('Bank details saved!');
+                } catch (err) { showFlash('Failed to save bank details: ' + err.message, 'error'); }
+                setSavingBank(false);
+            };
+
+            // ---- Social Links ----
+            const [social, setSocial] = useState({
+                facebook: '', instagram: '', tiktok: '', website: '',
+                ...(seller.social_links || {})
+            });
+            const [savingSocial, setSavingSocial] = useState(false);
+
+            const saveSocial = async () => {
+                setSavingSocial(true);
+                try {
+                    const { error } = await supabase.from('sellers').update({ social_links: social }).eq('id', seller.id);
+                    if (error) throw error;
+                    const updated = { ...seller, social_links: social };
+                    onSellerUpdate(updated);
+                    localStorage.setItem('current_seller', JSON.stringify(updated));
+                    showFlash('Social links saved!');
+                } catch (err) { showFlash('Failed to save social links: ' + err.message, 'error'); }
+                setSavingSocial(false);
+            };
+
+            // Helpers
+            const InputField = ({ label, value, onChange, type = 'text', placeholder = '', textarea = false }) => (
+                <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">{label}</label>
+                    {textarea ? (
+                        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows="3"
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none" />
+                    ) : (
+                        <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50" />
+                    )}
+                </div>
+            );
+
+            const SaveButton = ({ onClick, saving, label = 'Save Changes' }) => (
+                <button onClick={onClick} disabled={saving}
+                    className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm disabled:opacity-50">
+                    <Icons.save /> {saving ? 'Saving...' : label}
+                </button>
+            );
+
+            const SectionCard = ({ icon, title, children }) => (
+                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                        {icon}
+                        <h3 className="font-bold text-gray-900">{title}</h3>
+                    </div>
+                    <div className="p-5 space-y-4">
+                        {children}
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+
+                    {/* Flash message */}
+                    {flash.show && (
+                        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-semibold animate-pulse ${
+                            flash.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                        }`}>
+                            {flash.message}
+                        </div>
+                    )}
+
+                    {/* 1. Profile & Store */}
+                    <SectionCard icon={<Icons.store />} title="Profile & Store">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="Full Name" value={profile.full_name} onChange={v => setProfile({...profile, full_name: v})} placeholder="Your name" />
+                            <InputField label="Business Name" value={profile.business_name} onChange={v => setProfile({...profile, business_name: v})} placeholder="Store name" />
+                        </div>
+                        <InputField label="Business Description" value={profile.business_description} onChange={v => setProfile({...profile, business_description: v})} placeholder="What do you sell?" textarea />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+27..." type="tel" />
+                            <InputField label="Location" value={profile.location} onChange={v => setProfile({...profile, location: v})} placeholder="City, Province" />
+                        </div>
+                        <InputField label="Address" value={profile.address} onChange={v => setProfile({...profile, address: v})} placeholder="Full street address" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="Logo URL" value={profile.logo_url} onChange={v => setProfile({...profile, logo_url: v})} placeholder="https://..." />
+                            <InputField label="Banner URL" value={profile.banner_url} onChange={v => setProfile({...profile, banner_url: v})} placeholder="https://..." />
+                        </div>
+                        {(profile.logo_url || profile.banner_url) && (
+                            <div className="flex gap-4">
+                                {profile.logo_url && (
+                                    <div>
+                                        <p className="text-xs text-gray-400 mb-1">Logo Preview</p>
+                                        <img src={profile.logo_url} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-gray-200" onError={e => e.target.style.display='none'} />
+                                    </div>
+                                )}
+                                {profile.banner_url && (
+                                    <div className="flex-1">
+                                        <p className="text-xs text-gray-400 mb-1">Banner Preview</p>
+                                        <img src={profile.banner_url} alt="Banner" className="w-full h-16 rounded-xl object-cover border border-gray-200" onError={e => e.target.style.display='none'} />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Preferred Language</label>
+                            <select value={profile.preferred_language} onChange={e => setProfile({...profile, preferred_language: e.target.value})}
+                                className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50">
+                                <option value="en">English</option>
+                                <option value="st">Sesotho</option>
+                            </select>
+                        </div>
+                        <SaveButton onClick={saveProfile} saving={savingProfile} />
+                    </SectionCard>
+
+                    {/* 2. Change PIN */}
+                    <SectionCard icon={<Icons.lock />} title="Change PIN">
+                        <InputField label="Current PIN" value={pinData.current} onChange={v => setPinData({...pinData, current: v})} type="password" placeholder="Enter current PIN" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="New PIN" value={pinData.newPin} onChange={v => setPinData({...pinData, newPin: v})} type="password" placeholder="At least 4 digits" />
+                            <InputField label="Confirm New PIN" value={pinData.confirm} onChange={v => setPinData({...pinData, confirm: v})} type="password" placeholder="Re-enter new PIN" />
+                        </div>
+                        <SaveButton onClick={changePin} saving={savingPin} label="Change PIN" />
+                    </SectionCard>
+
+                    {/* 3. Business Hours */}
+                    <SectionCard icon={<Icons.clock />} title="Business Hours">
+                        <p className="text-xs text-gray-400">Enter hours like "08:00 - 17:00" or "Closed"</p>
+                        <div className="space-y-2">
+                            {Object.keys(dayLabels).map(d => (
+                                <div key={d} className="flex items-center gap-3">
+                                    <span className="text-sm font-medium text-gray-600 w-24">{dayLabels[d]}</span>
+                                    <input type="text" value={hours[d] || ''} onChange={e => setHours({...hours, [d]: e.target.value})}
+                                        placeholder="e.g. 08:00 - 17:00"
+                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                </div>
+                            ))}
+                        </div>
+                        <SaveButton onClick={saveHours} saving={savingHours} />
+                    </SectionCard>
+
+                    {/* 4. Delivery Areas */}
+                    <SectionCard icon={<Icons.mapPin />} title="Delivery Areas">
+                        <InputField label="Areas (comma separated)" value={areasText} onChange={setAreasText} placeholder="Maseru, Ladybrand, Bloemfontein" textarea />
+                        {areasText && (
+                            <div className="flex flex-wrap gap-2">
+                                {areasText.split(',').map(a => a.trim()).filter(Boolean).map((a, i) => (
+                                    <span key={i} className="bg-brand-50 text-brand-700 text-xs font-medium px-3 py-1 rounded-full">{a}</span>
+                                ))}
+                            </div>
+                        )}
+                        <SaveButton onClick={saveAreas} saving={savingAreas} />
+                    </SectionCard>
+
+                    {/* 5. Bank / Payment Details */}
+                    <SectionCard icon={<Icons.bank />} title="Bank / Payment Details">
+                        <p className="text-xs text-gray-400">These details are shown to buyers when they select EFT payment.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
+                            <InputField label="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
+                            <InputField label="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
+                        </div>
+                        <InputField label="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
+                        <SaveButton onClick={saveBank} saving={savingBank} />
+                    </SectionCard>
+
+                    {/* 6. Social Links */}
+                    <SectionCard icon={<Icons.externalLink />} title="Social Links">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="Facebook" value={social.facebook} onChange={v => setSocial({...social, facebook: v})} placeholder="https://facebook.com/..." />
+                            <InputField label="Instagram" value={social.instagram} onChange={v => setSocial({...social, instagram: v})} placeholder="https://instagram.com/..." />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <InputField label="TikTok" value={social.tiktok} onChange={v => setSocial({...social, tiktok: v})} placeholder="https://tiktok.com/@..." />
+                            <InputField label="Website" value={social.website} onChange={v => setSocial({...social, website: v})} placeholder="https://..." />
+                        </div>
+                        <SaveButton onClick={saveSocial} saving={savingSocial} />
+                    </SectionCard>
+                </div>
+            );
+        };
+
+        // ============================================================================
         // MAIN APP COMPONENT — RESPONSIVE SIDEBAR + BOTTOM NAV
         // ============================================================================
 
@@ -3248,6 +3591,7 @@
                 { id: 'orders', label: 'Orders', Icon: Icons.orders },
                 { id: 'payments', label: 'Payments', Icon: Icons.payments },
                 { id: 'templates', label: 'Templates', Icon: Icons.templates },
+                { id: 'settings', label: 'Settings', Icon: Icons.settings },
             ];
 
             return (
@@ -3339,6 +3683,7 @@
                                 {currentTab === 'orders' && <OrdersScreen seller={currentUser} />}
                                 {currentTab === 'payments' && <PaymentsScreen seller={currentUser} />}
                                 {currentTab === 'templates' && <TemplatesScreen seller={currentUser} />}
+                                {currentTab === 'settings' && <SettingsScreen seller={currentUser} onSellerUpdate={setCurrentUser} />}
                             </div>
                         </div>
                     </main>
