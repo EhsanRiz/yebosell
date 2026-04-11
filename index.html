@@ -876,11 +876,12 @@
                 description: '',
                 price: '',
                 category: 'other',
-                photo_url: '',
+                photos: [],
                 active: true
             });
             const [uploading, setUploading] = useState(false);
             const fileInputRef = useRef(null);
+            const [lightboxImg, setLightboxImg] = useState(null);
 
             useEffect(() => {
                 loadProducts();
@@ -895,7 +896,11 @@
                         .order('sort_order', { ascending: true });
 
                     if (error) throw error;
-                    setProducts((data || []).map(p => ({ ...p, active: p.is_active })));
+                    setProducts((data || []).map(p => ({
+                        ...p,
+                        active: p.is_active,
+                        photos: Array.isArray(p.photos) ? p.photos : (p.photo_url ? [p.photo_url] : [])
+                    })));
                 } catch (err) {
                     console.error('Load products error:', err);
                 } finally {
@@ -903,11 +908,13 @@
                 }
             };
 
+            const MAX_PHOTOS = 5;
             const [dragOver, setDragOver] = useState(false);
             const cameraInputRef = useRef(null);
 
             const uploadFile = async (file) => {
                 if (!file) return;
+                if (formData.photos.length >= MAX_PHOTOS) { alert(`Maximum ${MAX_PHOTOS} photos per product`); return; }
                 if (file.size > 5 * 1024 * 1024) { alert('Photo must be smaller than 5MB'); return; }
                 if (!file.type.startsWith('image/')) { alert('Please select an image file'); return; }
 
@@ -918,7 +925,7 @@
                     const { error: uploadErr } = await supabase.storage.from('product-photos').upload(path, file);
                     if (uploadErr) throw uploadErr;
                     const { data } = supabase.storage.from('product-photos').getPublicUrl(path);
-                    setFormData(prev => ({ ...prev, photo_url: data.publicUrl }));
+                    setFormData(prev => ({ ...prev, photos: [...prev.photos, data.publicUrl] }));
                 } catch (err) {
                     alert('Upload failed: ' + err.message);
                 } finally {
@@ -926,20 +933,29 @@
                 }
             };
 
-            const handlePhotoUpload = (e) => uploadFile(e.target.files?.[0]);
-            const handleCameraCapture = (e) => uploadFile(e.target.files?.[0]);
+            const handlePhotoUpload = (e) => { Array.from(e.target.files || []).forEach(f => uploadFile(f)); e.target.value = ''; };
+            const handleCameraCapture = (e) => { uploadFile(e.target.files?.[0]); e.target.value = ''; };
+            const removePhoto = (index) => setFormData(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== index) }));
+            const setCoverPhoto = (index) => {
+                setFormData(prev => {
+                    const photos = [...prev.photos];
+                    const [moved] = photos.splice(index, 1);
+                    photos.unshift(moved);
+                    return { ...prev, photos };
+                });
+            };
 
             const handleDrop = (e) => {
                 e.preventDefault();
                 setDragOver(false);
-                const file = e.dataTransfer.files?.[0];
-                if (file) uploadFile(file);
+                Array.from(e.dataTransfer.files || []).forEach(f => uploadFile(f));
             };
 
             const handlePasteUrl = () => {
                 const url = prompt('Paste image URL:');
                 if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-                    setFormData(prev => ({ ...prev, photo_url: url }));
+                    if (formData.photos.length >= MAX_PHOTOS) { alert(`Maximum ${MAX_PHOTOS} photos`); return; }
+                    setFormData(prev => ({ ...prev, photos: [...prev.photos, url] }));
                 } else if (url) {
                     alert('Please enter a valid URL starting with http:// or https://');
                 }
@@ -952,8 +968,13 @@
                 }
 
                 try {
-                    const { active, ...rest } = formData;
-                    const dbData = { ...rest, is_active: active };
+                    const { active, photos, ...rest } = formData;
+                    const dbData = {
+                        ...rest,
+                        is_active: active,
+                        photos: photos,
+                        photo_url: photos.length > 0 ? photos[0] : '',
+                    };
 
                     if (editingId) {
                         const { error } = await supabase
@@ -1035,7 +1056,7 @@
                     description: '',
                     price: '',
                     category: 'other',
-                    photo_url: '',
+                    photos: [],
                     active: true
                 });
             };
@@ -1047,7 +1068,7 @@
                     description: product.description || '',
                     price: product.price.toString(),
                     category: product.category || 'other',
-                    photo_url: product.photo_url || '',
+                    photos: Array.isArray(product.photos) ? product.photos : (product.photo_url ? [product.photo_url] : []),
                     active: product.active !== undefined ? product.active : product.is_active
                 });
                 setShowForm(true);
@@ -1139,22 +1160,43 @@
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Product Photo</label>
-                                    {formData.photo_url ? (
-                                        <div className="relative group">
-                                            <img src={formData.photo_url} alt="Product" className="w-full h-36 object-cover rounded-xl border border-gray-200" />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
-                                                <button onClick={() => fileInputRef.current?.click()}
-                                                    className="bg-white text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-100 transition">
-                                                    Replace
-                                                </button>
-                                                <button onClick={() => setFormData(prev => ({ ...prev, photo_url: '' }))}
-                                                    className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-600 transition">
-                                                    Remove
-                                                </button>
-                                            </div>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                                        Product Photos <span className="text-gray-400 font-normal normal-case">({formData.photos.length}/{MAX_PHOTOS})</span>
+                                    </label>
+
+                                    {/* Thumbnail strip of existing photos */}
+                                    {formData.photos.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-3">
+                                            {formData.photos.map((url, i) => (
+                                                <div key={i} className="relative group w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-200 flex-shrink-0"
+                                                     style={i === 0 ? { borderColor: '#25D366' } : {}}>
+                                                    <img src={url} alt={`Photo ${i + 1}`}
+                                                         className="w-full h-full object-cover cursor-pointer"
+                                                         onClick={() => setLightboxImg(url)} />
+                                                    {i === 0 && (
+                                                        <span className="absolute top-0.5 left-0.5 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none">
+                                                            COVER
+                                                        </span>
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                                        {i !== 0 && (
+                                                            <button onClick={(e) => { e.stopPropagation(); setCoverPhoto(i); }}
+                                                                className="bg-white/90 text-gray-800 w-6 h-6 rounded-full text-xs flex items-center justify-center hover:bg-white transition" title="Set as cover">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                                            </button>
+                                                        )}
+                                                        <button onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
+                                                            className="bg-red-500/90 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition" title="Remove">
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ) : (
+                                    )}
+
+                                    {/* Upload zone — show if under MAX_PHOTOS */}
+                                    {formData.photos.length < MAX_PHOTOS && (
                                         <div
                                             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                                             onDragLeave={() => setDragOver(false)}
@@ -1162,44 +1204,50 @@
                                             className={`relative rounded-xl border-2 border-dashed transition-all ${dragOver ? 'border-brand-500 bg-brand-50 scale-[1.02]' : 'border-gray-300 bg-gray-50 hover:border-brand-400 hover:bg-brand-50/50'}`}
                                         >
                                             {uploading ? (
-                                                <div className="flex flex-col items-center justify-center py-8">
+                                                <div className="flex flex-col items-center justify-center py-6">
                                                     <Spinner size="md" />
                                                     <p className="text-sm text-gray-500 mt-2">Uploading...</p>
                                                 </div>
                                             ) : (
-                                                <div className="py-5 px-4 text-center">
-                                                    <div className="w-12 h-12 bg-brand-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <div className="py-4 px-4 text-center">
+                                                    <div className="w-10 h-10 bg-brand-100 rounded-xl flex items-center justify-center mx-auto mb-2">
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
                                                         </svg>
                                                     </div>
-                                                    <p className="text-sm font-medium text-gray-700 mb-1">Add a product photo</p>
-                                                    <p className="text-xs text-gray-400 mb-3">Drag & drop, or choose an option below</p>
-
+                                                    <p className="text-sm font-medium text-gray-700 mb-1">
+                                                        {formData.photos.length === 0 ? 'Add product photos' : 'Add more photos'}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 mb-2">Drag & drop, or choose below</p>
                                                     <div className="flex flex-wrap justify-center gap-2">
                                                         <button onClick={() => fileInputRef.current?.click()} type="button"
-                                                            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-gray-50 hover:border-brand-300 transition shadow-sm">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                                            Browse Files
+                                                            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 hover:border-brand-300 transition shadow-sm">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                                            Browse
                                                         </button>
                                                         <button onClick={() => cameraInputRef.current?.click()} type="button"
-                                                            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-gray-50 hover:border-brand-300 transition shadow-sm">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                                                            Take Photo
+                                                            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 hover:border-brand-300 transition shadow-sm">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                                            Camera
                                                         </button>
                                                         <button onClick={handlePasteUrl} type="button"
-                                                            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-gray-50 hover:border-brand-300 transition shadow-sm">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                                                            Paste URL
+                                                            className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-50 hover:border-brand-300 transition shadow-sm">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                                            URL
                                                         </button>
                                                     </div>
-                                                    <p className="text-xs text-gray-300 mt-3">JPG, PNG, WebP up to 5MB</p>
+                                                    <p className="text-xs text-gray-300 mt-2">JPG, PNG, WebP up to 5MB</p>
                                                 </div>
                                             )}
                                         </div>
                                     )}
+
+                                    {formData.photos.length >= MAX_PHOTOS && (
+                                        <p className="text-xs text-amber-600 mt-1">Maximum {MAX_PHOTOS} photos reached. Remove one to add more.</p>
+                                    )}
+
                                     {/* Hidden file inputs */}
-                                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                                    <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" />
                                     <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleCameraCapture} className="hidden" />
                                 </div>
                             </div>
@@ -1231,6 +1279,19 @@
                         </div>
                     )}
 
+                    {/* Lightbox */}
+                    {lightboxImg && (
+                        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+                            <div className="relative max-w-3xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+                                <img src={lightboxImg} alt="Full size" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+                                <button onClick={() => setLightboxImg(null)}
+                                    className="absolute -top-3 -right-3 bg-white text-gray-700 w-8 h-8 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Products Grid */}
                     {products.length === 0 ? (
                         <div className="card card-shadow p-12 text-center">
@@ -1239,46 +1300,74 @@
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {products.map(product => (
-                                <div key={product.id} className="card card-shadow overflow-hidden group">
-                                    {product.photo_url ? (
-                                        <img src={product.photo_url} alt={product.name} className="w-full h-36 lg:h-44 object-cover" />
-                                    ) : (
-                                        <div className="w-full h-36 lg:h-44 bg-gray-100 flex items-center justify-center">
-                                            <Icons.products className="text-gray-300" style={{width: 32, height: 32}} />
+                            {products.map(product => {
+                                const photos = Array.isArray(product.photos) ? product.photos : (product.photo_url ? [product.photo_url] : []);
+                                const coverPhoto = photos[0];
+                                return (
+                                    <div key={product.id} className="card card-shadow overflow-hidden group">
+                                        <div className="relative">
+                                            {coverPhoto ? (
+                                                <img src={coverPhoto} alt={product.name}
+                                                     className="w-full h-36 lg:h-44 object-cover cursor-pointer"
+                                                     onClick={() => setLightboxImg(coverPhoto)} />
+                                            ) : (
+                                                <div className="w-full h-36 lg:h-44 bg-gray-100 flex items-center justify-center">
+                                                    <Icons.products className="text-gray-300" style={{width: 32, height: 32}} />
+                                                </div>
+                                            )}
+                                            {photos.length > 1 && (
+                                                <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="inline mr-1" style={{verticalAlign: '-1px'}}>
+                                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                                                    </svg>
+                                                    {photos.length}
+                                                </span>
+                                            )}
+                                            {/* Mini thumbnail strip on hover */}
+                                            {photos.length > 1 && (
+                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pt-6 pb-2 px-2">
+                                                    <div className="flex gap-1 justify-center">
+                                                        {photos.slice(0, 5).map((url, i) => (
+                                                            <img key={i} src={url} alt=""
+                                                                 className="w-8 h-8 rounded object-cover border border-white/50 cursor-pointer hover:border-white transition"
+                                                                 onClick={(e) => { e.stopPropagation(); setLightboxImg(url); }} />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                    <div className="p-4">
-                                        <h4 className="font-semibold text-sm text-gray-900 mb-1 truncate">{product.name}</h4>
-                                        <p className="text-green-600 font-bold text-lg mb-3">{formatCurrency(product.price)}</p>
-                                        <div className="flex gap-1 mb-3">
-                                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${product.active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                {product.active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-1.5">
-                                            <button
-                                                onClick={() => startEdit(product)}
-                                                className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold py-2 rounded-lg transition-colors"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => toggleActive(product.id, product.active)}
-                                                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-semibold py-2 rounded-lg transition-colors"
-                                            >
-                                                {product.active ? 'Hide' : 'Show'}
-                                            </button>
-                                            <button
-                                                onClick={() => deleteProduct(product.id)}
-                                                className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-colors"
-                                            >
-                                                Delete
-                                            </button>
+                                        <div className="p-4">
+                                            <h4 className="font-semibold text-sm text-gray-900 mb-1 truncate">{product.name}</h4>
+                                            <p className="text-green-600 font-bold text-lg mb-3">{formatCurrency(product.price)}</p>
+                                            <div className="flex gap-1 mb-3">
+                                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${product.active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {product.active ? 'Active' : 'Inactive'}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <button
+                                                    onClick={() => startEdit(product)}
+                                                    className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold py-2 rounded-lg transition-colors"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleActive(product.id, product.active)}
+                                                    className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-semibold py-2 rounded-lg transition-colors"
+                                                >
+                                                    {product.active ? 'Hide' : 'Show'}
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteProduct(product.id)}
+                                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-colors"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
