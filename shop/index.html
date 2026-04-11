@@ -159,7 +159,7 @@
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
             const [formData, setFormData] = useState({
-                name: '', phone: '', delivery_method: 'self_delivery', payment_method: 'eft', notes: ''
+                name: '', phone: '', delivery_method: '', payment_method: 'eft', notes: '', delivery_address: ''
             });
             const [lightbox, setLightbox] = useState({ open: false, photos: [], index: 0 });
             const openLightbox = (photos, index) => setLightbox({ open: true, photos, index });
@@ -209,6 +209,11 @@
                         if (sellerError || !sellerData) { setError("This store doesn't exist. Please check the link."); setLoading(false); return; }
                         if (sellerData.seller_status === 'suspended') { setError("This store is temporarily unavailable. Please check back later."); setLoading(false); return; }
                         setSeller(sellerData);
+                        // Set default delivery method from seller's enabled methods
+                        const methods = sellerData.delivery_methods || ['pickup'];
+                        if (methods.length > 0) {
+                            setFormData(prev => ({ ...prev, delivery_method: prev.delivery_method || methods[0] }));
+                        }
                         document.title = `${sellerData.business_name} | WhatsApp Seller OS`;
 
                         const { data: productsData } = await supabase
@@ -324,7 +329,18 @@
                     ? Math.min(cartTotal, cartTotal * discountApplied.value / 100)
                     : Math.min(cartTotal, discountApplied.value))
                 : 0;
-            const finalTotal = Math.max(0, cartTotal - discountAmount);
+            const subtotalAfterDiscount = Math.max(0, cartTotal - discountAmount);
+
+            // Delivery fee calculation
+            const sellerDeliveryMethods = seller?.delivery_methods || ['pickup'];
+            const needsDelivery = formData.delivery_method && formData.delivery_method !== 'pickup';
+            const computedDeliveryFee = (() => {
+                if (!needsDelivery || !seller) return 0;
+                const fee = Number(seller.delivery_fee || 0);
+                if (seller.delivery_fee_type === 'free_above' && subtotalAfterDiscount >= fee) return 0;
+                return fee;
+            })();
+            const finalTotal = subtotalAfterDiscount + computedDeliveryFee;
 
             const applyDiscount = async () => {
                 if (!discountCode.trim()) return;
@@ -354,6 +370,8 @@
                 e.preventDefault();
                 if (submittingOrder) return; // Prevent double-click
                 if (!formData.name || !formData.phone) { alert('Please fill in name and phone number'); return; }
+                if (!formData.delivery_method) { alert('Please select a delivery method'); return; }
+                if ((formData.delivery_method === 'self_delivery' || formData.delivery_method === 'courier') && !formData.delivery_address.trim()) { alert('Please enter a delivery address'); return; }
                 if (cart.length === 0) { alert('Cart is empty'); return; }
                 setSubmittingOrder(true);
                 try {
@@ -361,6 +379,8 @@
                     const { data: order, error: orderError } = await supabase.from('orders').insert([{
                         seller_id: seller.id, customer_name: formData.name, customer_phone: formData.phone,
                         order_number: orderNumber, status: 'new', delivery_method: formData.delivery_method,
+                        delivery_address: formData.delivery_address || '',
+                        delivery_status: 'pending', delivery_fee: computedDeliveryFee,
                         payment_method: formData.payment_method, total: finalTotal, notes: formData.notes, source: 'storefront',
                         discount_code: discountApplied ? discountApplied.code : null,
                         discount_amount: discountAmount
@@ -426,8 +446,8 @@
                         });
                     } catch (waErr) { console.warn('Buyer WhatsApp notification failed:', waErr); }
 
-                    const trackUrl = `${SITE_URL}/shop/?s=${getSellerSlug()}&track=${orderNumber}`;
-                    setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount });
+                    const trackUrl = `${SITE_URL}/track/?order=${orderNumber}&p=${encodeURIComponent(formData.phone)}`;
+                    setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount, delivery_method: formData.delivery_method, delivery_fee: computedDeliveryFee, pickup_address: seller.pickup_address });
                     // Save buyer info for next time
                     try { localStorage.setItem(`buyer_${getSellerSlug()}`, JSON.stringify({ name: formData.name, phone: formData.phone })); } catch(e) {}
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
@@ -440,7 +460,7 @@
                 setShowConfirmation(false);
                 // Keep name/phone pre-filled from saved buyer info
                 const saved = (() => { try { return JSON.parse(localStorage.getItem(`buyer_${getSellerSlug()}`) || 'null'); } catch(e) { return null; } })();
-                setFormData({ name: saved?.name || '', phone: saved?.phone || '', delivery_method: 'self_delivery', payment_method: 'eft', notes: '' });
+                setFormData({ name: saved?.name || '', phone: saved?.phone || '', delivery_method: '', payment_method: 'eft', notes: '', delivery_address: '' });
             };
 
             if (loading) return (
@@ -761,23 +781,45 @@
                                             placeholder="+27... or +266..." className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50"/>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Delivery Method</label>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Delivery Method <span className="text-red-500">*</span></label>
+                                        <div className="space-y-2">
                                             {[
-                                                { value: 'self_delivery', label: 'Deliver to Me', icon: '🚗' },
-                                                { value: 'pickup', label: "I'll Pickup", icon: '🏪' },
-                                                { value: 'taxi', label: 'Via Taxi', icon: '🚕' },
-                                                { value: 'bus', label: 'Via Bus', icon: '🚌' },
-                                                { value: 'local_courier', label: 'Local Courier', icon: '📦' }
-                                            ].map(m => (
-                                                <label key={m.value} className={`flex items-center gap-2 p-2.5 rounded-xl border-2 cursor-pointer transition text-sm ${formData.delivery_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
+                                                { value: 'pickup', label: "I'll Pickup", icon: '🏪', desc: 'Collect from seller', fee: 'Free' },
+                                                { value: 'self_delivery', label: 'Seller Delivery', icon: '🚗', desc: 'Delivered to your address', fee: seller?.delivery_fee > 0 ? (seller?.delivery_fee_type === 'free_above' ? `R${Number(seller.delivery_fee).toFixed(0)} (free above R${Number(seller.delivery_fee).toFixed(0)})` : `R${Number(seller.delivery_fee).toFixed(2)}`) : 'Free' },
+                                                { value: 'courier', label: 'Courier / Third Party', icon: '📦', desc: 'Via courier service', fee: seller?.delivery_fee > 0 ? `R${Number(seller.delivery_fee).toFixed(2)}` : 'Free' }
+                                            ].filter(m => sellerDeliveryMethods.includes(m.value)).map(m => (
+                                                <label key={m.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${formData.delivery_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
                                                     <input type="radio" name="delivery" value={m.value} checked={formData.delivery_method === m.value}
                                                         onChange={e => setFormData({...formData, delivery_method: e.target.value})} className="hidden"/>
-                                                    <span>{m.icon}</span>
-                                                    <span className="font-medium text-gray-700">{m.label}</span>
+                                                    <span className="text-lg">{m.icon}</span>
+                                                    <div className="flex-1">
+                                                        <span className="text-sm font-semibold text-gray-800">{m.label}</span>
+                                                        <span className="text-xs text-gray-500 ml-1.5">{m.desc}</span>
+                                                    </div>
+                                                    <span className={`text-xs font-bold ${m.fee === 'Free' ? 'text-green-600' : 'text-amber-600'}`}>{m.fee}</span>
                                                 </label>
                                             ))}
                                         </div>
+                                        {/* Pickup info */}
+                                        {formData.delivery_method === 'pickup' && seller?.pickup_address && (
+                                            <div className="mt-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                                                <p className="font-bold text-blue-900 mb-0.5">📍 Pickup Location</p>
+                                                <p>{seller.pickup_address}</p>
+                                            </div>
+                                        )}
+                                        {/* Delivery address */}
+                                        {(formData.delivery_method === 'self_delivery' || formData.delivery_method === 'courier') && (
+                                            <div className="mt-2">
+                                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Delivery Address <span className="text-red-500">*</span></label>
+                                                <textarea required value={formData.delivery_address} onChange={e => setFormData({...formData, delivery_address: e.target.value})}
+                                                    placeholder="Full street address, area, city..." rows="2"
+                                                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none"/>
+                                            </div>
+                                        )}
+                                        {/* Delivery notes from seller */}
+                                        {needsDelivery && seller?.delivery_notes && (
+                                            <p className="mt-1.5 text-xs text-gray-500 italic">ℹ️ {seller.delivery_notes}</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Payment Method</label>
@@ -859,6 +901,18 @@
                                                 <span>-{formatCurrency(discountAmount)}</span>
                                             </div>
                                         )}
+                                        {computedDeliveryFee > 0 && (
+                                            <div className="flex justify-between text-sm text-amber-600 mb-1">
+                                                <span>🚚 Delivery Fee</span>
+                                                <span>+{formatCurrency(computedDeliveryFee)}</span>
+                                            </div>
+                                        )}
+                                        {formData.delivery_method === 'pickup' && (
+                                            <div className="flex justify-between text-sm text-green-600 mb-1">
+                                                <span>🏪 Pickup</span>
+                                                <span>Free</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between mb-3">
                                             <span className="text-sm font-semibold text-gray-900">Total</span>
                                             <span className="text-lg font-bold text-gray-900">{formatCurrency(finalTotal)}</span>
@@ -902,10 +956,29 @@
                                             <span>-{formatCurrency(orderData.discount_amount)}</span>
                                         </div>
                                     )}
+                                    {orderData.delivery_fee > 0 && (
+                                        <div className="flex justify-between text-sm text-amber-600 pt-1">
+                                            <span>🚚 Delivery Fee</span>
+                                            <span>+{formatCurrency(orderData.delivery_fee)}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                                         <span className="font-semibold text-gray-700">Total</span>
                                         <span className="text-2xl font-bold text-brand-600">{formatCurrency(orderData.total)}</span>
                                     </div>
+                                    {/* Delivery info */}
+                                    {orderData.delivery_method === 'pickup' && orderData.pickup_address && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                                            <p className="font-bold text-blue-900 mb-0.5">📍 Pickup Location</p>
+                                            <p>{orderData.pickup_address}</p>
+                                        </div>
+                                    )}
+                                    {orderData.delivery_method && orderData.delivery_method !== 'pickup' && (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                                            <p className="font-bold text-amber-900 mb-0.5">🚚 Delivery</p>
+                                            <p>Your order will be delivered to the address you provided.</p>
+                                        </div>
+                                    )}
                                     <a href={`https://wa.me/${(orderData.seller_phone || '').replace(/[^0-9]/g, '')}?text=Hi, I just placed order %23${orderData.order_number} for ${formatCurrency(orderData.total)} on your store.`}
                                         target="_blank" rel="noopener"
                                         className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
