@@ -506,7 +506,7 @@
 
             if (!order) return null;
 
-            const DELIVERY_LABELS = { self_delivery: 'Seller Delivery', pickup: 'Pickup', taxi: 'Via Taxi', bus: 'Via Bus', courier: 'Local Courier' };
+            const DELIVERY_LABELS = { self_delivery: 'Seller Delivery', pickup: 'Customer Pickup', taxi: 'Via Taxi', bus: 'Via Bus', courier: 'Courier / Third Party' };
             const PAYMENT_LABELS = { eft: 'EFT / Bank Transfer', mobile_money: 'Mobile Money', cash: 'Cash on Delivery' };
 
             return (
@@ -556,12 +556,20 @@
                                 <div className="bg-gray-50 rounded-xl p-3">
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Delivery</p>
                                     <p className="text-sm font-medium text-gray-900">{DELIVERY_LABELS[order.delivery_method] || order.delivery_method || '—'}</p>
+                                    {Number(order.delivery_fee) > 0 && <p className="text-xs text-amber-600 mt-0.5">Fee: {formatCurrency(order.delivery_fee)}</p>}
                                 </div>
                                 <div className="bg-gray-50 rounded-xl p-3">
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Payment</p>
                                     <p className="text-sm font-medium text-gray-900">{PAYMENT_LABELS[order.payment_method] || order.payment_method || '—'}</p>
                                 </div>
                             </div>
+                            {/* Delivery Address */}
+                            {order.delivery_address && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                    <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1">📍 Delivery Address</p>
+                                    <p className="text-sm text-amber-900">{order.delivery_address}</p>
+                                </div>
+                            )}
 
                             {/* Order Items */}
                             <div>
@@ -2073,15 +2081,17 @@
 
             const updateOrderStatus = async (orderId, field, value) => {
                 try {
+                    const updateData = { [field]: value };
+                    if (field === 'delivery_status') updateData.delivery_updated_at = new Date().toISOString();
                     const { error } = await supabase
                         .from('orders')
-                        .update({ [field]: value })
+                        .update(updateData)
                         .eq('id', orderId);
                     if (error) throw error;
 
                     // Determine which statuses should trigger a WhatsApp notification
                     const notifyStatuses = ['confirmed', 'preparing', 'paid', 'dispatched', 'shipped', 'delivered', 'cancelled'];
-                    const notifyDelivery = ['in_transit', 'delivered'];
+                    const notifyDelivery = ['ready_for_pickup', 'out_for_delivery', 'in_transit', 'delivered'];
 
                     const shouldNotify =
                         (field === 'status' && notifyStatuses.includes(value)) ||
@@ -2089,8 +2099,9 @@
 
                     if (shouldNotify) {
                         try {
+                            const deliveryStatusMap = { 'ready_for_pickup': 'ready_for_pickup', 'out_for_delivery': 'dispatched', 'in_transit': 'dispatched', 'delivered': 'delivered' };
                             const notifyStatus = (field === 'delivery_status')
-                                ? (value === 'in_transit' ? 'dispatched' : value)
+                                ? (deliveryStatusMap[value] || value)
                                 : value;
 
                             await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
@@ -2292,6 +2303,8 @@
                                                         className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
                                                     >
                                                         <option value="pending">Pending</option>
+                                                        <option value="ready_for_pickup">Ready for Pickup</option>
+                                                        <option value="out_for_delivery">Out for Delivery</option>
                                                         <option value="in_transit">In Transit</option>
                                                         <option value="delivered">Delivered</option>
                                                     </select>
@@ -3453,22 +3466,45 @@
                 setSavingHours(false);
             };
 
-            // ---- Delivery Areas ----
+            // ---- Delivery & Shipping ----
+            const allDeliveryMethods = [
+                { id: 'pickup', label: 'Customer Pickup', desc: 'Customer collects from your location' },
+                { id: 'self_delivery', label: 'Seller Delivery', desc: 'You deliver to customer address' },
+                { id: 'courier', label: 'Third-Party Courier', desc: 'Via Pargo, Aramex, local courier, etc.' }
+            ];
+            const [deliveryMethods, setDeliveryMethods] = useState(seller.delivery_methods || ['pickup']);
+            const [deliveryFee, setDeliveryFee] = useState((seller.delivery_fee || 0).toString());
+            const [deliveryFeeType, setDeliveryFeeType] = useState(seller.delivery_fee_type || 'flat');
+            const [pickupAddress, setPickupAddress] = useState(seller.pickup_address || seller.address || '');
+            const [deliveryNotes, setDeliveryNotes] = useState(seller.delivery_notes || '');
             const [areasText, setAreasText] = useState((seller.delivery_areas || []).join(', '));
-            const [savingAreas, setSavingAreas] = useState(false);
+            const [savingDelivery, setSavingDelivery] = useState(false);
 
-            const saveAreas = async () => {
-                setSavingAreas(true);
+            const toggleMethod = (id) => {
+                setDeliveryMethods(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+            };
+
+            const saveDelivery = async () => {
+                if (deliveryMethods.length === 0) { showFlash('Enable at least one delivery method', 'error'); return; }
+                setSavingDelivery(true);
                 const areasArray = areasText.split(',').map(a => a.trim()).filter(Boolean);
+                const updates = {
+                    delivery_methods: deliveryMethods,
+                    delivery_fee: parseFloat(deliveryFee) || 0,
+                    delivery_fee_type: deliveryFeeType,
+                    pickup_address: pickupAddress,
+                    delivery_notes: deliveryNotes,
+                    delivery_areas: areasArray
+                };
                 try {
-                    const { error } = await supabase.from('sellers').update({ delivery_areas: areasArray }).eq('id', seller.id);
+                    const { error } = await supabase.from('sellers').update(updates).eq('id', seller.id);
                     if (error) throw error;
-                    const updated = { ...seller, delivery_areas: areasArray };
+                    const updated = { ...seller, ...updates };
                     onSellerUpdate(updated);
                     localStorage.setItem('current_seller', JSON.stringify(updated));
-                    showFlash('Delivery areas saved!');
-                } catch (err) { showFlash('Failed to save areas: ' + err.message, 'error'); }
-                setSavingAreas(false);
+                    showFlash('Delivery settings saved!');
+                } catch (err) { showFlash('Failed to save delivery settings: ' + err.message, 'error'); }
+                setSavingDelivery(false);
             };
 
             // ---- Bank / Payment Details ----
@@ -3595,9 +3631,62 @@
                         <SettingsSaveButton onClick={saveHours} saving={savingHours} />
                     </SettingsSectionCard>
 
-                    {/* 4. Delivery Areas */}
-                    <SettingsSectionCard icon={<Icons.mapPin />} title="Delivery Areas">
-                        <SettingsInputField label="Areas (comma separated)" value={areasText} onChange={setAreasText} placeholder="Maseru, Ladybrand, Bloemfontein" textarea />
+                    {/* 4. Delivery & Shipping */}
+                    <SettingsSectionCard icon={<Icons.mapPin />} title="Delivery & Shipping">
+                        <p className="text-xs text-gray-400 -mt-1">Choose how customers can receive their orders.</p>
+
+                        {/* Delivery Methods */}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Delivery Methods</label>
+                            <div className="space-y-2">
+                                {allDeliveryMethods.map(m => (
+                                    <label key={m.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                                        deliveryMethods.includes(m.id) ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                    }`}>
+                                        <input type="checkbox" checked={deliveryMethods.includes(m.id)} onChange={() => toggleMethod(m.id)}
+                                            className="w-4 h-4 rounded text-brand-500 focus:ring-brand-500" />
+                                        <div>
+                                            <span className="text-sm font-semibold text-gray-900">{m.label}</span>
+                                            <span className="text-xs text-gray-500 ml-2">{m.desc}</span>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Delivery Fee (only if delivery/courier enabled) */}
+                        {(deliveryMethods.includes('self_delivery') || deliveryMethods.includes('courier')) && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                                <p className="text-xs font-semibold text-amber-800">Delivery Fee — charged when customer selects delivery (pickup is always free)</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Fee Type</label>
+                                        <select value={deliveryFeeType} onChange={e => setDeliveryFeeType(e.target.value)}
+                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                            <option value="flat">Flat fee (R)</option>
+                                            <option value="free_above">Free above threshold (R)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                            {deliveryFeeType === 'flat' ? 'Delivery Fee (R)' : 'Fee (R) — free above this order total'}
+                                        </label>
+                                        <input type="number" value={deliveryFee} onChange={e => setDeliveryFee(e.target.value)} min="0" step="5"
+                                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Pickup Address */}
+                        {deliveryMethods.includes('pickup') && (
+                            <SettingsInputField label="Pickup Address / Instructions" value={pickupAddress} onChange={setPickupAddress}
+                                placeholder="e.g. 123 Main St, Maseru — ring bell at gate" textarea />
+                        )}
+
+                        {/* Delivery Areas */}
+                        <SettingsInputField label="Delivery Areas (comma separated)" value={areasText} onChange={setAreasText}
+                            placeholder="Maseru, Ladybrand, Bloemfontein" textarea />
                         {areasText && (
                             <div className="flex flex-wrap gap-2">
                                 {areasText.split(',').map(a => a.trim()).filter(Boolean).map((a, i) => (
@@ -3605,7 +3694,12 @@
                                 ))}
                             </div>
                         )}
-                        <SettingsSaveButton onClick={saveAreas} saving={savingAreas} />
+
+                        {/* Delivery Notes */}
+                        <SettingsInputField label="Delivery Notes (shown to buyer)" value={deliveryNotes} onChange={setDeliveryNotes}
+                            placeholder="e.g. Delivery within 24hrs of order confirmation. Courier orders may take 2-3 days." textarea />
+
+                        <SettingsSaveButton onClick={saveDelivery} saving={savingDelivery} />
                     </SettingsSectionCard>
 
                     {/* 5. Bank / Payment Details */}
