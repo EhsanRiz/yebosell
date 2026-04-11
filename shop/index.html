@@ -1364,7 +1364,7 @@
                 setSendingHistory(false);
             };
 
-            const statusTimeline = ['new', 'confirmed', 'paid', 'shipped', 'delivered'];
+            const statusTimeline = ['new', 'confirmed', 'preparing', 'dispatched', 'delivered'];
             const getStatusIndex = (status) => statusTimeline.indexOf(status);
 
             return (
@@ -1502,9 +1502,9 @@
         function OrderTrackingModal({ order, seller, onClose }) {
             const [refreshing, setRefreshing] = useState(false);
             const [currentOrder, setCurrentOrder] = useState(order);
-            const statusTimeline = ['new', 'confirmed', 'paid', 'shipped', 'delivered'];
-            const statusIcons = { new: '📋', confirmed: '✅', paid: '💰', shipped: '🚚', delivered: '📦' };
-            const statusDescriptions = { new: 'Your order has been received', confirmed: 'The seller has confirmed your order', paid: 'Payment has been verified', shipped: 'Your order is on its way', delivered: 'Your order has been delivered' };
+            const statusTimeline = ['new', 'confirmed', 'preparing', 'dispatched', 'delivered'];
+            const statusIcons = { new: '📋', confirmed: '✅', preparing: '👨‍🍳', dispatched: '🚚', delivered: '📦' };
+            const statusDescriptions = { new: 'Your order has been received', confirmed: 'The seller has confirmed your order', preparing: 'Your order is being prepared', dispatched: 'Your order is on its way', delivered: 'Your order has been delivered' };
             const getStatusIndex = (s) => statusTimeline.indexOf(s);
             const currentIdx = getStatusIndex(currentOrder.status);
 
