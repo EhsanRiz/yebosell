@@ -1408,7 +1408,7 @@
                 try {
                     const { data, error } = await supabase
                         .from('payments')
-                        .select('*')
+                        .select('*, orders(order_number, total, customer_phone, customer_name)')
                         .eq('seller_id', seller.id)
                         .order('created_at', { ascending: false });
 
@@ -1425,7 +1425,7 @@
                 try {
                     const { data, error } = await supabase
                         .from('orders')
-                        .select('id, order_number, total')
+                        .select('id, order_number, total, payment_status')
                         .eq('seller_id', seller.id)
                         .order('created_at', { ascending: false });
 
@@ -1435,6 +1435,24 @@
                     console.error('Load orders error:', err);
                 }
             };
+
+            // Calculate total confirmed payments for a given order
+            const getPaidTotal = (orderId) => {
+                return payments
+                    .filter(p => p.order_id === orderId && p.status === 'confirmed')
+                    .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+            };
+
+            // Get orders that still need payment (not fully paid)
+            const unpaidOrders = orders.filter(o => {
+                const paidSoFar = getPaidTotal(o.id);
+                return paidSoFar < parseFloat(o.total);
+            });
+
+            // Get balance remaining for selected order in form
+            const selectedOrder = orders.find(o => o.id === formData.order_id);
+            const selectedPaid = selectedOrder ? getPaidTotal(selectedOrder.id) : 0;
+            const selectedBalance = selectedOrder ? (parseFloat(selectedOrder.total) - selectedPaid) : 0;
 
             const handleScreenshotUpload = async (e) => {
                 const file = e.target.files?.[0];
@@ -1496,14 +1514,72 @@
                 }
             };
 
-            const updatePaymentStatus = async (paymentId, status) => {
+            const updatePaymentStatus = async (paymentId, newStatus) => {
                 try {
                     const { error } = await supabase
                         .from('payments')
-                        .update({ status })
+                        .update({ status: newStatus })
                         .eq('id', paymentId);
                     if (error) throw error;
+
+                    // If confirming, auto-update the order's payment_status and send receipt
+                    if (newStatus === 'confirmed') {
+                        const payment = payments.find(p => p.id === paymentId);
+                        if (payment && payment.order_id) {
+                            // Get order details
+                            const order = orders.find(o => o.id === payment.order_id);
+                            if (order) {
+                                const thisAmount = parseFloat(payment.amount) || 0;
+                                const previouslyPaid = getPaidTotal(payment.order_id);
+                                const newTotalPaid = previouslyPaid + thisAmount;
+                                const orderTotal = parseFloat(order.total);
+                                const newPaymentStatus = newTotalPaid >= orderTotal ? 'paid' : 'partial';
+
+                                // Update order payment_status
+                                await supabase
+                                    .from('orders')
+                                    .update({ payment_status: newPaymentStatus })
+                                    .eq('id', payment.order_id);
+
+                                // Send WhatsApp receipt to buyer
+                                const orderData = payment.orders || order;
+                                const customerPhone = orderData.customer_phone || '';
+                                const customerName = orderData.customer_name || 'Customer';
+                                const orderNumber = orderData.order_number || order.order_number;
+                                const remaining = orderTotal - newTotalPaid;
+
+                                if (customerPhone) {
+                                    try {
+                                        await fetch(SUPABASE_URL + '/functions/v1/whatsapp-notify', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                                            },
+                                            body: JSON.stringify({
+                                                order_id: payment.order_id,
+                                                new_status: 'payment_receipt',
+                                                receipt_data: {
+                                                    amount_paid: thisAmount,
+                                                    payment_method: payment.payment_method,
+                                                    total_paid: newTotalPaid,
+                                                    order_total: orderTotal,
+                                                    remaining: remaining > 0 ? remaining : 0,
+                                                    fully_paid: newTotalPaid >= orderTotal,
+                                                }
+                                            }),
+                                        });
+                                        console.log('Payment receipt sent for order ' + orderNumber);
+                                    } catch (waErr) {
+                                        console.warn('Receipt notification failed:', waErr);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     loadPayments();
+                    loadOrders();
                 } catch (err) {
                     alert('Update failed: ' + err.message);
                 }
@@ -1538,25 +1614,47 @@
                                     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Order</label>
                                     <select
                                         value={formData.order_id}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, order_id: e.target.value }))}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, order_id: e.target.value, amount: '' }))}
                                         className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     >
                                         <option value="">Select an order</option>
-                                        {orders.map(order => (
-                                            <option key={order.id} value={order.id}>
-                                                {order.order_number} - {formatCurrency(order.total)}
-                                            </option>
-                                        ))}
+                                        {unpaidOrders.map(order => {
+                                            const paid = getPaidTotal(order.id);
+                                            const bal = parseFloat(order.total) - paid;
+                                            return (
+                                                <option key={order.id} value={order.id}>
+                                                    {order.order_number} — Total: {formatCurrency(order.total)}{paid > 0 ? ` | Paid: ${formatCurrency(paid)} | Due: ${formatCurrency(bal)}` : ''}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
+                                    {unpaidOrders.length === 0 && (
+                                        <p className="mt-1 text-xs text-green-600 font-medium">All orders are fully paid!</p>
+                                    )}
                                 </div>
 
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Amount (ZAR)</label>
+                                    {selectedOrder && (
+                                        <div className="mb-1.5 flex items-center gap-2 text-xs">
+                                            <span className="text-gray-500">Balance due:</span>
+                                            <span className="font-bold text-orange-600">{formatCurrency(selectedBalance)}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, amount: selectedBalance.toFixed(2) }))}
+                                                className="text-brand-600 hover:text-brand-700 font-semibold underline"
+                                            >
+                                                Pay full balance
+                                            </button>
+                                        </div>
+                                    )}
                                     <input
                                         type="number"
                                         value={formData.amount}
                                         onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                                         step="0.01"
+                                        max={selectedBalance > 0 ? selectedBalance : undefined}
+                                        placeholder={selectedBalance > 0 ? `Max ${formatCurrency(selectedBalance)}` : '0.00'}
                                         className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
@@ -1634,6 +1732,7 @@
                                 <table className="data-table">
                                     <thead>
                                         <tr>
+                                            <th>Order</th>
                                             <th>Amount</th>
                                             <th>Method</th>
                                             <th>Status</th>
@@ -1645,6 +1744,7 @@
                                     <tbody>
                                         {payments.map(payment => (
                                             <tr key={payment.id}>
+                                                <td className="font-medium text-gray-700 text-sm">{payment.orders?.order_number || '—'}</td>
                                                 <td className="font-semibold text-gray-900">{formatCurrency(payment.amount)}</td>
                                                 <td className="capitalize text-gray-600">{payment.payment_method.replace('_', ' ')}</td>
                                                 <td>
@@ -1690,6 +1790,7 @@
                                     <div key={payment.id} className="card card-shadow p-4">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
+                                                <p className="text-xs text-brand-600 font-semibold mb-0.5">{payment.orders?.order_number || '—'}</p>
                                                 <p className="font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
                                                 <p className="text-xs text-gray-500 capitalize">{payment.payment_method.replace('_', ' ')}</p>
                                             </div>
