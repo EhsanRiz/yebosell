@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seller OS — WhatsApp-Powered Commerce for Southern Africa</title>
-    <meta name="description" content="Turn your WhatsApp into a full online store. Manage products, orders, payments, and delivery — all from one dashboard. Built for Southern African merchants.">
+    <title>Khotso Connect — WhatsApp-Powered Commerce for Southern Africa</title>
+    <meta name="description" content="Sell smarter. Reach further. Grow together. Turn your WhatsApp into a full online store. Manage products, orders, payments, and delivery — built for Southern African merchants.">
     <link rel="icon" type="image/png" href="/assets/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -15,6 +15,7 @@
             --green-400: #4ade80; --green-500: #25D366; --green-600: #1a8a4a; --green-700: #15803d; --green-800: #166534; --green-900: #14532d;
             --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0; --gray-300: #cbd5e1;
             --gray-400: #94a3b8; --gray-500: #64748b; --gray-600: #475569; --gray-700: #334155; --gray-800: #1e293b; --gray-900: #0f172a;
+            --kc-gold: #D4A017; --kc-gold-light: #fef3c7; --kc-dark-green: #166534;
         }
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: var(--gray-800); background: #fff; line-height: 1.6; overflow-x: hidden; }
         a { text-decoration: none; color: inherit; }
@@ -36,7 +37,7 @@
         nav .inner { display: flex; align-items: center; justify-content: space-between; }
         .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; color: var(--gray-900); }
         .logo .icon { width: 36px; height: 36px; background: var(--green-500); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-        .logo span.accent { color: var(--green-500); }
+        .logo span.accent { color: var(--kc-gold); }
         .nav-links { display: flex; align-items: center; gap: 32px; }
         .nav-links a { font-size: 14px; font-weight: 500; color: var(--gray-600); transition: color 0.2s; }
         .nav-links a:hover { color: var(--green-600); }
@@ -76,7 +77,8 @@
         .hero-badge .dot { width: 8px; height: 8px; background: var(--green-500); border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .hero h1 { font-size: 56px; font-weight: 900; line-height: 1.1; color: var(--gray-900); letter-spacing: -0.03em; margin-bottom: 20px; }
-        .hero h1 .gradient { background: linear-gradient(135deg, var(--green-500), var(--green-700)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero h1 .gradient { background: linear-gradient(135deg, var(--green-500), var(--kc-dark-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero h1 .gradient-gold { background: linear-gradient(135deg, var(--kc-gold), #b8860b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .hero p.subtitle { font-size: 19px; color: var(--gray-500); line-height: 1.7; max-width: 520px; margin-bottom: 36px; }
         .hero-buttons { display: flex; gap: 14px; flex-wrap: wrap; }
         .hero-stats { display: flex; gap: 40px; margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--gray-200); }
@@ -305,10 +307,17 @@
         <div class="container">
             <div class="inner">
                 <a href="/" class="logo">
-                    <div class="icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+                    <div class="icon" style="background:var(--kc-dark-green);">
+                        <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
+                            <rect x="4" y="6" width="18" height="14" rx="4" fill="#25D366"/>
+                            <circle cx="9" cy="13" r="1.5" fill="white"/><circle cx="13" cy="13" r="1.5" fill="white"/><circle cx="17" cy="13" r="1.5" fill="white"/>
+                            <polygon points="8,20 8,25 13,20" fill="#25D366"/>
+                            <rect x="18" y="16" width="18" height="14" rx="4" fill="#D4A017"/>
+                            <circle cx="23" cy="23" r="1.5" fill="#166534"/><circle cx="27" cy="23" r="1.5" fill="#166534"/><circle cx="31" cy="23" r="1.5" fill="#166534"/>
+                            <polygon points="32,30 32,35 27,30" fill="#D4A017"/>
+                        </svg>
                     </div>
-                    Seller<span class="accent">OS</span>
+                    Khotso<span class="accent">Connect</span>
                 </a>
                 <div class="nav-links">
                     <a href="#how-it-works">How It Works</a>
@@ -335,7 +344,7 @@
                         Built for Southern Africa
                     </div>
                     <h1>Turn WhatsApp into your <span class="gradient">online store</span></h1>
-                    <p class="subtitle">The all-in-one platform for merchants to manage products, orders, payments, and deliveries — with automatic WhatsApp notifications to every customer.</p>
+                    <p class="subtitle">Sell smarter. Reach further. Grow together. Manage products, orders, payments, and deliveries — with automatic WhatsApp notifications to every customer.</p>
                     <div class="hero-buttons">
                         <a href="#get-started" class="btn btn-primary btn-lg">Start Selling Free →</a>
                         <a href="#find-store" class="btn btn-outline btn-lg">Find a Store</a>
@@ -418,7 +427,7 @@
                 <div class="step-card fade-up delay-1">
                     <div class="step-num">1</div>
                     <h3>Create your store</h3>
-                    <p>Sign up with your phone number, choose a store name, and set your PIN. Your online store is live in under a minute at selleros.co.za/shop/?s=yourname.</p>
+                    <p>Sign up with your phone number, choose a store name, and set your PIN. Your online store is live in under a minute at khotsoconnect.com/shop/?s=yourname.</p>
                 </div>
                 <div class="step-card fade-up delay-2">
                     <div class="step-num">2</div>
@@ -574,13 +583,13 @@
                             <div class="demo-slide active" id="ds0">
                                 <div class="slide-header">
                                     <div class="dot" style="background:var(--green-500)"></div>
-                                    Seller OS — Login
+                                    Khotso Connect — Login
                                 </div>
                                 <div class="slide-body" style="justify-content:center;gap:14px;padding:24px 20px;">
                                     <div style="text-align:center;margin-bottom:8px;">
                                         <div style="font-size:36px;margin-bottom:6px;">🛍️</div>
-                                        <div style="font-size:16px;font-weight:800;color:var(--gray-900);">Seller<span style="color:var(--green-500)">OS</span></div>
-                                        <div style="font-size:10px;color:var(--gray-400);margin-top:2px;">WhatsApp-powered commerce</div>
+                                        <div style="font-size:16px;font-weight:800;color:var(--kc-dark-green);">Khotso<span style="color:var(--kc-gold)">Connect</span></div>
+                                        <div style="font-size:10px;color:var(--gray-400);margin-top:2px;">Sell smarter. Reach further. Grow together.</div>
                                     </div>
                                     <div class="mock-input filled">📱 +27 82 555 0199</div>
                                     <div class="mock-input filled">🔒 • • • •</div>
@@ -626,7 +635,7 @@
                                         <div style="font-size:10px;color:var(--gray-400);margin-top:4px;">3 products listed</div>
                                     </div>
                                     <div class="mock-input filled" style="justify-content:center;font-size:10px;background:var(--green-50);border-color:var(--green-300);">
-                                        🔗 selleros.co.za/shop/?s=stylehub
+                                        🔗 khotsoconnect.com/shop/?s=stylehub
                                     </div>
                                     <div class="mock-btn" style="display:flex;align-items:center;justify-content:center;gap:6px;">
                                         <span style="font-size:14px;">💬</span> Share on WhatsApp
@@ -704,7 +713,7 @@
                                         🚚 Delivery: R50<br>
                                         💰 Total: <strong>R549.00</strong><br>
                                         <br>📍 Track your order:<br>
-                                        <span style="color:#2563eb;text-decoration:underline;">selleros.co.za/track</span>
+                                        <span style="color:#2563eb;text-decoration:underline;">khotsoconnect.com/track</span>
                                         <div class="chat-time">12:34 ✓✓</div>
                                     </div>
                                     <div style="font-size:9px;text-align:center;color:#8696a0;padding:4px;">2 hours later</div>
@@ -795,7 +804,7 @@
         <div class="container">
             <div class="grid-2 reverse-mobile">
                 <div>
-                    <p class="section-label fade-up">Why Seller OS</p>
+                    <p class="section-label fade-up">Why Khotso Connect</p>
                     <h2 class="section-title fade-up">Built for how Southern Africa actually trades</h2>
                     <p class="section-desc fade-up" style="margin-bottom:32px">We know your customers are on WhatsApp. We know EFT and cash matter more than credit cards. We built for that reality.</p>
                     <div class="why-grid fade-up">
@@ -878,12 +887,19 @@
             <div class="footer-top">
                 <div class="footer-brand">
                     <div class="logo">
-                        <div class="icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+                        <div class="icon" style="background:var(--kc-dark-green);">
+                            <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
+                                <rect x="4" y="6" width="18" height="14" rx="4" fill="#25D366"/>
+                                <circle cx="9" cy="13" r="1.5" fill="white"/><circle cx="13" cy="13" r="1.5" fill="white"/><circle cx="17" cy="13" r="1.5" fill="white"/>
+                                <polygon points="8,20 8,25 13,20" fill="#25D366"/>
+                                <rect x="18" y="16" width="18" height="14" rx="4" fill="#D4A017"/>
+                                <circle cx="23" cy="23" r="1.5" fill="#166534"/><circle cx="27" cy="23" r="1.5" fill="#166534"/><circle cx="31" cy="23" r="1.5" fill="#166534"/>
+                                <polygon points="32,30 32,35 27,30" fill="#D4A017"/>
+                            </svg>
                         </div>
-                        Seller<span class="accent">OS</span>
+                        Khotso<span class="accent">Connect</span>
                     </div>
-                    <p>WhatsApp-powered commerce for Southern African merchants. Built by 4D Climate Solutions.</p>
+                    <p>Sell smarter. Reach further. Grow together. Built for Southern African merchants by 4D Climate Solutions.</p>
                 </div>
                 <div class="footer-links">
                     <div class="footer-col">
@@ -901,7 +917,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 Seller OS by 4D Climate Solutions. All rights reserved.</p>
+                <p>&copy; 2026 Khotso Connect by 4D Climate Solutions. All rights reserved.</p>
                 <p style="color:var(--green-500);font-weight:600">Made with ❤️ for Southern Africa</p>
             </div>
         </div>
