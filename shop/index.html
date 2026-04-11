@@ -67,6 +67,11 @@
         .category-pill { scroll-snap-align: start; }
         .category-bar { scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
         .category-bar::-webkit-scrollbar { display: none; }
+
+        .new-badge { position: absolute; top: 8px; right: 8px; background: linear-gradient(135deg, #f59e0b, #ef4444); color: white; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; z-index: 1; }
+        .oos-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; }
+        .oos-label { background: #374151; color: white; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+        .sort-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -143,6 +148,7 @@
             const [cart, setCart] = useState([]);
             const [wishlist, setWishlist] = useState([]);
             const [search, setSearch] = useState('');
+            const [sortBy, setSortBy] = useState('default');
             const [activeCategory, setActiveCategory] = useState('All');
             const [showCart, setShowCart] = useState(false);
             const [showCheckout, setShowCheckout] = useState(false);
@@ -160,15 +166,23 @@
             const closeLightbox = () => setLightbox({ open: false, photos: [], index: 0 });
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [submittingOrder, setSubmittingOrder] = useState(false);
+            const [showTrackOrder, setShowTrackOrder] = useState(false);
+            const [trackingOrder, setTrackingOrder] = useState(null);
 
             const getSellerSlug = () => new URLSearchParams(window.location.search).get('s');
+            const getTrackParam = () => new URLSearchParams(window.location.search).get('track');
 
-            // Load wishlist from localStorage
+            // Load wishlist + saved buyer info from localStorage
             useEffect(() => {
                 try {
                     const slug = getSellerSlug();
                     const saved = JSON.parse(localStorage.getItem(`wishlist_${slug}`) || '[]');
                     setWishlist(saved);
+                    // Pre-fill buyer name/phone from last order
+                    const buyerInfo = JSON.parse(localStorage.getItem(`buyer_${slug}`) || 'null');
+                    if (buyerInfo) {
+                        setFormData(prev => ({ ...prev, name: buyerInfo.name || '', phone: buyerInfo.phone || '' }));
+                    }
                 } catch(e) {}
             }, []);
 
@@ -209,20 +223,63 @@
                 loadStore();
             }, []);
 
+            // Check for order tracking link
+            useEffect(() => {
+                const trackNum = getTrackParam();
+                if (trackNum && seller) {
+                    (async () => {
+                        const { data } = await supabase.from('orders')
+                            .select('*, order_items(*)')
+                            .eq('seller_id', seller.id)
+                            .eq('order_number', trackNum)
+                            .single();
+                        if (data) { setTrackingOrder(data); setShowTrackOrder(true); }
+                    })();
+                }
+            }, [seller]);
+
             // Categories derived from products
             const categories = useMemo(() => {
                 const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
                 return ['All', ...cats.sort()];
             }, [products]);
 
-            // Filtered products
+            // Helper: is product "new" (added in last 7 days)
+            const isNewArrival = (product) => {
+                if (!product.created_at) return false;
+                const daysOld = (Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24);
+                return daysOld <= 7;
+            };
+
+            // Helper: is product out of stock (check variants OR stock field)
+            const isProductOOS = (product) => {
+                const variants = Array.isArray(product.variants) ? product.variants.filter(v => v.color || v.size) : [];
+                if (variants.length > 0) {
+                    return variants.every(v => (parseInt(v.stock) || 0) <= 0);
+                }
+                return product.stock !== null && product.stock !== undefined && parseInt(product.stock) <= 0;
+            };
+
+            // Filtered + sorted products
             const filteredProducts = useMemo(() => {
-                return products.filter(p => {
+                let result = products.filter(p => {
                     const matchCategory = activeCategory === 'All' || p.category === activeCategory;
                     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.description || '').toLowerCase().includes(search.toLowerCase());
                     return matchCategory && matchSearch;
                 });
-            }, [products, activeCategory, search]);
+                // Sort — out-of-stock always goes to the bottom
+                result.sort((a, b) => {
+                    const aOOS = isProductOOS(a) ? 1 : 0;
+                    const bOOS = isProductOOS(b) ? 1 : 0;
+                    if (aOOS !== bOOS) return aOOS - bOOS;
+                    if (sortBy === 'price_low') return (a.price || 0) - (b.price || 0);
+                    if (sortBy === 'price_high') return (b.price || 0) - (a.price || 0);
+                    if (sortBy === 'newest') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                    if (sortBy === 'rating') return (getProductRating(b.id) || 0) - (getProductRating(a.id) || 0);
+                    return 0; // default = sort_order from DB
+                });
+                return result;
+            }, [products, activeCategory, search, sortBy]);
 
             // Review helpers
             const getProductReviews = (productId) => reviews.filter(r => r.product_id === productId);
@@ -311,14 +368,22 @@
                         });
                     } catch (waErr) { console.warn('Buyer WhatsApp notification failed:', waErr); }
 
-                    setOrderData({ order_number: orderNumber, total: cartTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name });
+                    const trackUrl = `${SITE_URL}/shop/?s=${getSellerSlug()}&track=${orderNumber}`;
+                    setOrderData({ order_number: orderNumber, total: cartTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl });
+                    // Save buyer info for next time
+                    try { localStorage.setItem(`buyer_${getSellerSlug()}`, JSON.stringify({ name: formData.name, phone: formData.phone })); } catch(e) {}
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
                     setSubmittingOrder(false);
                 } catch (err) { setSubmittingOrder(false); alert('An error occurred. Please try again.'); }
             };
 
             const handleCheckout = () => { if (cart.length === 0) { alert('Your cart is empty'); return; } setShowCheckout(true); setShowCart(false); };
-            const continueShopping = () => { setShowConfirmation(false); setFormData({ name: '', phone: '', delivery_method: 'self_delivery', payment_method: 'eft', notes: '' }); };
+            const continueShopping = () => {
+                setShowConfirmation(false);
+                // Keep name/phone pre-filled from saved buyer info
+                const saved = (() => { try { return JSON.parse(localStorage.getItem(`buyer_${getSellerSlug()}`) || 'null'); } catch(e) { return null; } })();
+                setFormData({ name: saved?.name || '', phone: saved?.phone || '', delivery_method: 'self_delivery', payment_method: 'eft', notes: '' });
+            };
 
             if (loading) return (
                 <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -395,12 +460,28 @@
 
                     {/* ===== MY ORDERS MODAL ===== */}
                     {showMyOrders && (
-                        <MyOrdersModal sellerId={seller.id} onClose={() => setShowMyOrders(false)} />
+                        <MyOrdersModal sellerId={seller.id} onClose={() => setShowMyOrders(false)}
+                            products={products} onBuyAgain={(items) => {
+                                // Add all items from a past order back to cart
+                                items.forEach(item => {
+                                    const product = products.find(p => p.name === item.product_name || p.id === item.product_id);
+                                    if (product) { for (let i = 0; i < item.quantity; i++) addToCart(product); }
+                                });
+                                setShowMyOrders(false);
+                                setShowCart(true);
+                            }}
+                            sellerSlug={getSellerSlug()}
+                        />
                     )}
 
                     {/* ===== STORE INFO MODAL ===== */}
                     {showStoreInfo && (
                         <StoreInfoModal seller={seller} onClose={() => setShowStoreInfo(false)} />
+                    )}
+
+                    {/* ===== ORDER TRACKING MODAL ===== */}
+                    {showTrackOrder && trackingOrder && (
+                        <OrderTrackingModal order={trackingOrder} seller={seller} onClose={() => { setShowTrackOrder(false); window.history.replaceState({}, '', `${window.location.pathname}?s=${getSellerSlug()}`); }} />
                     )}
 
                     {/* ===== HERO HEADER ===== */}
@@ -449,18 +530,28 @@
                         </div>
                     </header>
 
-                    {/* ===== SEARCH + CATEGORY BAR ===== */}
+                    {/* ===== SEARCH + SORT + CATEGORY BAR ===== */}
                     <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
                         <div className="max-w-5xl mx-auto px-4 py-3">
-                            <div className="relative mb-2">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon /></span>
-                                <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                                    placeholder="Search products..."
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
-                                {search && (
-                                    <button onClick={() => setSearch('')}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-bold">✕</button>
-                                )}
+                            <div className="flex gap-2 mb-2">
+                                <div className="relative flex-1">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon /></span>
+                                    <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                                        placeholder="Search products..."
+                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+                                    {search && (
+                                        <button onClick={() => setSearch('')}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm font-bold">✕</button>
+                                    )}
+                                </div>
+                                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                                    className="sort-select bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-medium text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent min-w-[110px]">
+                                    <option value="default">Sort by</option>
+                                    <option value="price_low">Price: Low → High</option>
+                                    <option value="price_high">Price: High → Low</option>
+                                    <option value="newest">Newest First</option>
+                                    <option value="rating">Top Rated</option>
+                                </select>
                             </div>
                             {categories.length > 2 && (
                                 <div className="flex gap-2 overflow-x-auto category-bar pb-1">
@@ -504,6 +595,8 @@
                                             reviewCount={getProductReviews(product.id).length}
                                             isWishlisted={wishlist.includes(product.id)}
                                             onToggleWishlist={(e) => { e.stopPropagation(); toggleWishlist(product.id); }}
+                                            isNew={isNewArrival(product)}
+                                            isOOS={isProductOOS(product)}
                                         />
                                     ))}
                                 </div>
@@ -710,6 +803,20 @@
                                         <WhatsAppIcon size={18} />
                                         Message {orderData.seller_name} on WhatsApp
                                     </a>
+                                    {/* Tracking link */}
+                                    {orderData.track_url && (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
+                                            <p className="text-xs text-gray-500 mb-1.5">Track your order anytime:</p>
+                                            <div className="flex items-center gap-2">
+                                                <input type="text" readOnly value={orderData.track_url}
+                                                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-600 font-mono truncate" />
+                                                <button onClick={() => { navigator.clipboard.writeText(orderData.track_url); }}
+                                                    className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition flex-shrink-0">
+                                                    Copy
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                     <button onClick={continueShopping}
                                         className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl transition">
                                         Continue Shopping
@@ -765,7 +872,7 @@
         }
 
         // ==================== PRODUCT CARD ====================
-        function ProductCard({ product, onClick, rating, reviewCount, isWishlisted, onToggleWishlist }) {
+        function ProductCard({ product, onClick, rating, reviewCount, isWishlisted, onToggleWishlist, isNew, isOOS }) {
             const photos = Array.isArray(product.photos) && product.photos.length > 0
                 ? product.photos : (product.photo_url ? [product.photo_url] : []);
             const variants = Array.isArray(product.variants) ? product.variants.filter(v => v.color || v.size) : [];
@@ -776,15 +883,19 @@
 
             return (
                 <div onClick={() => onClick(product)}
-                     className="product-card bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 cursor-pointer relative group">
+                     className={`product-card bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 cursor-pointer relative group ${isOOS ? 'opacity-75' : ''}`}>
                     <div className="relative overflow-hidden">
                         {photos.length > 0 ? (
-                            <img src={photos[0]} alt={product.name} className="product-image bg-gray-100 group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                            <img src={photos[0]} alt={product.name} className={`product-image bg-gray-100 transition-transform duration-500 ${isOOS ? 'grayscale' : 'group-hover:scale-105'}`} loading="lazy" />
                         ) : (
-                            <div className="product-image bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+                            <div className={`product-image flex items-center justify-center ${isOOS ? 'bg-gray-400' : 'bg-gradient-to-br from-brand-400 to-brand-600'}`}>
                                 <span className="text-white text-center px-3 font-bold text-base drop-shadow">{product.name}</span>
                             </div>
                         )}
+                        {/* NEW badge */}
+                        {isNew && !isOOS && <span className="new-badge">New</span>}
+                        {/* Out of stock overlay */}
+                        {isOOS && <div className="oos-overlay"><span className="oos-label">Sold Out</span></div>}
                         {/* Wishlist heart */}
                         <button onClick={onToggleWishlist}
                             className="absolute top-2 left-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-md hover:bg-white transition z-[1]">
@@ -809,11 +920,11 @@
                         {product.description && <p className="text-xs text-gray-400 line-clamp-1 mb-2">{product.description}</p>}
                         <div className="flex items-center justify-between">
                             {hasVariants && minPrice !== maxPrice ? (
-                                <span className="text-sm font-bold text-brand-600">From {formatCurrency(minPrice)}</span>
+                                <span className={`text-sm font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>From {formatCurrency(minPrice)}</span>
                             ) : (
-                                <span className="text-lg font-bold text-brand-600">{formatCurrency(product.price)}</span>
+                                <span className={`text-lg font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>{formatCurrency(product.price)}</span>
                             )}
-                            <span className="text-xs font-semibold text-brand-500 bg-brand-50 px-2.5 py-1 rounded-lg group-hover:bg-brand-500 group-hover:text-white transition-colors">View</span>
+                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${isOOS ? 'text-gray-400 bg-gray-100' : 'text-brand-500 bg-brand-50 group-hover:bg-brand-500 group-hover:text-white'}`}>{isOOS ? 'Sold Out' : 'View'}</span>
                         </div>
                     </div>
                 </div>
@@ -1143,7 +1254,7 @@
         }
 
         // ==================== MY ORDERS MODAL ====================
-        function MyOrdersModal({ sellerId, onClose }) {
+        function MyOrdersModal({ sellerId, onClose, products, onBuyAgain, sellerSlug }) {
             const [step, setStep] = useState('phone'); // phone → otp → orders
             const [phone, setPhone] = useState('');
             const [otp, setOtp] = useState('');
@@ -1359,11 +1470,126 @@
                                                         <span className="text-xs font-medium text-gray-500">Total</span>
                                                         <span className="font-bold text-brand-600">{formatCurrency(order.total)}</span>
                                                     </div>
+                                                    {/* Buy Again + Track */}
+                                                    <div className="flex gap-2 pt-2">
+                                                        {order.order_items && order.status !== 'cancelled' && (
+                                                            <button onClick={() => onBuyAgain(order.order_items)}
+                                                                className="flex-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold text-xs py-2 rounded-lg transition flex items-center justify-center gap-1">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                                                Buy Again
+                                                            </button>
+                                                        )}
+                                                        <a href={`${SITE_URL}/shop/?s=${sellerSlug}&track=${order.order_number}`}
+                                                            target="_blank" rel="noopener"
+                                                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs py-2 rounded-lg transition flex items-center justify-center gap-1">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                                            Track
+                                                        </a>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
                                 </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ==================== ORDER TRACKING MODAL ====================
+        function OrderTrackingModal({ order, seller, onClose }) {
+            const [refreshing, setRefreshing] = useState(false);
+            const [currentOrder, setCurrentOrder] = useState(order);
+            const statusTimeline = ['new', 'confirmed', 'paid', 'shipped', 'delivered'];
+            const statusIcons = { new: '📋', confirmed: '✅', paid: '💰', shipped: '🚚', delivered: '📦' };
+            const statusDescriptions = { new: 'Your order has been received', confirmed: 'The seller has confirmed your order', paid: 'Payment has been verified', shipped: 'Your order is on its way', delivered: 'Your order has been delivered' };
+            const getStatusIndex = (s) => statusTimeline.indexOf(s);
+            const currentIdx = getStatusIndex(currentOrder.status);
+
+            const refreshStatus = async () => {
+                setRefreshing(true);
+                const { data } = await supabase.from('orders').select('*, order_items(*)').eq('id', currentOrder.id).single();
+                if (data) setCurrentOrder(data);
+                setRefreshing(false);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4 fade-in" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                            <div>
+                                <h2 className="text-lg font-bold text-gray-900">Order Tracking</h2>
+                                <p className="text-xs text-gray-400">{currentOrder.order_number}</p>
+                            </div>
+                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">
+                            {/* Status header */}
+                            <div className="text-center">
+                                <div className="text-4xl mb-2">{currentOrder.status === 'cancelled' ? '❌' : (statusIcons[currentOrder.status] || '📋')}</div>
+                                <h3 className="text-xl font-bold" style={{ color: window.getStatusColor(currentOrder.status) }}>
+                                    {window.getStatusLabel(currentOrder.status)}
+                                </h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {currentOrder.status === 'cancelled' ? 'This order was cancelled' : (statusDescriptions[currentOrder.status] || '')}
+                                </p>
+                            </div>
+
+                            {/* Timeline */}
+                            {currentOrder.status !== 'cancelled' && (
+                                <div className="space-y-0">
+                                    {statusTimeline.map((s, i) => {
+                                        const reached = i <= currentIdx;
+                                        const isCurrent = i === currentIdx;
+                                        return (
+                                            <div key={s} className="flex items-start gap-3">
+                                                <div className="flex flex-col items-center">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${reached ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-400'} ${isCurrent ? 'ring-4 ring-brand-100' : ''}`}>
+                                                        {reached ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg> : <span className="text-xs font-bold">{i + 1}</span>}
+                                                    </div>
+                                                    {i < statusTimeline.length - 1 && <div className={`w-0.5 h-8 ${i < currentIdx ? 'bg-brand-500' : 'bg-gray-200'}`} />}
+                                                </div>
+                                                <div className="pt-1">
+                                                    <p className={`text-sm font-semibold ${reached ? 'text-gray-900' : 'text-gray-400'}`}>{window.getStatusLabel(s)}</p>
+                                                    {isCurrent && <p className="text-xs text-gray-500 mt-0.5">{statusDescriptions[s]}</p>}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Order details */}
+                            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Order Details</p>
+                                <p className="text-xs text-gray-500">Placed {new Date(currentOrder.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                {currentOrder.order_items && currentOrder.order_items.map(item => (
+                                    <div key={item.id} className="flex justify-between text-sm py-1 border-b border-gray-100 last:border-0">
+                                        <span className="text-gray-700">{item.product_name} × {item.quantity}</span>
+                                        <span className="font-semibold text-gray-900">{formatCurrency(item.unit_price * item.quantity)}</span>
+                                    </div>
+                                ))}
+                                <div className="flex justify-between pt-2 border-t border-gray-200">
+                                    <span className="font-semibold text-gray-700">Total</span>
+                                    <span className="text-lg font-bold text-brand-600">{formatCurrency(currentOrder.total)}</span>
+                                </div>
+                            </div>
+
+                            {/* Refresh + WhatsApp */}
+                            <button onClick={refreshStatus} disabled={refreshing}
+                                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={refreshing ? 'spin' : ''}><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                {refreshing ? 'Refreshing...' : 'Refresh Status'}
+                            </button>
+                            {seller?.phone && (
+                                <a href={`https://wa.me/${seller.phone.replace(/[^0-9]/g, '')}?text=Hi, I'd like an update on my order ${currentOrder.order_number}`}
+                                    target="_blank" rel="noopener"
+                                    className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
+                                    <WhatsAppIcon size={18} /> Ask About This Order
+                                </a>
                             )}
                         </div>
                     </div>
