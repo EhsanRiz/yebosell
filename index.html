@@ -326,12 +326,12 @@
 
             return (
                 <div className="gradient-dark min-h-screen flex flex-col items-center justify-center p-4">
-                    <div className="mb-8 text-center">
-                        <Logo className="mx-auto mb-6" size={64} />
-                        <h1 className="text-white text-3xl font-bold mb-2">
+                    <div className="mb-10 text-center">
+                        <Logo className="mx-auto mb-5" size={88} />
+                        <h1 className="text-white text-4xl font-bold mb-2 tracking-tight">
                             WhatsApp <span className="text-green-400">Seller OS</span>
                         </h1>
-                        <p className="text-gray-400 text-sm">Sell smarter. Reach further. Grow together.</p>
+                        <p className="text-gray-400 text-sm mb-1">Sell smarter. Reach further. Grow together.</p>
                     </div>
 
                     <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
@@ -417,9 +417,22 @@
                         </button>
                     </div>
 
-                    <div className="absolute bottom-4 text-center text-gray-500 text-xs">
-                        <p>Developed by 4D Climate Solutions</p>
-                        <p>&copy; 2026 WhatsApp Seller OS. All rights reserved.</p>
+                    <div className="absolute bottom-6 text-center">
+                        <div className="flex items-center justify-center gap-2 mb-1.5">
+                            <svg viewBox="0 0 120 40" width="100" height="34" className="opacity-80">
+                                <defs>
+                                    <linearGradient id="grad4d" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" stopColor="#22c55e"/>
+                                        <stop offset="100%" stopColor="#3b82f6"/>
+                                    </linearGradient>
+                                </defs>
+                                <rect x="2" y="6" width="28" height="28" rx="6" fill="url(#grad4d)" opacity="0.9"/>
+                                <text x="16" y="27" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" fontFamily="Inter, sans-serif">4D</text>
+                                <text x="38" y="19" fill="#94a3b8" fontSize="9" fontWeight="600" fontFamily="Inter, sans-serif">CLIMATE</text>
+                                <text x="38" y="31" fill="#94a3b8" fontSize="9" fontWeight="600" fontFamily="Inter, sans-serif">SOLUTIONS</text>
+                            </svg>
+                        </div>
+                        <p className="text-gray-500 text-xs">&copy; 2026 WhatsApp Seller OS. All rights reserved.</p>
                     </div>
                 </div>
             );
@@ -430,52 +443,117 @@
         // ============================================================================
 
         const DashboardScreen = ({ seller }) => {
-            const [stats, setStats] = useState({ orders: 0, revenue: 0, pending_payments: 0, pending_deliveries: 0 });
-            const [recentOrders, setRecentOrders] = useState([]);
             const [loading, setLoading] = useState(true);
+            const [recentOrders, setRecentOrders] = useState([]);
+            const [topProducts, setTopProducts] = useState([]);
+            const [stats, setStats] = useState({
+                todayOrders: 0, todayRevenue: 0,
+                monthOrders: 0, monthRevenue: 0,
+                allTimeOrders: 0, allTimeRevenue: 0,
+                pendingPayments: 0, pendingPaymentsAmount: 0,
+                toDeliver: 0,
+                avgOrderValue: 0,
+                totalProducts: 0,
+                statusBreakdown: {},
+                dailyRevenue: [],
+                collectionRate: 0,
+            });
 
-            useEffect(() => {
-                loadDashboardData();
-            }, [seller.id]);
+            useEffect(() => { loadDashboardData(); }, [seller.id]);
 
             const loadDashboardData = async () => {
                 try {
-                    const today = new Date().toISOString().split('T')[0];
-                    const { data: ordersData } = await supabase
-                        .from('orders')
-                        .select('id, order_number, total, status, payment_status, delivery_status, created_at, customer_phone, customer_name')
-                        .eq('seller_id', seller.id)
-                        .gte('created_at', today)
-                        .order('created_at', { ascending: false })
-                        .limit(5);
+                    const now = new Date();
+                    const today = now.toISOString().split('T')[0];
+                    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
-                    const { count: totalOrders } = await supabase
-                        .from('orders')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('seller_id', seller.id)
-                        .gte('created_at', today);
+                    // Fetch all orders, payments, products in parallel
+                    const [ordersRes, paymentsRes, productsRes, pendingPayRes] = await Promise.all([
+                        supabase.from('orders')
+                            .select('id, order_number, total, status, payment_status, delivery_status, created_at, customer_phone, customer_name, items')
+                            .eq('seller_id', seller.id)
+                            .order('created_at', { ascending: false }),
+                        supabase.from('payments')
+                            .select('id, amount, status, created_at')
+                            .eq('seller_id', seller.id)
+                            .eq('status', 'confirmed'),
+                        supabase.from('products')
+                            .select('id, name, is_active')
+                            .eq('seller_id', seller.id),
+                        supabase.from('payments')
+                            .select('id, amount')
+                            .eq('seller_id', seller.id)
+                            .eq('status', 'pending'),
+                    ]);
 
-                    const { data: paymentsData } = await supabase
-                        .from('payments')
-                        .select('*')
-                        .eq('seller_id', seller.id)
-                        .eq('status', 'pending');
+                    const allOrders = ordersRes.data || [];
+                    const confirmedPayments = paymentsRes.data || [];
+                    const products = productsRes.data || [];
+                    const pendingPays = pendingPayRes.data || [];
 
-                    const { data: deliveriesData } = await supabase
-                        .from('orders')
-                        .select('*')
-                        .eq('seller_id', seller.id)
-                        .in('delivery_status', ['pending', 'in_transit']);
+                    // Today's stats
+                    const todaysOrders = allOrders.filter(o => o.created_at >= today);
+                    const todayRevenue = todaysOrders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
 
-                    const totalRevenue = (ordersData || []).reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+                    // This month
+                    const monthOrders = allOrders.filter(o => o.created_at >= monthStart);
+                    const monthRevenue = monthOrders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+
+                    // All time
+                    const allTimeRevenue = allOrders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+                    const avgOrderValue = allOrders.length > 0 ? allTimeRevenue / allOrders.length : 0;
+
+                    // Pending payments
+                    const pendingPaymentsAmount = pendingPays.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+
+                    // To deliver
+                    const toDeliver = allOrders.filter(o => ['confirmed', 'preparing', 'paid'].includes(o.status)).length;
+
+                    // Collection rate
+                    const totalConfirmedPayments = confirmedPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const collectionRate = allTimeRevenue > 0 ? Math.min(100, (totalConfirmedPayments / allTimeRevenue) * 100) : 0;
+
+                    // Status breakdown
+                    const statusBreakdown = {};
+                    allOrders.forEach(o => { statusBreakdown[o.status] = (statusBreakdown[o.status] || 0) + 1; });
+
+                    // Daily revenue for last 7 days
+                    const dailyRevenue = [];
+                    for (let i = 6; i >= 0; i--) {
+                        const d = new Date(now);
+                        d.setDate(d.getDate() - i);
+                        const dateStr = d.toISOString().split('T')[0];
+                        const dayLabel = d.toLocaleDateString('en', { weekday: 'short' });
+                        const dayRevenue = allOrders
+                            .filter(o => o.created_at.startsWith(dateStr))
+                            .reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+                        dailyRevenue.push({ day: dayLabel, date: dateStr, revenue: dayRevenue });
+                    }
+
+                    // Top products (from order items)
+                    const productSales = {};
+                    allOrders.forEach(o => {
+                        const items = typeof o.items === 'string' ? JSON.parse(o.items || '[]') : (o.items || []);
+                        items.forEach(item => {
+                            const name = item.name || item.product_name || 'Unknown';
+                            if (!productSales[name]) productSales[name] = { name, qty: 0, revenue: 0 };
+                            productSales[name].qty += (item.quantity || item.qty || 1);
+                            productSales[name].revenue += (item.quantity || item.qty || 1) * (parseFloat(item.price) || 0);
+                        });
+                    });
+                    const topProds = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
                     setStats({
-                        orders: totalOrders || 0,
-                        revenue: totalRevenue,
-                        pending_payments: paymentsData?.length || 0,
-                        pending_deliveries: deliveriesData?.length || 0
+                        todayOrders: todaysOrders.length, todayRevenue,
+                        monthOrders: monthOrders.length, monthRevenue,
+                        allTimeOrders: allOrders.length, allTimeRevenue,
+                        pendingPayments: pendingPays.length, pendingPaymentsAmount,
+                        toDeliver, avgOrderValue,
+                        totalProducts: products.length,
+                        statusBreakdown, dailyRevenue, collectionRate,
                     });
-                    setRecentOrders(ordersData || []);
+                    setRecentOrders(allOrders.slice(0, 8));
+                    setTopProducts(topProds);
                 } catch (err) {
                     console.error('Dashboard data load error:', err);
                 } finally {
@@ -489,6 +567,39 @@
                 alert('Storefront link copied!');
             };
 
+            // Mini bar chart component
+            const MiniBarChart = ({ data }) => {
+                const maxVal = Math.max(...data.map(d => d.revenue), 1);
+                return (
+                    <div className="flex items-end gap-1.5 h-28">
+                        {data.map((d, i) => (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                                <div className="w-full rounded-t-md bg-brand-500 transition-all duration-500"
+                                    style={{ height: `${Math.max(4, (d.revenue / maxVal) * 100)}%`, opacity: d.revenue > 0 ? 1 : 0.15 }}
+                                    title={`${d.day}: ${formatCurrency(d.revenue)}`}
+                                />
+                                <span className="text-xs text-gray-400 font-medium">{d.day}</span>
+                            </div>
+                        ))}
+                    </div>
+                );
+            };
+
+            // Donut-like progress ring
+            const ProgressRing = ({ percent, size = 64, strokeWidth = 6, color = '#25D366' }) => {
+                const r = (size - strokeWidth) / 2;
+                const circ = 2 * Math.PI * r;
+                const offset = circ - (percent / 100) * circ;
+                return (
+                    <svg width={size} height={size} className="transform -rotate-90">
+                        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={strokeWidth}/>
+                        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+                            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+                            style={{ transition: 'stroke-dashoffset 0.8s ease' }}/>
+                    </svg>
+                );
+            };
+
             if (loading) {
                 return <div className="flex items-center justify-center p-12"><Spinner size="lg" /></div>;
             }
@@ -497,65 +608,204 @@
                 <div>
                     <PageHeader title={`Welcome back, ${seller.full_name}`} subtitle={seller.business_name} />
 
-                    {/* Stats Grid */}
+                    {/* ===== TOP KPI CARDS ===== */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <div className="card card-shadow stat-card stat-green p-5">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Today's Orders</p>
-                            <p className="text-3xl font-bold text-gray-900">{stats.orders}</p>
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Today's Revenue</p>
+                                <span className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                </span>
+                            </div>
+                            <p className="text-2xl lg:text-3xl font-bold text-gray-900">{formatCurrency(stats.todayRevenue)}</p>
+                            <p className="text-xs text-gray-400 mt-1">{stats.todayOrders} order{stats.todayOrders !== 1 ? 's' : ''} today</p>
                         </div>
                         <div className="card card-shadow stat-card stat-blue p-5">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Today's Revenue</p>
-                            <p className="text-3xl font-bold text-green-600">{formatCurrency(stats.revenue)}</p>
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">This Month</p>
+                                <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                </span>
+                            </div>
+                            <p className="text-2xl lg:text-3xl font-bold text-gray-900">{formatCurrency(stats.monthRevenue)}</p>
+                            <p className="text-xs text-gray-400 mt-1">{stats.monthOrders} order{stats.monthOrders !== 1 ? 's' : ''} this month</p>
                         </div>
                         <div className="card card-shadow stat-card stat-orange p-5">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Pending Payments</p>
-                            <p className="text-3xl font-bold text-amber-600">{stats.pending_payments}</p>
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pending Payments</p>
+                                <span className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                </span>
+                            </div>
+                            <p className="text-2xl lg:text-3xl font-bold text-amber-600">{stats.pendingPayments}</p>
+                            <p className="text-xs text-gray-400 mt-1">{formatCurrency(stats.pendingPaymentsAmount)} awaiting</p>
                         </div>
                         <div className="card card-shadow stat-card stat-purple p-5">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">To Deliver</p>
-                            <p className="text-3xl font-bold text-blue-600">{stats.pending_deliveries}</p>
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">To Deliver</p>
+                                <span className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                                </span>
+                            </div>
+                            <p className="text-2xl lg:text-3xl font-bold text-purple-600">{stats.toDeliver}</p>
+                            <p className="text-xs text-gray-400 mt-1">orders need shipping</p>
                         </div>
                     </div>
 
-                    {/* Storefront Link */}
+                    {/* ===== SECOND ROW: Revenue Chart + Collection + Quick Stats ===== */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                        {/* Revenue Trend */}
+                        <div className="lg:col-span-2 card card-shadow p-5">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 text-sm">Revenue — Last 7 Days</h3>
+                                    <p className="text-xs text-gray-400">Daily sales performance</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.dailyRevenue.reduce((s, d) => s + d.revenue, 0))}</p>
+                                    <p className="text-xs text-gray-400">7-day total</p>
+                                </div>
+                            </div>
+                            <MiniBarChart data={stats.dailyRevenue} />
+                        </div>
+
+                        {/* Collection Rate + All-time */}
+                        <div className="card card-shadow p-5 flex flex-col items-center justify-center">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Payment Collection</p>
+                            <div className="relative mb-3">
+                                <ProgressRing percent={stats.collectionRate} size={80} strokeWidth={7}
+                                    color={stats.collectionRate >= 80 ? '#25D366' : stats.collectionRate >= 50 ? '#F59E0B' : '#EF4444'} />
+                                <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-gray-900">
+                                    {Math.round(stats.collectionRate)}%
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-400 mb-4">of total revenue collected</p>
+                            <div className="w-full pt-3 border-t border-gray-100 grid grid-cols-2 gap-3 text-center">
+                                <div>
+                                    <p className="text-lg font-bold text-gray-900">{stats.allTimeOrders}</p>
+                                    <p className="text-xs text-gray-400">All-time orders</p>
+                                </div>
+                                <div>
+                                    <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.avgOrderValue)}</p>
+                                    <p className="text-xs text-gray-400">Avg order value</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ===== THIRD ROW: Order Status Breakdown + Top Products ===== */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        {/* Order Status Breakdown */}
+                        <div className="card card-shadow p-5">
+                            <h3 className="font-semibold text-gray-900 text-sm mb-4">Order Status Breakdown</h3>
+                            {Object.keys(stats.statusBreakdown).length === 0 ? (
+                                <p className="text-sm text-gray-400">No orders yet</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {Object.entries(stats.statusBreakdown)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([status, count]) => {
+                                            const pct = stats.allTimeOrders > 0 ? (count / stats.allTimeOrders) * 100 : 0;
+                                            return (
+                                                <div key={status}>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getStatusColor(status) }}/>
+                                                            <span className="text-sm font-medium text-gray-700">{getStatusLabel(status)}</span>
+                                                        </div>
+                                                        <span className="text-sm font-semibold text-gray-900">{count}</span>
+                                                    </div>
+                                                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                        <div className="h-full rounded-full transition-all duration-700"
+                                                            style={{ width: `${pct}%`, backgroundColor: getStatusColor(status) }}/>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    }
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Top Products */}
+                        <div className="card card-shadow p-5">
+                            <h3 className="font-semibold text-gray-900 text-sm mb-4">Top Selling Products</h3>
+                            {topProducts.length === 0 ? (
+                                <p className="text-sm text-gray-400">No product sales data yet</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {topProducts.map((prod, i) => (
+                                        <div key={i} className="flex items-center gap-3">
+                                            <span className="w-7 h-7 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 text-xs font-bold">
+                                                {i + 1}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{prod.name}</p>
+                                                <p className="text-xs text-gray-400">{prod.qty} sold</p>
+                                            </div>
+                                            <p className="text-sm font-bold text-green-600">{formatCurrency(prod.revenue)}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ===== ALL-TIME REVENUE BANNER ===== */}
+                    <div className="card card-shadow mb-6 overflow-hidden">
+                        <div className="gradient-green p-5 flex items-center justify-between">
+                            <div>
+                                <p className="text-green-100 text-xs font-semibold uppercase tracking-wider mb-1">All-Time Revenue</p>
+                                <p className="text-white text-3xl lg:text-4xl font-bold">{formatCurrency(stats.allTimeRevenue)}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-green-100 text-xs font-semibold uppercase tracking-wider mb-1">Products Active</p>
+                                <p className="text-white text-3xl font-bold">{stats.totalProducts}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ===== STOREFRONT LINK ===== */}
                     <div className="card card-shadow p-5 mb-6">
                         <div className="flex items-center gap-2 mb-3">
                             <Icons.store className="text-brand-500" />
                             <p className="text-sm font-semibold text-gray-900">Your Storefront</p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                             <code className="flex-1 text-sm bg-gray-50 px-4 py-2.5 rounded-lg border border-gray-200 overflow-auto text-gray-700">
                                 {storefrontUrl}
                             </code>
-                            <button
-                                onClick={copyStorefrontUrl}
-                                className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors"
-                            >
-                                <Icons.copy /> Copy
-                            </button>
-                            <a
-                                href={storefrontUrl}
-                                target="_blank"
-                                rel="noopener"
-                                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors"
-                            >
-                                <Icons.externalLink /> Visit
-                            </a>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={copyStorefrontUrl}
+                                    className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors"
+                                >
+                                    <Icons.copy /> Copy
+                                </button>
+                                <a
+                                    href={storefrontUrl}
+                                    target="_blank"
+                                    rel="noopener"
+                                    className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors"
+                                >
+                                    <Icons.externalLink /> Visit
+                                </a>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Recent Orders */}
+                    {/* ===== RECENT ORDERS ===== */}
                     <div className="card card-shadow overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100">
+                        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                             <h3 className="font-semibold text-gray-900">Recent Orders</h3>
+                            <span className="text-xs text-gray-400">{recentOrders.length} most recent</span>
                         </div>
                         {recentOrders.length === 0 ? (
                             <div className="p-8 text-center text-gray-400 text-sm">
-                                No orders yet today
+                                No orders yet
                             </div>
                         ) : (
                             <>
-                                {/* Desktop table */}
                                 <div className="hidden lg:block">
                                     <table className="data-table">
                                         <thead>
@@ -565,7 +815,7 @@
                                                 <th>Status</th>
                                                 <th>Payment</th>
                                                 <th className="text-right">Total</th>
-                                                <th>Time</th>
+                                                <th>Date</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -584,14 +834,13 @@
                                                         </span>
                                                     </td>
                                                     <td className="text-right font-semibold text-green-600">{formatCurrency(order.total)}</td>
-                                                    <td className="text-gray-500 text-sm">{new Date(order.created_at).toLocaleTimeString()}</td>
+                                                    <td className="text-gray-500 text-sm">{new Date(order.created_at).toLocaleDateString()}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
 
-                                {/* Mobile cards */}
                                 <div className="lg:hidden divide-y divide-gray-100">
                                     {recentOrders.map(order => (
                                         <div key={order.id} className="p-4">
@@ -606,7 +855,7 @@
                                             </div>
                                             <div className="flex justify-between items-center">
                                                 <p className="text-lg font-bold text-green-600">{formatCurrency(order.total)}</p>
-                                                <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleTimeString()}</p>
+                                                <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -1984,11 +2233,13 @@
                     {/* ======= DESKTOP SIDEBAR (hidden on mobile) ======= */}
                     <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 bg-white border-r border-gray-200 z-50">
                         {/* Sidebar Header */}
-                        <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
-                            <Logo size={36} />
-                            <div className="min-w-0">
-                                <h1 className="font-bold text-sm text-gray-900 leading-tight">Seller OS</h1>
-                                <p className="text-xs text-gray-500 truncate">{currentUser.business_name}</p>
+                        <div className="px-5 py-5 border-b border-gray-100">
+                            <div className="flex items-center gap-3 mb-1">
+                                <Logo size={40} />
+                                <div className="min-w-0">
+                                    <h1 className="font-bold text-base text-gray-900 leading-tight tracking-tight">WhatsApp <span className="text-brand-500">Seller OS</span></h1>
+                                    <p className="text-xs text-gray-500 truncate">{currentUser.business_name}</p>
+                                </div>
                             </div>
                         </div>
 
@@ -2023,9 +2274,19 @@
                             >
                                 <Icons.logout /> Sign Out
                             </button>
-                            <div className="mt-4 pt-3 border-t border-gray-100 text-center">
-                                <p className="text-xs text-gray-400">Developed by</p>
-                                <p className="text-xs font-semibold text-gray-500">4D Climate Solutions</p>
+                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-center gap-2">
+                                <svg viewBox="0 0 130 36" width="110" height="30">
+                                    <defs>
+                                        <linearGradient id="grad4dSb" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stopColor="#22c55e"/>
+                                            <stop offset="100%" stopColor="#3b82f6"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <rect x="1" y="4" width="26" height="26" rx="5" fill="url(#grad4dSb)" opacity="0.85"/>
+                                    <text x="14" y="23" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" fontFamily="Inter, sans-serif">4D</text>
+                                    <text x="33" y="14" fill="#9ca3af" fontSize="8" fontWeight="500" fontFamily="Inter, sans-serif">Developed by</text>
+                                    <text x="33" y="27" fill="#6b7280" fontSize="10" fontWeight="700" fontFamily="Inter, sans-serif">4D Climate Solutions</text>
+                                </svg>
                             </div>
                         </div>
                     </aside>
@@ -2034,9 +2295,9 @@
                     <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-40">
                         <div className="px-4 py-3 flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
-                                <Logo size={32} />
+                                <Logo size={36} />
                                 <div>
-                                    <h1 className="font-bold text-sm text-gray-900 leading-none">Seller OS</h1>
+                                    <h1 className="font-bold text-sm text-gray-900 leading-none tracking-tight">WhatsApp <span className="text-brand-500">Seller OS</span></h1>
                                     <p className="text-xs text-gray-500">{currentUser.business_name}</p>
                                 </div>
                             </div>
