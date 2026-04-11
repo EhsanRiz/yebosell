@@ -1,11 +1,14 @@
 // ============================================================================
-// WhatsApp Seller OS — Shared Configuration
+// Khotso Connect — Shared Configuration
+// Sell smarter. Reach further. Grow together.
 // All vars attached to window so Babel-transpiled scripts can access them
 // ============================================================================
 
 window.SUPABASE_URL = 'https://nizrqwvfuxbuhertypva.supabase.co';
 window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5penJxd3ZmdXhidWhlcnR5cHZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NTg3MjMsImV4cCI6MjA5MTMzNDcyM30.nqduzFlkaYWq2kYYFQysb8nBU_l1Eom88uoS7l6pkCw';
-window.SITE_URL = window.location.origin || 'https://selleros.co.za';
+window.SITE_URL = window.location.origin || 'https://khotsoconnect.com';
+window.BRAND_NAME = 'Khotso Connect';
+window.BRAND_TAGLINE = 'Sell smarter. Reach further. Grow together.';
 
 // Initialize Supabase
 window.supabaseClient = null;
