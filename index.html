@@ -1089,19 +1089,29 @@
                         .eq('id', orderId);
                     if (error) throw error;
 
-                    if (field === 'status' && ['confirmed', 'paid', 'shipped', 'delivered', 'cancelled'].includes(value)) {
+                    // Determine which statuses should trigger a WhatsApp notification
+                    const notifyStatuses = ['confirmed', 'preparing', 'paid', 'dispatched', 'shipped', 'delivered', 'cancelled'];
+                    const notifyDelivery = ['in_transit', 'delivered'];
+
+                    const shouldNotify =
+                        (field === 'status' && notifyStatuses.includes(value)) ||
+                        (field === 'delivery_status' && notifyDelivery.includes(value));
+
+                    if (shouldNotify) {
                         try {
-                            const { data: session } = await supabase.auth.getSession();
-                            const token = session?.session?.access_token || SUPABASE_ANON_KEY;
+                            const notifyStatus = (field === 'delivery_status')
+                                ? (value === 'in_transit' ? 'dispatched' : value)
+                                : value;
+
                             await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`,
+                                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                                 },
-                                body: JSON.stringify({ order_id: orderId, new_status: value }),
+                                body: JSON.stringify({ order_id: orderId, new_status: notifyStatus }),
                             });
-                            console.log(`WhatsApp notification sent for order ${orderId} → ${value}`);
+                            console.log(`WhatsApp notification sent for order ${orderId} → ${notifyStatus} (field: ${field})`);
                         } catch (waErr) {
                             console.warn('WhatsApp notification failed (non-blocking):', waErr);
                         }
@@ -1274,6 +1284,8 @@
                                                         <option value="confirmed">Confirmed</option>
                                                         <option value="preparing">Preparing</option>
                                                         <option value="dispatched">Dispatched</option>
+                                                        <option value="delivered">Delivered</option>
+                                                        <option value="cancelled">Cancelled</option>
                                                     </select>
                                                 </td>
                                                 <td>
@@ -1910,6 +1922,10 @@
                             >
                                 <Icons.logout /> Sign Out
                             </button>
+                            <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+                                <p className="text-xs text-gray-400">Developed by</p>
+                                <p className="text-xs font-semibold text-gray-500">4D Climate Solutions</p>
+                            </div>
                         </div>
                     </aside>
 
