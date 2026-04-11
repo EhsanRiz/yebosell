@@ -2381,6 +2381,10 @@
             const [selectedPayment, setSelectedPayment] = useState(null);
             const [filterStatus, setFilterStatus] = useState('all');
             const [searchQuery, setSearchQuery] = useState('');
+            const [dateRange, setDateRange] = useState('all');
+            const [customDateFrom, setCustomDateFrom] = useState('');
+            const [customDateTo, setCustomDateTo] = useState('');
+            const [showReconcile, setShowReconcile] = useState(false);
 
             useEffect(() => {
                 loadPayments();
@@ -2408,7 +2412,7 @@
                 try {
                     const { data, error } = await supabase
                         .from('orders')
-                        .select('id, order_number, total, payment_status')
+                        .select('id, order_number, total, payment_status, customer_phone, customer_name, created_at')
                         .eq('seller_id', seller.id)
                         .order('created_at', { ascending: false });
 
@@ -2429,6 +2433,26 @@
             // Filtered payments
             const filteredPayments = payments
                 .filter(p => {
+                    // Date filter
+                    if (dateRange !== 'all') {
+                        const payDate = new Date(p.created_at);
+                        const now = new Date();
+                        if (dateRange === 'today') {
+                            const today = now.toISOString().split('T')[0];
+                            if (!p.created_at.startsWith(today)) return false;
+                        } else if (dateRange === 'this_week') {
+                            const weekAgo = new Date(now);
+                            weekAgo.setDate(weekAgo.getDate() - 7);
+                            if (payDate < weekAgo) return false;
+                        } else if (dateRange === 'this_month') {
+                            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                            if (payDate < monthStart) return false;
+                        } else if (dateRange === 'custom') {
+                            if (customDateFrom && payDate < new Date(customDateFrom)) return false;
+                            if (customDateTo && payDate > new Date(customDateTo + 'T23:59:59')) return false;
+                        }
+                    }
+                    // Existing filters
                     if (filterStatus !== 'all' && p.status !== filterStatus) return false;
                     if (searchQuery) {
                         const q = searchQuery.toLowerCase();
@@ -2588,6 +2612,49 @@
                 }
             };
 
+            const exportToCSV = () => {
+                const headers = ['Date', 'Order #', 'Customer', 'Amount', 'Method', 'Status'];
+                const rows = filteredPayments.map(p => [
+                    new Date(p.created_at).toLocaleDateString(),
+                    p.orders?.order_number || '',
+                    p.orders?.customer_name || '',
+                    (parseFloat(p.amount) || 0).toFixed(2),
+                    (p.payment_method || '').replace('_', ' '),
+                    p.status
+                ]);
+                const csv = [headers, ...rows].map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `payments-${seller.business_name.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const sendPaymentReminder = (order) => {
+                const paid = getPaidTotal(order.id);
+                const balance = parseFloat(order.total) - paid;
+                const message = `Hi,\n\nThis is a friendly reminder regarding your order *${order.order_number}*.\n\n` +
+                    `Order Total: ${formatCurrency(order.total)}\n` +
+                    (paid > 0 ? `Amount Paid: ${formatCurrency(paid)}\n` : '') +
+                    `Balance Due: *${formatCurrency(balance)}*\n\n` +
+                    `Please arrange payment at your earliest convenience.\n\nThank you!\n— ${seller.business_name}`;
+                window.open(whatsappLink(order.customer_phone, message), '_blank');
+            };
+
+            const getOrderPaymentSummary = () => {
+                return orders.map(order => {
+                    const orderPayments = payments.filter(p => p.order_id === order.id);
+                    const confirmed = orderPayments.filter(p => p.status === 'confirmed').reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const pending = orderPayments.filter(p => p.status === 'pending').reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const total = parseFloat(order.total) || 0;
+                    const balance = total - confirmed;
+                    const daysOld = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 86400000);
+                    return { ...order, confirmed, pending, balance, paymentCount: orderPayments.length, daysOld };
+                }).sort((a, b) => b.balance - a.balance);
+            };
+
             if (loading) {
                 return <div className="flex items-center justify-center p-12"><Spinner size="lg" /></div>;
             }
@@ -2598,12 +2665,22 @@
                         title="Payments"
                         subtitle={`${payments.length} payment${payments.length !== 1 ? 's' : ''} · ${formatCurrency(totalCollected)} collected`}
                         actions={
-                            <button
-                                onClick={() => setShowForm(!showForm)}
-                                className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
-                            >
-                                <Icons.plus /> Report Payment
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={() => setShowReconcile(!showReconcile)}
+                                    className={'flex items-center gap-2 font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors ' + (showReconcile ? 'bg-blue-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700')}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg>
+                                    Reconcile
+                                </button>
+                                <button onClick={exportToCSV}
+                                    className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Export
+                                </button>
+                                <button onClick={() => setShowForm(!showForm)}
+                                    className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors">
+                                    <Icons.plus /> Report Payment
+                                </button>
+                            </div>
                         }
                     />
 
@@ -2633,6 +2710,58 @@
                         </div>
                     </div>
 
+                    {/* Reconciliation Section */}
+                    {showReconcile && (
+                        <div className="card card-shadow mb-6 overflow-hidden">
+                            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-blue-50/50">
+                                <h3 className="font-semibold text-gray-900 text-sm">Order Payment Reconciliation</h3>
+                                <button onClick={() => setShowReconcile(false)} className="text-xs text-gray-500 hover:text-gray-700">Close</button>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="data-table text-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Order #</th>
+                                            <th>Customer</th>
+                                            <th>Age</th>
+                                            <th className="text-right">Order Total</th>
+                                            <th className="text-right">Paid</th>
+                                            <th className="text-right">Pending</th>
+                                            <th className="text-right">Balance</th>
+                                            <th>Progress</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {getOrderPaymentSummary().map(o => {
+                                            const pct = o.confirmed / (parseFloat(o.total) || 1) * 100;
+                                            const agingColor = o.balance > 0 && o.daysOld >= 30 ? 'text-red-600' : o.balance > 0 && o.daysOld >= 14 ? 'text-orange-500' : o.balance > 0 && o.daysOld >= 7 ? 'text-amber-500' : 'text-gray-500';
+                                            return (
+                                                <tr key={o.id} className={o.balance <= 0 ? 'bg-green-50/30' : ''}>
+                                                    <td className="font-semibold text-gray-900">{o.order_number}</td>
+                                                    <td className="text-gray-600">{o.customer_name || '—'}</td>
+                                                    <td className={agingColor + ' font-medium'}>{o.daysOld}d</td>
+                                                    <td className="text-right text-gray-900">{formatCurrency(o.total)}</td>
+                                                    <td className="text-right text-green-600 font-medium">{formatCurrency(o.confirmed)}</td>
+                                                    <td className="text-right text-amber-600">{o.pending > 0 ? formatCurrency(o.pending) : '—'}</td>
+                                                    <td className={'text-right font-bold ' + (o.balance > 0 ? 'text-red-500' : 'text-green-600')}>{o.balance > 0 ? formatCurrency(o.balance) : 'Paid'}</td>
+                                                    <td style={{minWidth: '120px'}}>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                                <div className="h-full rounded-full transition-all duration-500"
+                                                                    style={{ width: Math.min(100, pct) + '%', backgroundColor: pct >= 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                                            </div>
+                                                            <span className="text-xs text-gray-500 w-8 text-right">{Math.round(pct)}%</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Filter Bar */}
                     <div className="card card-shadow p-4 mb-6">
                         <div className="flex flex-col sm:flex-row gap-3">
@@ -2648,15 +2777,81 @@
                                 <option value="confirmed">Confirmed</option>
                                 <option value="rejected">Rejected</option>
                             </select>
+                            <select value={dateRange} onChange={e => setDateRange(e.target.value)}
+                                className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="this_week">This Week</option>
+                                <option value="this_month">This Month</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
                         </div>
-                        {(searchQuery || filterStatus !== 'all') && (
+                        {dateRange === 'custom' && (
+                            <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs text-gray-500 font-medium">From:</label>
+                                    <input type="date" value={customDateFrom} onChange={e => setCustomDateFrom(e.target.value)}
+                                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs text-gray-500 font-medium">To:</label>
+                                    <input type="date" value={customDateTo} onChange={e => setCustomDateTo(e.target.value)}
+                                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                </div>
+                            </div>
+                        )}
+                        {(searchQuery || filterStatus !== 'all' || dateRange !== 'all') && (
                             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
                                 <span className="text-xs text-gray-500">{filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''} found</span>
-                                <button onClick={() => { setSearchQuery(''); setFilterStatus('all'); }}
+                                <button onClick={() => { setSearchQuery(''); setFilterStatus('all'); setDateRange('all'); setCustomDateFrom(''); setCustomDateTo(''); }}
                                     className="text-xs text-brand-600 hover:underline font-medium">Clear filters</button>
                             </div>
                         )}
                     </div>
+
+                    {/* Unpaid Orders — Payment Reminders */}
+                    {unpaidOrders.length > 0 && !showForm && (
+                        <div className="card card-shadow mb-6 overflow-hidden">
+                            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-amber-50/50">
+                                <div className="flex items-center gap-2">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                    <h3 className="font-semibold text-gray-900 text-sm">Unpaid Orders — Send Reminders</h3>
+                                </div>
+                                <span className="text-xs text-amber-600 font-medium">{unpaidOrders.length} order{unpaidOrders.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                                {unpaidOrders.map(order => {
+                                    const paid = getPaidTotal(order.id);
+                                    const balance = parseFloat(order.total) - paid;
+                                    const daysOld = Math.floor((Date.now() - new Date(order.created_at).getTime()) / 86400000);
+                                    const agingColor = daysOld >= 30 ? 'text-red-600 bg-red-50' : daysOld >= 14 ? 'text-orange-600 bg-orange-50' : daysOld >= 7 ? 'text-amber-600 bg-amber-50' : 'text-gray-500 bg-gray-50';
+                                    return (
+                                        <div key={order.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-semibold text-gray-900 text-sm">{order.order_number}</p>
+                                                    <span className={'text-xs font-medium px-2 py-0.5 rounded-full ' + agingColor}>{daysOld}d ago</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500">{order.customer_name || '—'}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold text-red-500">{formatCurrency(balance)}</p>
+                                                    <p className="text-xs text-gray-400">of {formatCurrency(order.total)}</p>
+                                                </div>
+                                                {order.customer_phone && (
+                                                    <button onClick={() => sendPaymentReminder(order)}
+                                                        className="flex items-center gap-1.5 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap">
+                                                        <Icons.whatsapp /> Remind
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Payment Form */}
                     {showForm && (
@@ -2817,7 +3012,14 @@
                                                         <span className="text-gray-400 text-sm">None</span>
                                                     )}
                                                 </td>
-                                                <td className="text-gray-500 text-sm">{new Date(payment.created_at).toLocaleDateString()}</td>
+                                                <td className="text-sm">
+                                                    <p className="text-gray-500">{new Date(payment.created_at).toLocaleDateString()}</p>
+                                                    {payment.status === 'pending' && (() => {
+                                                        const days = Math.floor((Date.now() - new Date(payment.created_at).getTime()) / 86400000);
+                                                        if (days >= 7) return <p className={'text-xs font-medium mt-0.5 ' + (days >= 30 ? 'text-red-600' : days >= 14 ? 'text-orange-500' : 'text-amber-500')}>{days}d pending</p>;
+                                                        return null;
+                                                    })()}
+                                                </td>
                                                 <td>
                                                     {payment.status === 'pending' && (
                                                         <div className="flex gap-2">
@@ -2860,6 +3062,15 @@
                                         {payment.screenshot_url && (
                                             <img src={payment.screenshot_url} alt="Proof" className="w-full h-24 object-cover rounded-lg mb-3" />
                                         )}
+
+                                        <div className="flex items-center justify-between mb-3 text-xs text-gray-400">
+                                            <span>{new Date(payment.created_at).toLocaleDateString()}</span>
+                                            {payment.status === 'pending' && (() => {
+                                                const days = Math.floor((Date.now() - new Date(payment.created_at).getTime()) / 86400000);
+                                                if (days >= 7) return <span className={'font-medium ' + (days >= 30 ? 'text-red-600' : days >= 14 ? 'text-orange-500' : 'text-amber-500')}>{days} days pending</span>;
+                                                return null;
+                                            })()}
+                                        </div>
 
                                         {payment.status === 'pending' && (
                                             <div className="flex gap-2">
