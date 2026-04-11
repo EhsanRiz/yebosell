@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Seller OS</title>
+    <title>Khotso Connect</title>
     <meta name="description" content="Browse and shop from your favorite local seller">
-    <meta property="og:title" content="WhatsApp Seller Store">
+    <meta property="og:title" content="Khotso Connect Store">
     <meta property="og:description" content="Browse products from a local WhatsApp seller">
     <meta property="og:type" content="website">
     <link rel="icon" type="image/png" href="/assets/favicon.png">
@@ -214,7 +214,7 @@
                         if (methods.length > 0) {
                             setFormData(prev => ({ ...prev, delivery_method: prev.delivery_method || methods[0] }));
                         }
-                        document.title = `${sellerData.business_name} | WhatsApp Seller OS`;
+                        document.title = `${sellerData.business_name} | Khotso Connect`;
 
                         const { data: productsData } = await supabase
                             .from('products').select('*').eq('seller_id', sellerData.id).eq('is_active', true).order('sort_order', { ascending: true });
@@ -1037,7 +1037,7 @@
                                 </div>
                             )}
                             <p className="text-gray-500 text-sm mb-3">
-                                Powered by <a href="/" className="text-brand-600 font-semibold hover:underline">WhatsApp Seller OS</a>
+                                Powered by <a href="/" className="text-brand-600 font-semibold hover:underline">Khotso Connect</a>
                             </p>
                             <div className="flex items-center justify-center gap-2.5 mb-2">
                                 <img src="/assets/4d-logo.png" alt="4D" className="w-9 h-9 opacity-75" />
@@ -1529,7 +1529,7 @@
                     lines.push('━━━━━━━━━━━━━━━');
                     lines.push(`📊 *${orders.length} order${orders.length !== 1 ? 's' : ''}* — Grand Total: *${formatCurrency(grandTotal)}*`);
                     lines.push('');
-                    lines.push('_Sent from WhatsApp Seller OS_');
+                    lines.push('_Sent from Khotso Connect_');
 
                     const message = lines.join('\n');
 
