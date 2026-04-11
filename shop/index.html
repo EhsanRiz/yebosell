@@ -107,22 +107,25 @@
 
             const addToCart = (product) => {
                 const key = product.cartKey || `${product.id}`;
-                const existing = cart.find(i => (i.cartKey || `${i.id}`) === key);
                 const maxStock = product.variantStock !== null && product.variantStock !== undefined ? product.variantStock : 999;
-                if (existing) {
-                    if (existing.quantity >= maxStock) return; // already at max
-                    setCart(cart.map(i => (i.cartKey || `${i.id}`) === key ? { ...i, quantity: i.quantity + 1 } : i));
-                } else {
-                    setCart([...cart, { ...product, cartKey: key, quantity: 1 }]);
-                }
+                setCart(prev => {
+                    const existing = prev.find(i => (i.cartKey || `${i.id}`) === key);
+                    if (existing) {
+                        if (existing.quantity >= maxStock) return prev;
+                        return prev.map(i => (i.cartKey || `${i.id}`) === key ? { ...i, quantity: i.quantity + 1 } : i);
+                    }
+                    return [...prev, { ...product, cartKey: key, quantity: 1 }];
+                });
             };
             const updateQuantity = (key, qty) => {
                 if (qty <= 0) { removeFromCart(key); return; }
-                const item = cart.find(i => (i.cartKey || `${i.id}`) === key);
-                const maxStock = item?.variantStock !== null && item?.variantStock !== undefined ? item.variantStock : 999;
-                setCart(cart.map(i => (i.cartKey || `${i.id}`) === key ? { ...i, quantity: Math.min(qty, maxStock) } : i));
+                setCart(prev => prev.map(i => {
+                    if ((i.cartKey || `${i.id}`) !== key) return i;
+                    const maxStock = i.variantStock !== null && i.variantStock !== undefined ? i.variantStock : 999;
+                    return { ...i, quantity: Math.min(qty, maxStock) };
+                }));
             };
-            const removeFromCart = (key) => setCart(cart.filter(i => (i.cartKey || `${i.id}`) !== key));
+            const removeFromCart = (key) => setCart(prev => prev.filter(i => (i.cartKey || `${i.id}`) !== key));
             const cartTotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
             const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
@@ -171,6 +174,15 @@
                             }
                         }
                     }
+
+                    // Send WhatsApp order confirmation to buyer
+                    try {
+                        await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}` },
+                            body: JSON.stringify({ order_id: order.id, new_status: 'order_confirmation' }),
+                        });
+                    } catch (waErr) { console.warn('Buyer WhatsApp notification failed:', waErr); }
 
                     setOrderData({ order_number: orderNumber, total: cartTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name });
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
@@ -316,26 +328,33 @@
                                     {cart.map(item => {
                                         const key = item.cartKey || `${item.id}`;
                                         const coverImg = (Array.isArray(item.photos) && item.photos[0]) || item.photo_url;
+                                        const maxStock = item.variantStock !== null && item.variantStock !== undefined ? item.variantStock : 999;
                                         return (
-                                            <div key={key} className="flex gap-3 bg-gray-50 rounded-xl p-3">
-                                                {coverImg && <img src={coverImg} alt={item.name} className="w-16 h-16 object-cover rounded-lg flex-shrink-0" loading="lazy" />}
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h4>
-                                                    {(item.selectedColor || item.selectedSize) && (
-                                                        <p className="text-xs text-gray-500 mt-0.5">
-                                                            {[item.selectedColor, item.selectedSize].filter(Boolean).join(' / ')}
-                                                        </p>
-                                                    )}
-                                                    <p className="text-brand-600 font-bold text-sm mt-0.5">{formatCurrency(item.price * item.quantity)}</p>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <button onClick={() => updateQuantity(key, item.quantity - 1)}
-                                                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-sm font-bold transition">−</button>
-                                                        <span className="w-6 text-center font-semibold text-sm">{item.quantity}</span>
-                                                        <button onClick={() => updateQuantity(key, item.quantity + 1)}
-                                                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-sm font-bold transition">+</button>
-                                                        <button onClick={() => removeFromCart(key)}
-                                                            className="ml-auto text-red-500 hover:text-red-700 text-xs font-semibold transition">Remove</button>
+                                            <div key={key} className="bg-gray-50 rounded-xl p-3">
+                                                <div className="flex gap-3">
+                                                    {coverImg && <img src={coverImg} alt={item.name} className="w-16 h-16 object-cover rounded-lg flex-shrink-0" loading="lazy" />}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-semibold text-gray-900 text-sm truncate">{item.name}</h4>
+                                                        {(item.selectedColor || item.selectedSize) && (
+                                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                                {[item.selectedColor, item.selectedSize].filter(Boolean).join(' / ')}
+                                                            </p>
+                                                        )}
+                                                        <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(item.price)} each</p>
                                                     </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <p className="text-brand-600 font-bold text-sm">{formatCurrency(item.price * item.quantity)}</p>
+                                                        <button onClick={() => removeFromCart(key)}
+                                                            className="text-red-400 hover:text-red-600 text-[11px] font-medium mt-1 transition">Remove</button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center justify-end gap-0 mt-2">
+                                                    <button onClick={() => updateQuantity(key, item.quantity - 1)}
+                                                        className="w-8 h-8 rounded-l-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-base font-bold transition">−</button>
+                                                    <span className="w-10 h-8 border-t border-b border-gray-200 bg-white flex items-center justify-center font-bold text-sm">{item.quantity}</span>
+                                                    <button onClick={() => updateQuantity(key, item.quantity + 1)}
+                                                        disabled={item.quantity >= maxStock}
+                                                        className="w-8 h-8 rounded-r-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-base font-bold transition disabled:opacity-30 disabled:cursor-not-allowed">+</button>
                                                 </div>
                                             </div>
                                         );
