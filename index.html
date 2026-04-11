@@ -877,7 +877,8 @@
                 price: '',
                 category: 'other',
                 photos: [],
-                active: true
+                active: true,
+                variants: []
             });
             const [uploading, setUploading] = useState(false);
             const fileInputRef = useRef(null);
@@ -899,7 +900,8 @@
                     setProducts((data || []).map(p => ({
                         ...p,
                         active: p.is_active,
-                        photos: Array.isArray(p.photos) ? p.photos : (p.photo_url ? [p.photo_url] : [])
+                        photos: Array.isArray(p.photos) ? p.photos : (p.photo_url ? [p.photo_url] : []),
+                        variants: Array.isArray(p.variants) ? p.variants : []
                     })));
                 } catch (err) {
                     console.error('Load products error:', err);
@@ -961,6 +963,30 @@
                 }
             };
 
+            // Variant helpers
+            const addVariant = () => {
+                setFormData(prev => ({
+                    ...prev,
+                    variants: [...prev.variants, { color: '', size: '', price: '' }]
+                }));
+            };
+            const updateVariant = (index, field, value) => {
+                setFormData(prev => {
+                    const variants = [...prev.variants];
+                    variants[index] = { ...variants[index], [field]: value };
+                    return { ...prev, variants };
+                });
+            };
+            const removeVariant = (index) => {
+                setFormData(prev => ({
+                    ...prev,
+                    variants: prev.variants.filter((_, i) => i !== index)
+                }));
+            };
+
+            const COMMON_COLORS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Navy', 'Grey', 'Brown', 'Pink', 'Yellow', 'Orange', 'Purple'];
+            const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
+
             const saveProduct = async () => {
                 if (!formData.name || !formData.price) {
                     alert('Please fill in name and price');
@@ -968,12 +994,13 @@
                 }
 
                 try {
-                    const { active, photos, ...rest } = formData;
+                    const { active, photos, variants, ...rest } = formData;
                     const dbData = {
                         ...rest,
                         is_active: active,
                         photos: photos,
                         photo_url: photos.length > 0 ? photos[0] : '',
+                        variants: variants.filter(v => v.color || v.size),
                     };
 
                     if (editingId) {
@@ -1057,7 +1084,8 @@
                     price: '',
                     category: 'other',
                     photos: [],
-                    active: true
+                    active: true,
+                    variants: []
                 });
             };
 
@@ -1069,7 +1097,8 @@
                     price: product.price.toString(),
                     category: product.category || 'other',
                     photos: Array.isArray(product.photos) ? product.photos : (product.photo_url ? [product.photo_url] : []),
-                    active: product.active !== undefined ? product.active : product.is_active
+                    active: product.active !== undefined ? product.active : product.is_active,
+                    variants: Array.isArray(product.variants) ? product.variants : []
                 });
                 setShowForm(true);
             };
@@ -1252,6 +1281,86 @@
                                 </div>
                             </div>
 
+                            {/* Variants Editor */}
+                            <div className="mb-5 border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Variants</label>
+                                        <p className="text-xs text-gray-400 mt-0.5">Add color/size options with different prices (optional)</p>
+                                    </div>
+                                    <button onClick={addVariant} type="button"
+                                        className="flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+                                        <Icons.plus style={{width: 12, height: 12}} /> Add Variant
+                                    </button>
+                                </div>
+
+                                {formData.variants.length > 0 && (
+                                    <div className="space-y-2">
+                                        {/* Header row */}
+                                        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
+                                            <div className="col-span-4">Color</div>
+                                            <div className="col-span-4">Size</div>
+                                            <div className="col-span-3">Price (ZAR)</div>
+                                            <div className="col-span-1"></div>
+                                        </div>
+                                        {formData.variants.map((variant, i) => (
+                                            <div key={i} className="grid grid-cols-12 gap-2 items-center bg-white rounded-lg p-2 border border-gray-100">
+                                                <div className="col-span-4">
+                                                    <input
+                                                        type="text"
+                                                        list="color-suggestions"
+                                                        value={variant.color}
+                                                        onChange={(e) => updateVariant(i, 'color', e.target.value)}
+                                                        placeholder="e.g. Red"
+                                                        className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                                    />
+                                                </div>
+                                                <div className="col-span-4">
+                                                    <input
+                                                        type="text"
+                                                        list="size-suggestions"
+                                                        value={variant.size}
+                                                        onChange={(e) => updateVariant(i, 'size', e.target.value)}
+                                                        placeholder="e.g. M"
+                                                        className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                                    />
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <input
+                                                        type="number"
+                                                        value={variant.price}
+                                                        onChange={(e) => updateVariant(i, 'price', e.target.value)}
+                                                        placeholder={formData.price || '0'}
+                                                        step="0.01"
+                                                        className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                                    />
+                                                </div>
+                                                <div className="col-span-1 flex justify-center">
+                                                    <button onClick={() => removeVariant(i)} type="button"
+                                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {formData.variants.length === 0 && (
+                                    <div className="text-center py-4 text-gray-400 text-xs">
+                                        No variants — the base price above applies to all orders.
+                                    </div>
+                                )}
+
+                                {/* Color/size suggestion datalists */}
+                                <datalist id="color-suggestions">
+                                    {COMMON_COLORS.map(c => <option key={c} value={c} />)}
+                                </datalist>
+                                <datalist id="size-suggestions">
+                                    {COMMON_SIZES.map(s => <option key={s} value={s} />)}
+                                </datalist>
+                            </div>
+
                             <div className="flex items-center gap-2 mb-5">
                                 <input
                                     type="checkbox"
@@ -1339,10 +1448,15 @@
                                         <div className="p-4">
                                             <h4 className="font-semibold text-sm text-gray-900 mb-1 truncate">{product.name}</h4>
                                             <p className="text-green-600 font-bold text-lg mb-3">{formatCurrency(product.price)}</p>
-                                            <div className="flex gap-1 mb-3">
+                                            <div className="flex flex-wrap gap-1 mb-3">
                                                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${product.active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                                                     {product.active ? 'Active' : 'Inactive'}
                                                 </span>
+                                                {product.variants && product.variants.length > 0 && (
+                                                    <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-blue-50 text-blue-700">
+                                                        {product.variants.length} variant{product.variants.length !== 1 ? 's' : ''}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex gap-1.5">
                                                 <button
@@ -2387,9 +2501,9 @@
                             ))}
                         </nav>
 
-                        {/* Sidebar Footer */}
-                        <div className="px-4 py-4 border-t border-gray-100">
-                            <div className="flex items-center gap-3 mb-3">
+                        {/* User info + Sign Out */}
+                        <div className="px-4 py-3 border-t border-gray-100">
+                            <div className="flex items-center gap-3 mb-2">
                                 <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-sm">
                                     {currentUser.full_name?.charAt(0)?.toUpperCase() || 'S'}
                                 </div>
@@ -2404,13 +2518,18 @@
                             >
                                 <Icons.logout /> Sign Out
                             </button>
-                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-center gap-2.5">
-                                <img src="/assets/4d-logo.png" alt="4D" className="w-8 h-8 opacity-75" />
+                        </div>
+
+                        {/* Footer branding */}
+                        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+                            <div className="flex items-center justify-center gap-2">
+                                <img src="/assets/4d-logo.png" alt="4D" className="w-7 h-7 opacity-75" />
                                 <div className="text-left">
-                                    <p className="text-xs text-gray-400 leading-tight">Developed by</p>
-                                    <p className="text-xs font-semibold text-gray-500 leading-tight">4D <span className="italic">Climate Solutions</span></p>
+                                    <p className="text-[10px] text-gray-400 leading-tight">Developed by</p>
+                                    <p className="text-[11px] font-semibold text-gray-500 leading-tight">4D <span className="italic">Climate Solutions</span></p>
                                 </div>
                             </div>
+                            <p className="text-[10px] text-gray-300 text-center mt-1.5">&copy; 2026 All rights reserved</p>
                         </div>
                     </aside>
 
