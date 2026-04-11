@@ -192,6 +192,93 @@
         @media (max-width: 768px) { .footer-links { gap: 32px; } }
 
         /* ===== ANIMATIONS ===== */
+        /* ===== LIVE DEMO ===== */
+        .demo-section { background: var(--gray-50); overflow: hidden; }
+        .demo-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+        .demo-left { position: relative; }
+        .demo-tabs { display: flex; flex-direction: column; gap: 0; }
+        .demo-phase { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; padding: 20px 0 8px; }
+        .demo-phase.seller-phase { color: var(--green-600); }
+        .demo-phase.buyer-phase { color: #2563eb; }
+        .demo-tab {
+            display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px;
+            cursor: pointer; transition: all 0.3s; border: 2px solid transparent; position: relative;
+        }
+        .demo-tab:hover { background: white; }
+        .demo-tab.active { background: white; border-color: var(--green-200); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .demo-tab.active.buyer { border-color: #bfdbfe; }
+        .demo-tab .tab-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .demo-tab .tab-text h4 { font-size: 14px; font-weight: 700; color: var(--gray-900); margin-bottom: 1px; }
+        .demo-tab .tab-text p { font-size: 12px; color: var(--gray-400); margin: 0; }
+        .demo-tab .tab-progress { position: absolute; bottom: 0; left: 18px; right: 18px; height: 3px; background: var(--gray-100); border-radius: 2px; overflow: hidden; opacity: 0; }
+        .demo-tab.active .tab-progress { opacity: 1; }
+        .demo-tab .tab-progress-bar { height: 100%; width: 0; background: var(--green-500); border-radius: 2px; }
+        .demo-tab.active.buyer .tab-progress-bar { background: #3b82f6; }
+
+        .demo-right { display: flex; justify-content: center; position: relative; }
+        .demo-phone {
+            width: 280px; height: 540px; background: var(--gray-900); border-radius: 40px;
+            padding: 12px; position: relative; box-shadow: 0 40px 80px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
+        }
+        .demo-screen {
+            width: 100%; height: 100%; background: #fff; border-radius: 30px; overflow: hidden;
+            position: relative;
+        }
+        .demo-slide {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            opacity: 0; transform: scale(0.95); transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); pointer-events: none;
+        }
+        .demo-slide.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+
+        /* Slide shared styles */
+        .slide-header { padding: 16px 16px 12px; font-weight: 800; font-size: 13px; color: var(--gray-900); border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 8px; }
+        .slide-header .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .slide-body { flex: 1; padding: 16px; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+        .slide-footer { padding: 12px 16px; border-top: 1px solid var(--gray-100); }
+
+        /* Form elements */
+        .mock-input { background: var(--gray-50); border: 1.5px solid var(--gray-200); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--gray-500); display: flex; align-items: center; gap: 8px; }
+        .mock-input.filled { color: var(--gray-800); border-color: var(--green-300); background: var(--green-50); }
+        .mock-btn { background: var(--green-500); color: white; border-radius: 10px; padding: 10px; text-align: center; font-size: 12px; font-weight: 700; }
+        .mock-btn.blue { background: #2563eb; }
+
+        /* Product card in demo */
+        .demo-product { display: flex; gap: 10px; padding: 8px; background: var(--gray-50); border-radius: 10px; align-items: center; }
+        .demo-product .thumb { width: 44px; height: 44px; border-radius: 8px; background: var(--gray-200); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .demo-product .info { flex: 1; }
+        .demo-product .info .pname { font-size: 11px; font-weight: 700; color: var(--gray-800); }
+        .demo-product .info .pprice { font-size: 11px; font-weight: 800; color: var(--green-600); }
+        .demo-product .info .pstock { font-size: 9px; color: var(--gray-400); }
+
+        /* Chat bubble */
+        .chat-bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 11px; line-height: 1.5; }
+        .chat-bubble.wa { background: #dcf8c6; border-bottom-right-radius: 4px; align-self: flex-end; color: var(--gray-800); }
+        .chat-bubble.incoming { background: white; border: 1px solid var(--gray-100); border-bottom-left-radius: 4px; align-self: flex-start; color: var(--gray-700); }
+        .chat-time { font-size: 9px; color: var(--gray-400); text-align: right; margin-top: 2px; }
+
+        /* Timeline in demo */
+        .mini-timeline { display: flex; flex-direction: column; gap: 0; }
+        .tl-step { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
+        .tl-dot-col { display: flex; flex-direction: column; align-items: center; }
+        .tl-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--gray-200); display: flex; align-items: center; justify-content: center; font-size: 9px; background: white; }
+        .tl-dot.done { border-color: var(--green-500); background: var(--green-500); color: white; }
+        .tl-dot.current { border-color: #f59e0b; background: #fef3c7; }
+        .tl-line { width: 2px; height: 16px; background: var(--gray-200); }
+        .tl-line.done { background: var(--green-500); }
+        .tl-text { font-size: 11px; font-weight: 600; color: var(--gray-700); }
+        .tl-text small { font-weight: 400; color: var(--gray-400); display: block; font-size: 9px; }
+
+        .demo-arrow { position: absolute; top: 50%; right: -60px; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .demo-arrow .arr-icon { font-size: 24px; animation: float 2s ease-in-out infinite; }
+        .demo-arrow .arr-text { font-size: 10px; color: var(--gray-400); font-weight: 600; }
+
+        @media (max-width: 768px) {
+            .demo-layout { grid-template-columns: 1fr; }
+            .demo-right { order: -1; }
+            .demo-phone { width: 240px; height: 460px; }
+            .demo-arrow { display: none; }
+        }
+
         .fade-up { opacity: 0; transform: translateY(24px); transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
         .fade-up.visible { opacity: 1; transform: translateY(0); }
         .delay-1 { transition-delay: 0.1s; }
@@ -226,6 +313,7 @@
                 <div class="nav-links">
                     <a href="#how-it-works">How It Works</a>
                     <a href="#features">Features</a>
+                    <a href="#demo">Live Demo</a>
                     <a href="#find-store">Find a Store</a>
                     <a href="/dashboard/" class="btn btn-outline btn-sm">Seller Login</a>
                     <a href="#get-started" class="btn btn-primary btn-sm">Get Started</a>
@@ -415,6 +503,293 @@
         </div>
     </section>
 
+    <!-- ===== LIVE DEMO ===== -->
+    <section class="demo-section" id="demo">
+        <div class="container">
+            <div class="text-center" style="margin-bottom:56px">
+                <p class="section-label fade-up">See It In Action</p>
+                <h2 class="section-title fade-up">From sign-up to sale in minutes</h2>
+                <p class="section-desc center fade-up">Watch the full journey — how a seller sets up shop and how a buyer places an order, all powered by WhatsApp.</p>
+            </div>
+            <div class="demo-layout fade-up">
+                <div class="demo-left">
+                    <div class="demo-tabs">
+                        <div class="demo-phase seller-phase">🟢 Seller Side</div>
+                        <div class="demo-tab active" data-slide="0" onclick="goSlide(0)">
+                            <div class="tab-icon" style="background:#dcfce7">📱</div>
+                            <div class="tab-text">
+                                <h4>Sign Up & Login</h4>
+                                <p>Phone number + 4-digit PIN</p>
+                            </div>
+                            <div class="tab-progress"><div class="tab-progress-bar"></div></div>
+                        </div>
+                        <div class="demo-tab" data-slide="1" onclick="goSlide(1)">
+                            <div class="tab-icon" style="background:#dcfce7">📦</div>
+                            <div class="tab-text">
+                                <h4>Add Products</h4>
+                                <p>Photos, prices, variants, stock</p>
+                            </div>
+                            <div class="tab-progress"><div class="tab-progress-bar"></div></div>
+                        </div>
+                        <div class="demo-tab" data-slide="2" onclick="goSlide(2)">
+                            <div class="tab-icon" style="background:#dcfce7">🔗</div>
+                            <div class="tab-text">
+                                <h4>Share Your Store</h4>
+                                <p>Send link on WhatsApp or social</p>
+                            </div>
+                            <div class="tab-progress"><div class="tab-progress-bar"></div></div>
+                        </div>
+
+                        <div class="demo-phase buyer-phase">🔵 Buyer Side</div>
+                        <div class="demo-tab buyer" data-slide="3" onclick="goSlide(3)">
+                            <div class="tab-icon" style="background:#dbeafe">🛒</div>
+                            <div class="tab-text">
+                                <h4>Browse & Order</h4>
+                                <p>Pick products, choose delivery</p>
+                            </div>
+                            <div class="tab-progress"><div class="tab-progress-bar"></div></div>
+                        </div>
+                        <div class="demo-tab buyer" data-slide="4" onclick="goSlide(4)">
+                            <div class="tab-icon" style="background:#dbeafe">💬</div>
+                            <div class="tab-text">
+                                <h4>WhatsApp Updates</h4>
+                                <p>Auto notifications at every step</p>
+                            </div>
+                            <div class="tab-progress"><div class="tab-progress-bar"></div></div>
+                        </div>
+                        <div class="demo-tab buyer" data-slide="5" onclick="goSlide(5)">
+                            <div class="tab-icon" style="background:#dbeafe">📍</div>
+                            <div class="tab-text">
+                                <h4>Track Delivery</h4>
+                                <p>Real-time order tracking page</p>
+                            </div>
+                            <div class="tab-progress"><div class="tab-progress-bar"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-right">
+                    <div class="demo-phone">
+                        <div class="demo-screen">
+                            <!-- Slide 0: Sign Up -->
+                            <div class="demo-slide active" id="ds0">
+                                <div class="slide-header">
+                                    <div class="dot" style="background:var(--green-500)"></div>
+                                    Seller OS — Login
+                                </div>
+                                <div class="slide-body" style="justify-content:center;gap:14px;padding:24px 20px;">
+                                    <div style="text-align:center;margin-bottom:8px;">
+                                        <div style="font-size:36px;margin-bottom:6px;">🛍️</div>
+                                        <div style="font-size:16px;font-weight:800;color:var(--gray-900);">Seller<span style="color:var(--green-500)">OS</span></div>
+                                        <div style="font-size:10px;color:var(--gray-400);margin-top:2px;">WhatsApp-powered commerce</div>
+                                    </div>
+                                    <div class="mock-input filled">📱 +27 82 555 0199</div>
+                                    <div class="mock-input filled">🔒 • • • •</div>
+                                    <div class="mock-btn" style="margin-top:4px;">Sign In →</div>
+                                    <div style="text-align:center;font-size:10px;color:var(--gray-400);margin-top:4px;">New here? Sign up in 30 seconds</div>
+                                </div>
+                            </div>
+
+                            <!-- Slide 1: Add Product -->
+                            <div class="demo-slide" id="ds1">
+                                <div class="slide-header">
+                                    <div class="dot" style="background:var(--green-500)"></div>
+                                    Add New Product
+                                </div>
+                                <div class="slide-body" style="gap:8px;">
+                                    <div style="width:100%;height:80px;background:var(--gray-100);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                        <div style="text-align:center;">
+                                            <div style="font-size:20px;">📸</div>
+                                            <div style="font-size:9px;color:var(--gray-400);font-weight:600;">Photo uploaded</div>
+                                        </div>
+                                    </div>
+                                    <div class="mock-input filled">Smart Watch Pro</div>
+                                    <div class="mock-input filled">R 499.00</div>
+                                    <div style="display:flex;gap:6px;">
+                                        <div class="mock-input filled" style="flex:1;font-size:10px;">📂 Electronics</div>
+                                        <div class="mock-input filled" style="flex:1;font-size:10px;">📦 25 in stock</div>
+                                    </div>
+                                    <div class="mock-input filled" style="font-size:10px;">Sizes: S, M, L</div>
+                                    <div class="mock-btn" style="margin-top:2px;">Save Product ✓</div>
+                                </div>
+                            </div>
+
+                            <!-- Slide 2: Share Store -->
+                            <div class="demo-slide" id="ds2">
+                                <div class="slide-header">
+                                    <div class="dot" style="background:var(--green-500)"></div>
+                                    Your Store is Live!
+                                </div>
+                                <div class="slide-body" style="gap:12px;justify-content:center;padding:20px;">
+                                    <div style="text-align:center;">
+                                        <div style="font-size:32px;margin-bottom:8px;">🎉</div>
+                                        <div style="font-size:14px;font-weight:800;color:var(--gray-900);">StyleHub is live!</div>
+                                        <div style="font-size:10px;color:var(--gray-400);margin-top:4px;">3 products listed</div>
+                                    </div>
+                                    <div class="mock-input filled" style="justify-content:center;font-size:10px;background:var(--green-50);border-color:var(--green-300);">
+                                        🔗 selleros.co.za/shop/?s=stylehub
+                                    </div>
+                                    <div class="mock-btn" style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                                        <span style="font-size:14px;">💬</span> Share on WhatsApp
+                                    </div>
+                                    <div style="display:flex;gap:6px;">
+                                        <div style="flex:1;text-align:center;padding:8px;background:var(--gray-50);border-radius:8px;font-size:10px;cursor:pointer;">📋 Copy Link</div>
+                                        <div style="flex:1;text-align:center;padding:8px;background:var(--gray-50);border-radius:8px;font-size:10px;cursor:pointer;">📘 Facebook</div>
+                                    </div>
+                                    <div style="background:var(--gray-50);border-radius:10px;padding:10px;margin-top:4px;">
+                                        <div style="font-size:9px;color:var(--gray-400);font-weight:600;margin-bottom:4px;">PREVIEW</div>
+                                        <div style="font-size:10px;color:var(--gray-700);">Hey! Check out my store 🛍️ Browse and order anytime — you'll get WhatsApp updates!</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Slide 3: Browse & Order -->
+                            <div class="demo-slide" id="ds3">
+                                <div class="slide-header" style="background:#2563eb;color:white;border:none;">
+                                    <div class="dot" style="background:white;opacity:0.5;"></div>
+                                    StyleHub — Shop
+                                </div>
+                                <div class="slide-body" style="gap:6px;">
+                                    <div class="demo-product">
+                                        <div class="thumb">👜</div>
+                                        <div class="info">
+                                            <div class="pname">Leather Bag</div>
+                                            <div class="pprice">R350.00</div>
+                                        </div>
+                                        <div style="background:var(--green-500);color:white;font-size:9px;font-weight:700;padding:4px 8px;border-radius:6px;">+1</div>
+                                    </div>
+                                    <div class="demo-product" style="border:1.5px solid var(--green-300);background:var(--green-50);">
+                                        <div class="thumb" style="background:var(--green-100);">⌚</div>
+                                        <div class="info">
+                                            <div class="pname">Smart Watch</div>
+                                            <div class="pprice">R499.00</div>
+                                            <div class="pstock">✓ In cart (1)</div>
+                                        </div>
+                                        <div style="background:var(--green-500);color:white;font-size:9px;font-weight:700;padding:4px 8px;border-radius:6px;">✓</div>
+                                    </div>
+                                    <div class="demo-product">
+                                        <div class="thumb">🎧</div>
+                                        <div class="info">
+                                            <div class="pname">Wireless Earbuds</div>
+                                            <div class="pprice">R199.00</div>
+                                        </div>
+                                        <div style="background:var(--green-500);color:white;font-size:9px;font-weight:700;padding:4px 8px;border-radius:6px;">+1</div>
+                                    </div>
+                                    <div style="margin-top:auto;background:var(--gray-50);border-radius:10px;padding:8px 10px;font-size:10px;">
+                                        <div style="display:flex;justify-content:space-between;color:var(--gray-500);">
+                                            <span>🚚 Delivery method</span>
+                                            <span style="font-weight:700;color:var(--gray-800);">Seller Delivery</span>
+                                        </div>
+                                        <div style="display:flex;justify-content:space-between;margin-top:4px;color:var(--gray-500);">
+                                            <span>Delivery fee</span>
+                                            <span style="font-weight:700;color:var(--gray-800);">R50.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="slide-footer" style="background:#2563eb;">
+                                    <div style="color:white;text-align:center;font-size:12px;font-weight:700;">🛒 Checkout — R549.00</div>
+                                </div>
+                            </div>
+
+                            <!-- Slide 4: WhatsApp Notifications -->
+                            <div class="demo-slide" id="ds4">
+                                <div class="slide-header" style="background:#25D366;color:white;border:none;">
+                                    <div class="dot" style="background:white;opacity:0.5;"></div>
+                                    WhatsApp — Updates
+                                </div>
+                                <div class="slide-body" style="background:#e5ddd5;gap:8px;padding:14px;">
+                                    <div class="chat-bubble wa">
+                                        <strong>🛍️ Order Confirmed!</strong><br>
+                                        Order #ORD-20260411<br>
+                                        ⌚ Smart Watch × 1 — R499<br>
+                                        🚚 Delivery: R50<br>
+                                        💰 Total: <strong>R549.00</strong><br>
+                                        <br>📍 Track your order:<br>
+                                        <span style="color:#2563eb;text-decoration:underline;">selleros.co.za/track</span>
+                                        <div class="chat-time">12:34 ✓✓</div>
+                                    </div>
+                                    <div style="font-size:9px;text-align:center;color:#8696a0;padding:4px;">2 hours later</div>
+                                    <div class="chat-bubble wa">
+                                        🚗 <strong>Out for delivery!</strong><br>
+                                        Your order is on its way to<br>
+                                        123 Main St, Sandton.
+                                        <div class="chat-time">14:20 ✓✓</div>
+                                    </div>
+                                    <div class="chat-bubble wa">
+                                        📦✅ <strong>Delivered!</strong><br>
+                                        Your order has been delivered. Enjoy!
+                                        <div class="chat-time">15:05 ✓✓</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Slide 5: Track Delivery -->
+                            <div class="demo-slide" id="ds5">
+                                <div class="slide-header" style="background:#2563eb;color:white;border:none;">
+                                    <div class="dot" style="background:white;opacity:0.5;"></div>
+                                    Track Order
+                                </div>
+                                <div class="slide-body" style="gap:6px;">
+                                    <div style="background:var(--green-50);border:1px solid var(--green-200);border-radius:10px;padding:10px;">
+                                        <div style="font-size:12px;font-weight:800;color:var(--gray-900);">#ORD-20260411</div>
+                                        <div style="font-size:10px;color:var(--gray-500);">StyleHub • R549.00</div>
+                                    </div>
+                                    <div class="mini-timeline" style="padding:6px 4px;">
+                                        <div class="tl-step">
+                                            <div class="tl-dot-col">
+                                                <div class="tl-dot done">✓</div>
+                                                <div class="tl-line done"></div>
+                                            </div>
+                                            <div class="tl-text">Order Received <small>12:34 PM</small></div>
+                                        </div>
+                                        <div class="tl-step">
+                                            <div class="tl-dot-col">
+                                                <div class="tl-dot done">✓</div>
+                                                <div class="tl-line done"></div>
+                                            </div>
+                                            <div class="tl-text">Confirmed <small>12:36 PM</small></div>
+                                        </div>
+                                        <div class="tl-step">
+                                            <div class="tl-dot-col">
+                                                <div class="tl-dot done">✓</div>
+                                                <div class="tl-line done"></div>
+                                            </div>
+                                            <div class="tl-text">Out for Delivery <small>2:20 PM</small></div>
+                                        </div>
+                                        <div class="tl-step">
+                                            <div class="tl-dot-col">
+                                                <div class="tl-dot current">●</div>
+                                                <div class="tl-line"></div>
+                                            </div>
+                                            <div class="tl-text">In Transit <small>ETA ~30 min</small></div>
+                                        </div>
+                                        <div class="tl-step">
+                                            <div class="tl-dot-col">
+                                                <div class="tl-dot"></div>
+                                            </div>
+                                            <div class="tl-text" style="color:var(--gray-400);">Delivered</div>
+                                        </div>
+                                    </div>
+                                    <div style="background:#fef3c7;border-radius:10px;padding:10px;font-size:10px;display:flex;align-items:center;gap:8px;">
+                                        <span style="font-size:16px;">📍</span>
+                                        <div>
+                                            <div style="font-weight:700;color:#92400e;">Delivering to</div>
+                                            <div style="color:#a16207;">123 Main St, Sandton</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="slide-footer">
+                                    <div class="mock-btn" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;">
+                                        <span style="font-size:14px;">💬</span> Contact Seller
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- ===== WHY SELLER OS ===== -->
     <section style="background:var(--gray-50)">
         <div class="container">
@@ -543,6 +918,60 @@
             entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
         }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
         document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+        // ===== DEMO SLIDESHOW =====
+        let demoSlide = 0;
+        const SLIDE_COUNT = 6;
+        const SLIDE_DURATION = 4000;
+        let demoTimer = null;
+        let progressAnim = null;
+
+        function goSlide(n) {
+            // Remove active from all slides and tabs
+            document.querySelectorAll('.demo-slide').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+            // Cancel any running progress animation
+            if (progressAnim) { cancelAnimationFrame(progressAnim); progressAnim = null; }
+            document.querySelectorAll('.tab-progress-bar').forEach(b => b.style.width = '0%');
+
+            // Activate new
+            demoSlide = n;
+            document.getElementById('ds' + n).classList.add('active');
+            const tab = document.querySelector('.demo-tab[data-slide="' + n + '"]');
+            if (tab) tab.classList.add('active');
+
+            // Animate progress bar
+            const bar = tab ? tab.querySelector('.tab-progress-bar') : null;
+            if (bar) {
+                let start = null;
+                function animateBar(ts) {
+                    if (!start) start = ts;
+                    const pct = Math.min(((ts - start) / SLIDE_DURATION) * 100, 100);
+                    bar.style.width = pct + '%';
+                    if (pct < 100) progressAnim = requestAnimationFrame(animateBar);
+                }
+                progressAnim = requestAnimationFrame(animateBar);
+            }
+
+            // Reset auto timer
+            clearInterval(demoTimer);
+            demoTimer = setInterval(() => goSlide((demoSlide + 1) % SLIDE_COUNT), SLIDE_DURATION);
+        }
+
+        // Start auto-play when section is visible
+        const demoObs = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting && !demoTimer) {
+                    goSlide(0);
+                } else if (!e.isIntersecting && demoTimer) {
+                    clearInterval(demoTimer);
+                    demoTimer = null;
+                    if (progressAnim) { cancelAnimationFrame(progressAnim); progressAnim = null; }
+                }
+            });
+        }, { threshold: 0.2 });
+        const demoEl = document.getElementById('demo');
+        if (demoEl) demoObs.observe(demoEl);
 
         // Store finder
         function goToStore() {
