@@ -963,29 +963,68 @@
                 }
             };
 
-            // Variant helpers
-            const addVariant = () => {
-                setFormData(prev => ({
-                    ...prev,
-                    variants: [...prev.variants, { color: '', size: '', price: '' }]
-                }));
-            };
-            const updateVariant = (index, field, value) => {
-                setFormData(prev => {
-                    const variants = [...prev.variants];
-                    variants[index] = { ...variants[index], [field]: value };
-                    return { ...prev, variants };
-                });
-            };
-            const removeVariant = (index) => {
-                setFormData(prev => ({
-                    ...prev,
-                    variants: prev.variants.filter((_, i) => i !== index)
-                }));
-            };
-
+            // Variant helpers — stored internally as flat array [{color, size, price}]
+            // but edited as "variant groups" (one color + multiple sizes + one price)
             const COMMON_COLORS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Navy', 'Grey', 'Brown', 'Pink', 'Yellow', 'Orange', 'Purple'];
             const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
+
+            // Convert flat variants to groups for editing
+            const variantsToGroups = (variants) => {
+                const map = {};
+                (variants || []).forEach(v => {
+                    const key = `${v.color || ''}__${v.price || ''}`;
+                    if (!map[key]) map[key] = { color: v.color || '', sizes: [], price: v.price || '' };
+                    if (v.size) map[key].sizes.push(v.size);
+                });
+                const groups = Object.values(map);
+                return groups.length > 0 ? groups : [];
+            };
+
+            // Convert groups back to flat variants
+            const groupsToVariants = (groups) => {
+                const flat = [];
+                (groups || []).forEach(g => {
+                    if (g.sizes.length === 0) {
+                        if (g.color) flat.push({ color: g.color, size: '', price: g.price });
+                    } else {
+                        g.sizes.forEach(s => flat.push({ color: g.color, size: s, price: g.price }));
+                    }
+                });
+                return flat;
+            };
+
+            const [variantGroups, setVariantGroups] = useState([]);
+
+            // Sync variantGroups when formData.variants changes (e.g. on startEdit)
+            useEffect(() => {
+                setVariantGroups(variantsToGroups(formData.variants));
+            }, [showForm]);
+
+            const addVariantGroup = () => {
+                setVariantGroups(prev => [...prev, { color: '', sizes: [], price: '' }]);
+            };
+            const updateVariantGroup = (index, field, value) => {
+                setVariantGroups(prev => {
+                    const groups = [...prev];
+                    groups[index] = { ...groups[index], [field]: value };
+                    return groups;
+                });
+            };
+            const toggleGroupSize = (index, size) => {
+                setVariantGroups(prev => {
+                    const groups = [...prev];
+                    const g = { ...groups[index] };
+                    g.sizes = g.sizes.includes(size) ? g.sizes.filter(s => s !== size) : [...g.sizes, size];
+                    groups[index] = g;
+                    return groups;
+                });
+            };
+            const removeVariantGroup = (index) => {
+                setVariantGroups(prev => prev.filter((_, i) => i !== index));
+            };
+
+            // Sync groups back to formData before save
+            const syncVariantsFromGroups = () => groupsToVariants(variantGroups);
 
             const saveProduct = async () => {
                 if (!formData.name || !formData.price) {
@@ -994,13 +1033,14 @@
                 }
 
                 try {
-                    const { active, photos, variants, ...rest } = formData;
+                    const { active, photos, variants: _v, ...rest } = formData;
+                    const computedVariants = syncVariantsFromGroups();
                     const dbData = {
                         ...rest,
                         is_active: active,
                         photos: photos,
                         photo_url: photos.length > 0 ? photos[0] : '',
-                        variants: variants.filter(v => v.color || v.size),
+                        variants: computedVariants.filter(v => v.color || v.size),
                     };
 
                     if (editingId) {
@@ -1281,83 +1321,86 @@
                                 </div>
                             </div>
 
-                            {/* Variants Editor */}
+                            {/* Variants Editor — group-based (color + multi-size + price) */}
                             <div className="mb-5 border border-gray-200 rounded-xl p-4 bg-gray-50/50">
                                 <div className="flex items-center justify-between mb-3">
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Variants</label>
-                                        <p className="text-xs text-gray-400 mt-0.5">Add color/size options with different prices (optional)</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">Add color options, pick sizes, set price (optional)</p>
                                     </div>
-                                    <button onClick={addVariant} type="button"
+                                    <button onClick={addVariantGroup} type="button"
                                         className="flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
-                                        <Icons.plus style={{width: 12, height: 12}} /> Add Variant
+                                        <Icons.plus style={{width: 12, height: 12}} /> Add Color
                                     </button>
                                 </div>
 
-                                {formData.variants.length > 0 && (
-                                    <div className="space-y-2">
-                                        {/* Header row */}
-                                        <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
-                                            <div className="col-span-4">Color</div>
-                                            <div className="col-span-4">Size</div>
-                                            <div className="col-span-3">Price (ZAR)</div>
-                                            <div className="col-span-1"></div>
-                                        </div>
-                                        {formData.variants.map((variant, i) => (
-                                            <div key={i} className="grid grid-cols-12 gap-2 items-center bg-white rounded-lg p-2 border border-gray-100">
-                                                <div className="col-span-4">
-                                                    <input
-                                                        type="text"
-                                                        list="color-suggestions"
-                                                        value={variant.color}
-                                                        onChange={(e) => updateVariant(i, 'color', e.target.value)}
-                                                        placeholder="e.g. Red"
-                                                        className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
-                                                    />
-                                                </div>
-                                                <div className="col-span-4">
-                                                    <input
-                                                        type="text"
-                                                        list="size-suggestions"
-                                                        value={variant.size}
-                                                        onChange={(e) => updateVariant(i, 'size', e.target.value)}
-                                                        placeholder="e.g. M"
-                                                        className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
-                                                    />
-                                                </div>
-                                                <div className="col-span-3">
-                                                    <input
-                                                        type="number"
-                                                        value={variant.price}
-                                                        onChange={(e) => updateVariant(i, 'price', e.target.value)}
-                                                        placeholder={formData.price || '0'}
-                                                        step="0.01"
-                                                        className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
-                                                    />
-                                                </div>
-                                                <div className="col-span-1 flex justify-center">
-                                                    <button onClick={() => removeVariant(i)} type="button"
-                                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors">
+                                {variantGroups.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {variantGroups.map((group, i) => (
+                                            <div key={i} className="bg-white rounded-xl p-3 border border-gray-100 space-y-3">
+                                                <div className="flex gap-2 items-start">
+                                                    {/* Color input */}
+                                                    <div className="flex-1">
+                                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Color</label>
+                                                        <input
+                                                            type="text"
+                                                            list="color-suggestions"
+                                                            value={group.color}
+                                                            onChange={(e) => updateVariantGroup(i, 'color', e.target.value)}
+                                                            placeholder="e.g. Red"
+                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                                        />
+                                                    </div>
+                                                    {/* Price input */}
+                                                    <div className="w-28">
+                                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Price (ZAR)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={group.price}
+                                                            onChange={(e) => updateVariantGroup(i, 'price', e.target.value)}
+                                                            placeholder={formData.price || '0'}
+                                                            step="0.01"
+                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                                        />
+                                                    </div>
+                                                    {/* Remove group */}
+                                                    <button onClick={() => removeVariantGroup(i)} type="button"
+                                                        className="mt-5 text-red-400 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors flex-shrink-0">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                                     </button>
+                                                </div>
+                                                {/* Size pills — tap to toggle */}
+                                                <div>
+                                                    <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Sizes (tap to select)</label>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {COMMON_SIZES.map(s => (
+                                                            <button key={s} type="button" onClick={() => toggleGroupSize(i, s)}
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                                                    group.sizes.includes(s)
+                                                                        ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                                                                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-brand-300 hover:bg-brand-50'
+                                                                }`}>
+                                                                {s}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    {group.sizes.length > 0 && (
+                                                        <p className="text-xs text-gray-400 mt-1.5">
+                                                            Selected: <span className="font-medium text-gray-600">{group.sizes.join(', ')}</span>
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                )}
-
-                                {formData.variants.length === 0 && (
+                                ) : (
                                     <div className="text-center py-4 text-gray-400 text-xs">
                                         No variants — the base price above applies to all orders.
                                     </div>
                                 )}
 
-                                {/* Color/size suggestion datalists */}
                                 <datalist id="color-suggestions">
                                     {COMMON_COLORS.map(c => <option key={c} value={c} />)}
-                                </datalist>
-                                <datalist id="size-suggestions">
-                                    {COMMON_SIZES.map(s => <option key={s} value={s} />)}
                                 </datalist>
                             </div>
 
