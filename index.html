@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Seller OS Ã¢ÂÂ Dashboard</title>
+    <title>WhatsApp Seller OS — Dashboard</title>
 
     <!-- Shared Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,17 +13,64 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/assets/config.js?v=3"></script>
 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#f0fdf4', 100: '#dcfce7', 200: '#bbf7d0', 300: '#86efac', 400: '#4ade80', 500: '#25D366', 600: '#1a8a4a', 700: '#15803d', 800: '#166534', 900: '#14532d' },
+                        slate: { 750: '#293548' }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .logo-svg { width: 48px; height: 48px; }
         .gradient-dark { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
         .gradient-green { background: linear-gradient(135deg, #25D366 0%, #1a8a4a 100%); }
-        .nav-active { border-bottom: 3px solid #25D366; color: #25D366; }
-        .tab-content { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .card-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .tab-content { animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Modern card styles */
+        .card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; transition: box-shadow 0.2s; }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .card-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); }
+
+        /* Sidebar styles */
+        .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #64748b; transition: all 0.15s; }
+        .sidebar-link:hover { background: #f1f5f9; color: #1e293b; }
+        .sidebar-link.active { background: #f0fdf4; color: #25D366; font-weight: 600; }
+        .sidebar-link.active svg { color: #25D366; }
+
+        /* Stat card accent */
+        .stat-card { position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
+        .stat-green::before { background: #25D366; }
+        .stat-blue::before { background: #3B82F6; }
+        .stat-orange::before { background: #F59E0B; }
+        .stat-purple::before { background: #8B5CF6; }
+
+        /* Scrollbar styling */
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        /* Table styles */
+        .data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .data-table th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 10px 16px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        .data-table td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-table tbody tr:hover { background: #f8fafc; }
+
+        /* Badge */
+        .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+
+        /* Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     </style>
 </head>
 <body class="bg-gray-50">
@@ -47,29 +94,85 @@
         const whatsappShareLink = window.whatsappShareLink;
 
         // ============================================================================
+        // SVG ICONS (inline for zero-dependency)
+        // ============================================================================
+
+        const Icons = {
+            dashboard: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+            ),
+            products: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+            ),
+            orders: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>
+                </svg>
+            ),
+            payments: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                </svg>
+            ),
+            templates: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+            ),
+            trendUp: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                </svg>
+            ),
+            copy: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+            ),
+            whatsapp: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" {...props}>
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                </svg>
+            ),
+            logout: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            ),
+            store: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+            ),
+            plus: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            ),
+            externalLink: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            )
+        };
+
+        // ============================================================================
         // LOGO COMPONENT
         // ============================================================================
 
-        const Logo = ({ className = '' }) => (
-            <svg viewBox="0 0 200 200" className={`logo-svg ${className}`}>
-                {/* Orbital ring with arcs and dots */}
+        const Logo = ({ className = '', size = 48 }) => (
+            <svg viewBox="0 0 200 200" width={size} height={size} className={className}>
                 <circle cx="100" cy="100" r="85" fill="none" stroke="#25D366" strokeWidth="2" opacity="0.3"/>
-
-                {/* Green arc */}
                 <path d="M 100 20 A 80 80 0 0 1 140 25" fill="none" stroke="#25D366" strokeWidth="3" strokeLinecap="round"/>
-
-                {/* Orange arc */}
                 <path d="M 150 45 A 80 80 0 0 1 175 85" fill="none" stroke="#FF9500" strokeWidth="3" strokeLinecap="round"/>
-
-                {/* Blue arc */}
                 <path d="M 175 100 A 80 80 0 0 1 100 175" fill="none" stroke="#3B82F6" strokeWidth="3" strokeLinecap="round"/>
-
-                {/* Colored dots */}
                 <circle cx="100" cy="15" r="5" fill="#25D366"/>
                 <circle cx="175" cy="85" r="5" fill="#FF9500"/>
                 <circle cx="100" cy="175" r="5" fill="#3B82F6"/>
-
-                {/* Central green circle with radial gradient */}
                 <defs>
                     <radialGradient id="greenGrad" cx="50%" cy="50%" r="50%">
                         <stop offset="0%" stopColor="#2ecc71"/>
@@ -77,8 +180,6 @@
                     </radialGradient>
                 </defs>
                 <circle cx="100" cy="100" r="50" fill="url(#greenGrad)"/>
-
-                {/* White chat bubble */}
                 <g fill="white">
                     <path d="M 75 85 Q 75 75 85 75 L 115 75 Q 125 75 125 85 L 125 110 Q 125 120 115 120 L 95 120 L 85 130 L 90 120 L 85 120 Q 75 120 75 110 Z"/>
                 </g>
@@ -95,12 +196,26 @@
         };
 
         // ============================================================================
+        // PAGE HEADER COMPONENT
+        // ============================================================================
+
+        const PageHeader = ({ title, subtitle, actions }) => (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <div>
+                    <h2 className="text-xl lg:text-2xl font-bold text-gray-900">{title}</h2>
+                    {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+                </div>
+                {actions && <div className="flex gap-2 flex-shrink-0">{actions}</div>}
+            </div>
+        );
+
+        // ============================================================================
         // LOGIN SCREEN
         // ============================================================================
 
         const LoginScreen = ({ onLoginSuccess }) => {
-            const [mode, setMode] = useState('login'); // login or register
-            const [step, setStep] = useState(1); // 1: phone/pin, 2: full name (register only), 3: business info
+            const [mode, setMode] = useState('login');
+            const [step, setStep] = useState(1);
             const [phone, setPhone] = useState('');
             const [pin, setPin] = useState('');
             const [fullName, setFullName] = useState('');
@@ -132,7 +247,6 @@
                 setLoading(true);
                 try {
                     let cleanPhone = phone.replace(/[^0-9+]/g, '');
-                    // Normalize: 0xx â +27xx, 27xx â +27xx, 266xx â +266xx
                     if (cleanPhone.startsWith('0')) {
                         cleanPhone = '+27' + cleanPhone.slice(1);
                     } else if (/^27\d/.test(cleanPhone) && !cleanPhone.startsWith('+')) {
@@ -143,7 +257,6 @@
                     const pinHash = hashPin(pin);
 
                     if (mode === 'login') {
-                        // Login: check Supabase first
                         const { data, error: queryErr } = await supabase
                             .from('sellers')
                             .select('*')
@@ -151,7 +264,6 @@
                             .single();
 
                         if (queryErr) {
-                            // Try localStorage fallback
                             const stored = localStorage.getItem(`seller_${cleanPhone}`);
                             if (stored) {
                                 const seller = JSON.parse(stored);
@@ -171,13 +283,11 @@
                         localStorage.setItem('current_seller', JSON.stringify(data));
                         onLoginSuccess(data);
                     } else {
-                        // Register: show name form
                         if (step === 1) {
                             setStep(2);
                         } else if (step === 2) {
                             setStep(3);
                         } else if (step === 3) {
-                            // Complete registration
                             const slug = generateSlug(businessName);
                             const { data, error: insertErr } = await supabase
                                 .from('sellers')
@@ -216,22 +326,19 @@
 
             return (
                 <div className="gradient-dark min-h-screen flex flex-col items-center justify-center p-4">
-                    {/* Logo and Branding */}
                     <div className="mb-8 text-center">
-                        <Logo className="mx-auto mb-6" />
+                        <Logo className="mx-auto mb-6" size={64} />
                         <h1 className="text-white text-3xl font-bold mb-2">
-                            WhatsApp <span className="text-green-500">Seller OS</span>
+                            WhatsApp <span className="text-green-400">Seller OS</span>
                         </h1>
-                        <p className="text-gray-300 text-sm">Sell smarter. Reach further. Grow together.</p>
+                        <p className="text-gray-400 text-sm">Sell smarter. Reach further. Grow together.</p>
                     </div>
 
-                    {/* Login/Register Form */}
-                    <div className="w-full max-w-sm bg-white rounded-lg shadow-xl p-8">
+                    <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
                             {mode === 'login' ? 'Welcome Back' : 'Join Us'}
                         </h2>
 
-                        {/* Phone & PIN (both modes) */}
                         {step === 1 && (
                             <>
                                 <div className="mb-4">
@@ -241,7 +348,7 @@
                                         value={phone}
                                         onChange={handlePhoneChange}
                                         placeholder="e.g. 27xxxxxxxx or 266xxxxxxx"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
 
@@ -252,13 +359,12 @@
                                         value={pin}
                                         onChange={handlePinChange}
                                         placeholder="000000"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-center text-2xl tracking-widest"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
                                     />
                                 </div>
                             </>
                         )}
 
-                        {/* Full Name (register, step 2) */}
                         {mode === 'register' && step === 2 && (
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Your Full Name</label>
@@ -267,12 +373,11 @@
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
                                     placeholder="John Doe"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                 />
                             </div>
                         )}
 
-                        {/* Business Info (register, step 3) */}
                         {mode === 'register' && step === 3 && (
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
@@ -281,7 +386,7 @@
                                     value={businessName}
                                     onChange={(e) => setBusinessName(e.target.value)}
                                     placeholder="My Awesome Shop"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                 />
                                 <p className="text-xs text-gray-500 mt-2">
                                     Storefront URL: <span className="font-mono">{SITE_URL}/shop/?s={generateSlug(businessName || 'your-shop')}</span>
@@ -289,18 +394,16 @@
                             </div>
                         )}
 
-                        {/* Error */}
                         {error && (
-                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                                 {error}
                             </div>
                         )}
 
-                        {/* Buttons */}
                         <button
                             onClick={handleContinue}
                             disabled={loading}
-                            className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg mb-4 flex items-center justify-center gap-2"
+                            className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 transition-colors"
                         >
                             {loading ? <Spinner size="sm" /> : null}
                             {mode === 'login' ? 'Sign In' : step === 3 ? 'Create Account' : 'Continue'}
@@ -314,10 +417,9 @@
                         </button>
                     </div>
 
-                    {/* Footer */}
-                    <div className="absolute bottom-4 text-center text-gray-400 text-xs">
+                    <div className="absolute bottom-4 text-center text-gray-500 text-xs">
                         <p>Developed by 4D Climate Solutions</p>
-                        <p>ÃÂ© 2026 WhatsApp Seller OS. All rights reserved.</p>
+                        <p>&copy; 2026 WhatsApp Seller OS. All rights reserved.</p>
                     </div>
                 </div>
             );
@@ -338,11 +440,10 @@
 
             const loadDashboardData = async () => {
                 try {
-                    // Get today's orders
                     const today = new Date().toISOString().split('T')[0];
                     const { data: ordersData } = await supabase
                         .from('orders')
-                        .select('id, order_number, total, status, payment_status, delivery_status, created_at, customer_phone')
+                        .select('id, order_number, total, status, payment_status, delivery_status, created_at, customer_phone, customer_name')
                         .eq('seller_id', seller.id)
                         .gte('created_at', today)
                         .order('created_at', { ascending: false })
@@ -389,75 +490,128 @@
             };
 
             if (loading) {
-                return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;
+                return <div className="flex items-center justify-center p-12"><Spinner size="lg" /></div>;
             }
 
             return (
-                <div className="space-y-4">
-                    {/* Welcome */}
-                    <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-lg card-shadow">
-                        <h2 className="text-2xl font-bold mb-1">Welcome, {seller.full_name}!</h2>
-                        <p className="text-green-50">{seller.business_name}</p>
-                    </div>
+                <div>
+                    <PageHeader title={`Welcome back, ${seller.full_name}`} subtitle={seller.business_name} />
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white p-4 rounded-lg card-shadow">
-                            <p className="text-xs text-gray-500 mb-1">Today's Orders</p>
-                            <p className="text-2xl font-bold text-gray-900">{stats.orders}</p>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div className="card card-shadow stat-card stat-green p-5">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Today's Orders</p>
+                            <p className="text-3xl font-bold text-gray-900">{stats.orders}</p>
                         </div>
-                        <div className="bg-white p-4 rounded-lg card-shadow">
-                            <p className="text-xs text-gray-500 mb-1">Today's Revenue</p>
-                            <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.revenue)}</p>
+                        <div className="card card-shadow stat-card stat-blue p-5">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Today's Revenue</p>
+                            <p className="text-3xl font-bold text-green-600">{formatCurrency(stats.revenue)}</p>
                         </div>
-                        <div className="bg-white p-4 rounded-lg card-shadow">
-                            <p className="text-xs text-gray-500 mb-1">Pending Payments</p>
-                            <p className="text-2xl font-bold text-orange-600">{stats.pending_payments}</p>
+                        <div className="card card-shadow stat-card stat-orange p-5">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Pending Payments</p>
+                            <p className="text-3xl font-bold text-amber-600">{stats.pending_payments}</p>
                         </div>
-                        <div className="bg-white p-4 rounded-lg card-shadow">
-                            <p className="text-xs text-gray-500 mb-1">To Deliver</p>
-                            <p className="text-2xl font-bold text-blue-600">{stats.pending_deliveries}</p>
+                        <div className="card card-shadow stat-card stat-purple p-5">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">To Deliver</p>
+                            <p className="text-3xl font-bold text-blue-600">{stats.pending_deliveries}</p>
                         </div>
                     </div>
 
                     {/* Storefront Link */}
-                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                        <p className="text-xs text-blue-600 font-semibold mb-2">YOUR STOREFRONT</p>
-                        <div className="flex items-center gap-2">
-                            <code className="flex-1 text-xs bg-white p-2 rounded border border-blue-100 overflow-auto">
+                    <div className="card card-shadow p-5 mb-6">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Icons.store className="text-brand-500" />
+                            <p className="text-sm font-semibold text-gray-900">Your Storefront</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <code className="flex-1 text-sm bg-gray-50 px-4 py-2.5 rounded-lg border border-gray-200 overflow-auto text-gray-700">
                                 {storefrontUrl}
                             </code>
                             <button
                                 onClick={copyStorefrontUrl}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs font-bold whitespace-nowrap"
+                                className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors"
                             >
-                                Copy
+                                <Icons.copy /> Copy
                             </button>
+                            <a
+                                href={storefrontUrl}
+                                target="_blank"
+                                rel="noopener"
+                                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors"
+                            >
+                                <Icons.externalLink /> Visit
+                            </a>
                         </div>
                     </div>
 
                     {/* Recent Orders */}
-                    <div>
-                        <h3 className="font-bold text-gray-900 mb-3">Recent Orders</h3>
+                    <div className="card card-shadow overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-100">
+                            <h3 className="font-semibold text-gray-900">Recent Orders</h3>
+                        </div>
                         {recentOrders.length === 0 ? (
-                            <div className="bg-white p-6 rounded-lg text-center text-gray-500 text-sm">
+                            <div className="p-8 text-center text-gray-400 text-sm">
                                 No orders yet today
                             </div>
                         ) : (
-                            <div className="space-y-2">
-                                {recentOrders.map(order => (
-                                    <div key={order.id} className="bg-white p-4 rounded-lg card-shadow">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <p className="font-semibold text-gray-900 text-sm">{order.order_number}</p>
-                                            <span className="text-xs font-bold px-2 py-1 rounded" style={{ backgroundColor: getStatusColor(order.status) + '20', color: getStatusColor(order.status) }}>
-                                                {getStatusLabel(order.status)}
-                                            </span>
+                            <>
+                                {/* Desktop table */}
+                                <div className="hidden lg:block">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Order</th>
+                                                <th>Customer</th>
+                                                <th>Status</th>
+                                                <th>Payment</th>
+                                                <th className="text-right">Total</th>
+                                                <th>Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {recentOrders.map(order => (
+                                                <tr key={order.id}>
+                                                    <td className="font-semibold text-gray-900">{order.order_number}</td>
+                                                    <td className="text-gray-600">{order.customer_name || '—'}</td>
+                                                    <td>
+                                                        <span className="badge" style={{ backgroundColor: getStatusColor(order.status) + '15', color: getStatusColor(order.status) }}>
+                                                            {getStatusLabel(order.status)}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span className="badge" style={{ backgroundColor: getStatusColor(order.payment_status) + '15', color: getStatusColor(order.payment_status) }}>
+                                                            {getStatusLabel(order.payment_status)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="text-right font-semibold text-green-600">{formatCurrency(order.total)}</td>
+                                                    <td className="text-gray-500 text-sm">{new Date(order.created_at).toLocaleTimeString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile cards */}
+                                <div className="lg:hidden divide-y divide-gray-100">
+                                    {recentOrders.map(order => (
+                                        <div key={order.id} className="p-4">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <p className="font-semibold text-gray-900 text-sm">{order.order_number}</p>
+                                                    <p className="text-xs text-gray-500">{order.customer_name}</p>
+                                                </div>
+                                                <span className="badge" style={{ backgroundColor: getStatusColor(order.status) + '15', color: getStatusColor(order.status) }}>
+                                                    {getStatusLabel(order.status)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-lg font-bold text-green-600">{formatCurrency(order.total)}</p>
+                                                <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleTimeString()}</p>
+                                            </div>
                                         </div>
-                                        <p className="text-lg font-bold text-green-600">{formatCurrency(order.total)}</p>
-                                        <p className="text-xs text-gray-500 mt-2">{new Date(order.created_at).toLocaleTimeString()}</p>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>
@@ -497,7 +651,6 @@
                         .order('sort_order', { ascending: true });
 
                     if (error) throw error;
-                    // Map DB column is_active → active for UI
                     setProducts((data || []).map(p => ({ ...p, active: p.is_active })));
                 } catch (err) {
                     console.error('Load products error:', err);
@@ -545,7 +698,6 @@
                 }
 
                 try {
-                    // Map UI field 'active' → DB column 'is_active'
                     const { active, ...rest } = formData;
                     const dbData = { ...rest, is_active: active };
 
@@ -609,12 +761,12 @@
                 }
 
                 const lines = [
-                    `Ã°ÂÂÂÃ¯Â¸Â *${seller.business_name}* Ã¢ÂÂ New items available!\n`,
+                    `\u{1F6CD}\uFE0F *${seller.business_name}* \u2014 New items available!\n`,
                     ...activeProducts.map((p, i) => {
                         const desc = p.description ? `\n     ${p.description}` : '';
-                        return `${i + 1}. *${p.name}* Ã¢ÂÂ ${formatCurrency(p.price)}${desc}`;
+                        return `${i + 1}. *${p.name}* \u2014 ${formatCurrency(p.price)}${desc}`;
                     }),
-                    `\nÃ°ÂÂÂ Order here: ${SITE_URL}/shop/?s=${seller.slug}`
+                    `\n\u{1F449} Order here: ${SITE_URL}/shop/?s=${seller.slug}`
                 ];
 
                 const message = lines.join('\n');
@@ -648,76 +800,67 @@
             };
 
             if (loading) {
-                return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;
+                return <div className="flex items-center justify-center p-12"><Spinner size="lg" /></div>;
             }
 
             return (
-                <div className="space-y-4">
-                    {/* Header with Action Buttons */}
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => {
-                                resetForm();
-                                setShowForm(true);
-                            }}
-                            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg"
-                        >
-                            + Add Product
-                        </button>
-                        {products.filter(p => p.active).length > 0 && (
-                            <button
-                                onClick={postCatalogToWhatsApp}
-                                className="flex-1 bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2"
-                            >
-                                Post to WhatsApp
-                            </button>
-                        )}
-                    </div>
+                <div>
+                    <PageHeader
+                        title="Products"
+                        subtitle={`${products.length} product${products.length !== 1 ? 's' : ''} in your catalog`}
+                        actions={
+                            <>
+                                <button
+                                    onClick={() => { resetForm(); setShowForm(true); }}
+                                    className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
+                                >
+                                    <Icons.plus /> Add Product
+                                </button>
+                                {products.filter(p => p.active).length > 0 && (
+                                    <button
+                                        onClick={postCatalogToWhatsApp}
+                                        className="flex items-center gap-2 bg-green-700 hover:bg-green-800 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
+                                    >
+                                        <Icons.whatsapp /> Share Catalog
+                                    </button>
+                                )}
+                            </>
+                        }
+                    />
 
                     {/* Form */}
                     {showForm && (
-                        <div className="bg-white p-4 rounded-lg card-shadow border-l-4 border-green-500">
-                            <h3 className="font-bold text-gray-900 mb-4">{editingId ? 'Edit Product' : 'New Product'}</h3>
+                        <div className="card card-shadow p-6 mb-6 border-l-4 border-brand-500">
+                            <h3 className="font-bold text-gray-900 mb-4 text-lg">{editingId ? 'Edit Product' : 'New Product'}</h3>
 
-                            <div className="space-y-3 mb-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Product Name *</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Product Name *</label>
                                     <input
                                         type="text"
                                         value={formData.name}
                                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
-                                    <textarea
-                                        value={formData.description}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                        rows="2"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">Price (ZAR) *</label>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Price (ZAR) *</label>
                                         <input
                                             type="number"
                                             value={formData.price}
                                             onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                                             step="0.01"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                         />
                                     </div>
-
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Category</label>
                                         <select
                                             value={formData.category}
                                             onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                         >
                                             <option value="clothing">Clothing</option>
                                             <option value="food">Food</option>
@@ -728,15 +871,27 @@
                                         </select>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Description</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                        rows="3"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                    />
+                                </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Photo</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Photo</label>
                                     {formData.photo_url && (
                                         <div className="mb-2 relative">
-                                            <img src={formData.photo_url} alt="Product" className="w-full h-32 object-cover rounded" />
+                                            <img src={formData.photo_url} alt="Product" className="w-full h-24 object-cover rounded-lg" />
                                             <button
                                                 onClick={() => setFormData(prev => ({ ...prev, photo_url: '' }))}
-                                                className="absolute top-1 right-1 bg-red-600 text-white px-2 py-1 rounded text-xs"
+                                                className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-md text-xs font-medium"
                                             >
                                                 Remove
                                             </button>
@@ -745,7 +900,7 @@
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={uploading}
-                                        className="w-full bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 text-gray-700 py-2 rounded border-2 border-dashed border-gray-300 text-sm font-medium"
+                                        className="w-full bg-gray-50 hover:bg-gray-100 disabled:bg-gray-200 text-gray-600 py-3 rounded-lg border-2 border-dashed border-gray-300 text-sm font-medium transition-colors"
                                     >
                                         {uploading ? <Spinner size="sm" /> : 'Upload Photo (max 2MB)'}
                                     </button>
@@ -757,28 +912,28 @@
                                         className="hidden"
                                     />
                                 </div>
-
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.active}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
-                                        className="w-4 h-4"
-                                    />
-                                    <label className="text-sm text-gray-700">Active (show in storefront)</label>
-                                </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2 mb-5">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.active}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
+                                    className="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500"
+                                />
+                                <label className="text-sm text-gray-700">Active (show in storefront)</label>
+                            </div>
+
+                            <div className="flex gap-3">
                                 <button
                                     onClick={saveProduct}
-                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded text-sm"
+                                    className="bg-brand-500 hover:bg-brand-600 text-white font-semibold py-2.5 px-6 rounded-lg text-sm transition-colors"
                                 >
                                     Save Product
                                 </button>
                                 <button
                                     onClick={resetForm}
-                                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-2 rounded text-sm"
+                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 px-6 rounded-lg text-sm transition-colors"
                                 >
                                     Cancel
                                 </button>
@@ -788,40 +943,45 @@
 
                     {/* Products Grid */}
                     {products.length === 0 ? (
-                        <div className="bg-white p-6 rounded-lg text-center text-gray-500 text-sm">
-                            No products yet. Create your first product!
+                        <div className="card card-shadow p-12 text-center">
+                            <Icons.products className="mx-auto mb-3 text-gray-300" style={{width: 48, height: 48}} />
+                            <p className="text-gray-500 text-sm">No products yet. Create your first product!</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {products.map(product => (
-                                <div key={product.id} className="bg-white rounded-lg overflow-hidden card-shadow">
-                                    {product.photo_url && (
-                                        <img src={product.photo_url} alt={product.name} className="w-full h-32 object-cover" />
+                                <div key={product.id} className="card card-shadow overflow-hidden group">
+                                    {product.photo_url ? (
+                                        <img src={product.photo_url} alt={product.name} className="w-full h-36 lg:h-44 object-cover" />
+                                    ) : (
+                                        <div className="w-full h-36 lg:h-44 bg-gray-100 flex items-center justify-center">
+                                            <Icons.products className="text-gray-300" style={{width: 32, height: 32}} />
+                                        </div>
                                     )}
-                                    <div className="p-3">
-                                        <h4 className="font-bold text-sm text-gray-900 mb-1 truncate">{product.name}</h4>
-                                        <p className="text-green-600 font-bold text-lg mb-2">{formatCurrency(product.price)}</p>
-                                        <div className="flex gap-1 mb-2">
-                                            <span className={`text-xs px-2 py-1 rounded ${product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                                    <div className="p-4">
+                                        <h4 className="font-semibold text-sm text-gray-900 mb-1 truncate">{product.name}</h4>
+                                        <p className="text-green-600 font-bold text-lg mb-3">{formatCurrency(product.price)}</p>
+                                        <div className="flex gap-1 mb-3">
+                                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${product.active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                                                 {product.active ? 'Active' : 'Inactive'}
                                             </span>
                                         </div>
-                                        <div className="flex gap-1">
+                                        <div className="flex gap-1.5">
                                             <button
                                                 onClick={() => startEdit(product)}
-                                                className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold py-1 rounded"
+                                                className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold py-2 rounded-lg transition-colors"
                                             >
                                                 Edit
                                             </button>
                                             <button
                                                 onClick={() => toggleActive(product.id, product.active)}
-                                                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 rounded"
+                                                className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-semibold py-2 rounded-lg transition-colors"
                                             >
                                                 {product.active ? 'Hide' : 'Show'}
                                             </button>
                                             <button
                                                 onClick={() => deleteProduct(product.id)}
-                                                className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-1 rounded"
+                                                className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 rounded-lg transition-colors"
                                             >
                                                 Delete
                                             </button>
@@ -897,7 +1057,6 @@
 
                     if (error) throw error;
 
-                    // Insert items
                     for (const item of formData.items) {
                         if (item.product_name) {
                             await supabase.from('order_items').insert({
@@ -930,7 +1089,6 @@
                         .eq('id', orderId);
                     if (error) throw error;
 
-                    // Auto-notify buyer via WhatsApp when main status changes
                     if (field === 'status' && ['confirmed', 'paid', 'shipped', 'delivered', 'cancelled'].includes(value)) {
                         try {
                             const { data: session } = await supabase.auth.getSession();
@@ -943,7 +1101,7 @@
                                 },
                                 body: JSON.stringify({ order_id: orderId, new_status: value }),
                             });
-                            console.log(`WhatsApp notification sent for order ${orderId} Ã¢ÂÂ ${value}`);
+                            console.log(`WhatsApp notification sent for order ${orderId} → ${value}`);
                         } catch (waErr) {
                             console.warn('WhatsApp notification failed (non-blocking):', waErr);
                         }
@@ -961,108 +1119,114 @@
             };
 
             if (loading) {
-                return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;
+                return <div className="flex items-center justify-center p-12"><Spinner size="lg" /></div>;
             }
 
             return (
-                <div className="space-y-4">
-                    <button
-                        onClick={() => setShowForm(!showForm)}
-                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg"
-                    >
-                        + Create Manual Order
-                    </button>
+                <div>
+                    <PageHeader
+                        title="Orders"
+                        subtitle={`${orders.length} total order${orders.length !== 1 ? 's' : ''}`}
+                        actions={
+                            <button
+                                onClick={() => setShowForm(!showForm)}
+                                className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
+                            >
+                                <Icons.plus /> Create Order
+                            </button>
+                        }
+                    />
 
                     {/* Manual Order Form */}
                     {showForm && (
-                        <div className="bg-white p-4 rounded-lg card-shadow border-l-4 border-green-500">
-                            <h3 className="font-bold text-gray-900 mb-4">New Order</h3>
+                        <div className="card card-shadow p-6 mb-6 border-l-4 border-brand-500">
+                            <h3 className="font-bold text-gray-900 mb-4 text-lg">New Order</h3>
 
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Customer Name</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Customer Name</label>
                                     <input
                                         type="text"
                                         value={formData.customer_name}
                                         onChange={(e) => setFormData(prev => ({ ...prev, customer_name: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Phone Number</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Phone Number</label>
                                     <input
                                         type="tel"
                                         value={formData.customer_phone}
                                         onChange={(e) => setFormData(prev => ({ ...prev, customer_phone: e.target.value }))}
                                         placeholder="e.g. 27xxxxxxxx or 266xxxxxxx"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    />
-                                </div>
-
-                                <div className="border-t pt-3">
-                                    <p className="text-xs font-semibold text-gray-700 mb-2">Items</p>
-                                    {formData.items.map((item, idx) => (
-                                        <div key={idx} className="flex gap-2 mb-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Product"
-                                                value={item.product_name}
-                                                onChange={(e) => {
-                                                    const newItems = [...formData.items];
-                                                    newItems[idx].product_name = e.target.value;
-                                                    setFormData(prev => ({ ...prev, items: newItems }));
-                                                }}
-                                                className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs"
-                                            />
-                                            <input
-                                                type="number"
-                                                placeholder="Qty"
-                                                value={item.quantity}
-                                                onChange={(e) => {
-                                                    const newItems = [...formData.items];
-                                                    newItems[idx].quantity = parseInt(e.target.value) || 1;
-                                                    setFormData(prev => ({ ...prev, items: newItems }));
-                                                }}
-                                                className="w-12 px-2 py-1 border border-gray-300 rounded text-xs"
-                                            />
-                                            <input
-                                                type="number"
-                                                placeholder="Price"
-                                                value={item.price}
-                                                onChange={(e) => {
-                                                    const newItems = [...formData.items];
-                                                    newItems[idx].price = e.target.value;
-                                                    setFormData(prev => ({ ...prev, items: newItems }));
-                                                }}
-                                                className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Total (ZAR)</label>
-                                    <input
-                                        type="number"
-                                        value={formData.total}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, total: e.target.value }))}
-                                        step="0.01"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex gap-2 mt-4">
+                            <div className="mb-4">
+                                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Items</p>
+                                {formData.items.map((item, idx) => (
+                                    <div key={idx} className="flex gap-3 mb-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Product"
+                                            value={item.product_name}
+                                            onChange={(e) => {
+                                                const newItems = [...formData.items];
+                                                newItems[idx].product_name = e.target.value;
+                                                setFormData(prev => ({ ...prev, items: newItems }));
+                                            }}
+                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                                        />
+                                        <input
+                                            type="number"
+                                            placeholder="Qty"
+                                            value={item.quantity}
+                                            onChange={(e) => {
+                                                const newItems = [...formData.items];
+                                                newItems[idx].quantity = parseInt(e.target.value) || 1;
+                                                setFormData(prev => ({ ...prev, items: newItems }));
+                                            }}
+                                            className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                                        />
+                                        <input
+                                            type="number"
+                                            placeholder="Price"
+                                            value={item.price}
+                                            onChange={(e) => {
+                                                const newItems = [...formData.items];
+                                                newItems[idx].price = e.target.value;
+                                                setFormData(prev => ({ ...prev, items: newItems }));
+                                            }}
+                                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mb-4 max-w-xs">
+                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Total (ZAR)</label>
+                                <input
+                                    type="number"
+                                    value={formData.total}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, total: e.target.value }))}
+                                    step="0.01"
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                />
+                            </div>
+
+                            <div className="flex gap-3">
                                 <button
                                     onClick={createManualOrder}
-                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded text-sm"
+                                    className="bg-brand-500 hover:bg-brand-600 text-white font-semibold py-2.5 px-6 rounded-lg text-sm transition-colors"
                                 >
                                     Create Order
                                 </button>
                                 <button
                                     onClick={() => setShowForm(false)}
-                                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-2 rounded text-sm"
+                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 px-6 rounded-lg text-sm transition-colors"
                                 >
                                     Cancel
                                 </button>
@@ -1072,65 +1236,134 @@
 
                     {/* Orders List */}
                     {orders.length === 0 ? (
-                        <div className="bg-white p-6 rounded-lg text-center text-gray-500 text-sm">
-                            No orders yet
+                        <div className="card card-shadow p-12 text-center">
+                            <Icons.orders className="mx-auto mb-3 text-gray-300" style={{width: 48, height: 48}} />
+                            <p className="text-gray-500 text-sm">No orders yet</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {orders.map(order => (
-                                <div key={order.id} className="bg-white p-4 rounded-lg card-shadow">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                            <p className="font-bold text-gray-900">{order.order_number}</p>
-                                            <p className="text-xs text-gray-500">{order.customer_name}</p>
+                        <>
+                            {/* Desktop table view */}
+                            <div className="hidden lg:block card card-shadow overflow-hidden">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Order #</th>
+                                            <th>Customer</th>
+                                            <th>Status</th>
+                                            <th>Payment</th>
+                                            <th>Delivery</th>
+                                            <th className="text-right">Total</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {orders.map(order => (
+                                            <tr key={order.id}>
+                                                <td className="font-semibold text-gray-900">{order.order_number}</td>
+                                                <td>
+                                                    <p className="text-gray-900">{order.customer_name}</p>
+                                                    <p className="text-xs text-gray-400">{order.customer_phone}</p>
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        value={order.status}
+                                                        onChange={(e) => updateOrderStatus(order.id, 'status', e.target.value)}
+                                                        className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    >
+                                                        <option value="new">New</option>
+                                                        <option value="confirmed">Confirmed</option>
+                                                        <option value="preparing">Preparing</option>
+                                                        <option value="dispatched">Dispatched</option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <span className="badge" style={{ backgroundColor: getStatusColor(order.payment_status) + '15', color: getStatusColor(order.payment_status) }}>
+                                                        {getStatusLabel(order.payment_status)}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        value={order.delivery_status}
+                                                        onChange={(e) => updateOrderStatus(order.id, 'delivery_status', e.target.value)}
+                                                        className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    >
+                                                        <option value="pending">Pending</option>
+                                                        <option value="in_transit">In Transit</option>
+                                                        <option value="delivered">Delivered</option>
+                                                    </select>
+                                                </td>
+                                                <td className="text-right font-semibold text-green-600">{formatCurrency(order.total)}</td>
+                                                <td>
+                                                    <button
+                                                        onClick={() => sendWhatsApp(order)}
+                                                        className="flex items-center gap-1.5 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                                    >
+                                                        <Icons.whatsapp /> Message
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile card view */}
+                            <div className="lg:hidden space-y-3">
+                                {orders.map(order => (
+                                    <div key={order.id} className="card card-shadow p-4">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p className="font-bold text-gray-900">{order.order_number}</p>
+                                                <p className="text-xs text-gray-500">{order.customer_name}</p>
+                                            </div>
+                                            <p className="text-lg font-bold text-green-600">{formatCurrency(order.total)}</p>
                                         </div>
-                                        <p className="text-lg font-bold text-green-600">{formatCurrency(order.total)}</p>
+
+                                        <div className="flex gap-2 mb-3 flex-wrap">
+                                            <span className="badge" style={{ backgroundColor: getStatusColor(order.status) + '15', color: getStatusColor(order.status) }}>
+                                                {getStatusLabel(order.status)}
+                                            </span>
+                                            <span className="badge" style={{ backgroundColor: getStatusColor(order.payment_status) + '15', color: getStatusColor(order.payment_status) }}>
+                                                Pay: {getStatusLabel(order.payment_status)}
+                                            </span>
+                                            <span className="badge" style={{ backgroundColor: getStatusColor(order.delivery_status) + '15', color: getStatusColor(order.delivery_status) }}>
+                                                Del: {getStatusLabel(order.delivery_status)}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex gap-2 flex-wrap text-xs">
+                                            <select
+                                                value={order.status}
+                                                onChange={(e) => updateOrderStatus(order.id, 'status', e.target.value)}
+                                                className="px-2 py-1.5 border border-gray-200 rounded-lg bg-white"
+                                            >
+                                                <option value="new">New</option>
+                                                <option value="confirmed">Confirmed</option>
+                                                <option value="preparing">Preparing</option>
+                                                <option value="dispatched">Dispatched</option>
+                                            </select>
+
+                                            <select
+                                                value={order.delivery_status}
+                                                onChange={(e) => updateOrderStatus(order.id, 'delivery_status', e.target.value)}
+                                                className="px-2 py-1.5 border border-gray-200 rounded-lg bg-white"
+                                            >
+                                                <option value="pending">Pending</option>
+                                                <option value="in_transit">In Transit</option>
+                                                <option value="delivered">Delivered</option>
+                                            </select>
+
+                                            <button
+                                                onClick={() => sendWhatsApp(order)}
+                                                className="flex items-center gap-1 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                                            >
+                                                <Icons.whatsapp /> WhatsApp
+                                            </button>
+                                        </div>
                                     </div>
-
-                                    <div className="flex gap-2 mb-3 flex-wrap">
-                                        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: getStatusColor(order.status) + '20', color: getStatusColor(order.status) }}>
-                                            {getStatusLabel(order.status)}
-                                        </span>
-                                        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: getStatusColor(order.payment_status) + '20', color: getStatusColor(order.payment_status) }}>
-                                            Payment: {getStatusLabel(order.payment_status)}
-                                        </span>
-                                        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: getStatusColor(order.delivery_status) + '20', color: getStatusColor(order.delivery_status) }}>
-                                            Delivery: {getStatusLabel(order.delivery_status)}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex gap-2 flex-wrap text-xs">
-                                        <select
-                                            value={order.status}
-                                            onChange={(e) => updateOrderStatus(order.id, 'status', e.target.value)}
-                                            className="px-2 py-1 border border-gray-300 rounded"
-                                        >
-                                            <option value="new">New</option>
-                                            <option value="confirmed">Confirmed</option>
-                                            <option value="preparing">Preparing</option>
-                                            <option value="dispatched">Dispatched</option>
-                                        </select>
-
-                                        <select
-                                            value={order.delivery_status}
-                                            onChange={(e) => updateOrderStatus(order.id, 'delivery_status', e.target.value)}
-                                            className="px-2 py-1 border border-gray-300 rounded"
-                                        >
-                                            <option value="pending">Pending</option>
-                                            <option value="in_transit">In Transit</option>
-                                            <option value="delivered">Delivered</option>
-                                        </select>
-
-                                        <button
-                                            onClick={() => sendWhatsApp(order)}
-                                            className="bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded font-bold"
-                                        >
-                                            WhatsApp
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
             );
@@ -1265,30 +1498,36 @@
             };
 
             if (loading) {
-                return <div className="flex items-center justify-center p-8"><Spinner size="lg" /></div>;
+                return <div className="flex items-center justify-center p-12"><Spinner size="lg" /></div>;
             }
 
             return (
-                <div className="space-y-4">
-                    <button
-                        onClick={() => setShowForm(!showForm)}
-                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg"
-                    >
-                        + Report Payment
-                    </button>
+                <div>
+                    <PageHeader
+                        title="Payments"
+                        subtitle={`${payments.length} payment record${payments.length !== 1 ? 's' : ''}`}
+                        actions={
+                            <button
+                                onClick={() => setShowForm(!showForm)}
+                                className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
+                            >
+                                <Icons.plus /> Report Payment
+                            </button>
+                        }
+                    />
 
                     {/* Payment Form */}
                     {showForm && (
-                        <div className="bg-white p-4 rounded-lg card-shadow border-l-4 border-green-500">
-                            <h3 className="font-bold text-gray-900 mb-4">Report Payment</h3>
+                        <div className="card card-shadow p-6 mb-6 border-l-4 border-brand-500">
+                            <h3 className="font-bold text-gray-900 mb-4 text-lg">Report Payment</h3>
 
-                            <div className="space-y-3">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Order</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Order</label>
                                     <select
                                         value={formData.order_id}
                                         onChange={(e) => setFormData(prev => ({ ...prev, order_id: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     >
                                         <option value="">Select an order</option>
                                         {orders.map(order => (
@@ -1300,69 +1539,69 @@
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Amount (ZAR)</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Amount (ZAR)</label>
                                     <input
                                         type="number"
                                         value={formData.amount}
                                         onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
                                         step="0.01"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Payment Method</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Payment Method</label>
                                     <select
                                         value={formData.payment_method}
                                         onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     >
                                         <option value="eft">EFT Bank Transfer</option>
                                         <option value="mobile_money">Mobile Money</option>
                                         <option value="cash">Cash</option>
                                     </select>
                                 </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Proof Screenshot</label>
-                                    {formData.screenshot_url && (
-                                        <div className="mb-2 relative">
-                                            <img src={formData.screenshot_url} alt="Proof" className="w-full h-32 object-cover rounded" />
-                                            <button
-                                                onClick={() => setFormData(prev => ({ ...prev, screenshot_url: '' }))}
-                                                className="absolute top-1 right-1 bg-red-600 text-white px-2 py-1 rounded text-xs"
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={uploading}
-                                        className="w-full bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 text-gray-700 py-2 rounded border-2 border-dashed border-gray-300 text-sm font-medium"
-                                    >
-                                        {uploading ? <Spinner size="sm" /> : 'Upload Screenshot'}
-                                    </button>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleScreenshotUpload}
-                                        className="hidden"
-                                    />
-                                </div>
                             </div>
 
-                            <div className="flex gap-2 mt-4">
+                            <div className="mb-4 max-w-sm">
+                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Proof Screenshot</label>
+                                {formData.screenshot_url && (
+                                    <div className="mb-2 relative inline-block">
+                                        <img src={formData.screenshot_url} alt="Proof" className="h-24 object-cover rounded-lg" />
+                                        <button
+                                            onClick={() => setFormData(prev => ({ ...prev, screenshot_url: '' }))}
+                                            className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-md text-xs font-medium"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="w-full bg-gray-50 hover:bg-gray-100 disabled:bg-gray-200 text-gray-600 py-3 rounded-lg border-2 border-dashed border-gray-300 text-sm font-medium transition-colors"
+                                >
+                                    {uploading ? <Spinner size="sm" /> : 'Upload Screenshot'}
+                                </button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleScreenshotUpload}
+                                    className="hidden"
+                                />
+                            </div>
+
+                            <div className="flex gap-3">
                                 <button
                                     onClick={submitPayment}
-                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded text-sm"
+                                    className="bg-brand-500 hover:bg-brand-600 text-white font-semibold py-2.5 px-6 rounded-lg text-sm transition-colors"
                                 >
                                     Submit Payment
                                 </button>
                                 <button
                                     onClick={() => setShowForm(false)}
-                                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-2 rounded text-sm"
+                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 px-6 rounded-lg text-sm transition-colors"
                                 >
                                     Cancel
                                 </button>
@@ -1372,46 +1611,105 @@
 
                     {/* Payments List */}
                     {payments.length === 0 ? (
-                        <div className="bg-white p-6 rounded-lg text-center text-gray-500 text-sm">
-                            No payments reported yet
+                        <div className="card card-shadow p-12 text-center">
+                            <Icons.payments className="mx-auto mb-3 text-gray-300" style={{width: 48, height: 48}} />
+                            <p className="text-gray-500 text-sm">No payments reported yet</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {payments.map(payment => (
-                                <div key={payment.id} className="bg-white p-4 rounded-lg card-shadow">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <p className="font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
-                                            <p className="text-xs text-gray-500 capitalize">{payment.payment_method.replace('_', ' ')}</p>
+                        <>
+                            {/* Desktop table */}
+                            <div className="hidden lg:block card card-shadow overflow-hidden">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Amount</th>
+                                            <th>Method</th>
+                                            <th>Status</th>
+                                            <th>Proof</th>
+                                            <th>Date</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {payments.map(payment => (
+                                            <tr key={payment.id}>
+                                                <td className="font-semibold text-gray-900">{formatCurrency(payment.amount)}</td>
+                                                <td className="capitalize text-gray-600">{payment.payment_method.replace('_', ' ')}</td>
+                                                <td>
+                                                    <span className="badge" style={{ backgroundColor: getStatusColor(payment.status) + '15', color: getStatusColor(payment.status) }}>
+                                                        {getStatusLabel(payment.status)}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {payment.screenshot_url ? (
+                                                        <a href={payment.screenshot_url} target="_blank" rel="noopener" className="text-blue-600 hover:text-blue-700 text-sm font-medium">View</a>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">None</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-gray-500 text-sm">{new Date(payment.created_at).toLocaleDateString()}</td>
+                                                <td>
+                                                    {payment.status === 'pending' && (
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => updatePaymentStatus(payment.id, 'confirmed')}
+                                                                className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                                            >
+                                                                Confirm
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updatePaymentStatus(payment.id, 'rejected')}
+                                                                className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile cards */}
+                            <div className="lg:hidden space-y-3">
+                                {payments.map(payment => (
+                                    <div key={payment.id} className="card card-shadow p-4">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <p className="font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
+                                                <p className="text-xs text-gray-500 capitalize">{payment.payment_method.replace('_', ' ')}</p>
+                                            </div>
+                                            <span className="badge" style={{ backgroundColor: getStatusColor(payment.status) + '15', color: getStatusColor(payment.status) }}>
+                                                {getStatusLabel(payment.status)}
+                                            </span>
                                         </div>
-                                        <span className="text-xs font-bold px-2 py-1 rounded" style={{ backgroundColor: getStatusColor(payment.status) + '20', color: getStatusColor(payment.status) }}>
-                                            {getStatusLabel(payment.status)}
-                                        </span>
+
+                                        {payment.screenshot_url && (
+                                            <img src={payment.screenshot_url} alt="Proof" className="w-full h-24 object-cover rounded-lg mb-3" />
+                                        )}
+
+                                        {payment.status === 'pending' && (
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => updatePaymentStatus(payment.id, 'confirmed')}
+                                                    className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 font-semibold py-2 rounded-lg text-xs transition-colors"
+                                                >
+                                                    Confirm
+                                                </button>
+                                                <button
+                                                    onClick={() => updatePaymentStatus(payment.id, 'rejected')}
+                                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 rounded-lg text-xs transition-colors"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-
-                                    {payment.screenshot_url && (
-                                        <img src={payment.screenshot_url} alt="Proof" className="w-full h-24 object-cover rounded mb-3" />
-                                    )}
-
-                                    {payment.status === 'pending' && (
-                                        <div className="flex gap-2 text-xs">
-                                            <button
-                                                onClick={() => updatePaymentStatus(payment.id, 'confirmed')}
-                                                className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 font-bold py-1 rounded"
-                                            >
-                                                Confirm
-                                            </button>
-                                            <button
-                                                onClick={() => updatePaymentStatus(payment.id, 'rejected')}
-                                                className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold py-1 rounded"
-                                            >
-                                                Reject
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
             );
@@ -1459,79 +1757,84 @@
             };
 
             return (
-                <div className="space-y-3">
-                    {templates.map(template => (
-                        <div key={template.id} className="bg-white rounded-lg card-shadow overflow-hidden">
-                            <div className="bg-gradient-to-r from-green-500 to-green-600 p-3">
-                                <h3 className="font-bold text-white">{template.title}</h3>
-                            </div>
+                <div>
+                    <PageHeader title="Message Templates" subtitle="Pre-built messages for customer communication" />
 
-                            <div className="p-4 space-y-3">
-                                {/* English */}
-                                <div>
-                                    <p className="text-xs font-semibold text-gray-600 mb-2">ENGLISH</p>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded mb-2">
-                                        {template.en
-                                            .replace('{name}', 'John')
-                                            .replace('{order_number}', '123456')
-                                            .replace('{total}', 'R499.99')
-                                            .replace('{business_name}', seller.business_name)}
-                                    </p>
-                                    <div className="flex gap-2 text-xs">
-                                        <button
-                                            onClick={() => copyToClipboard(template.en)}
-                                            className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 rounded"
-                                        >
-                                            Copy
-                                        </button>
-                                        <button
-                                            onClick={() => sendViaWhatsApp(template.en)}
-                                            className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 font-bold py-2 rounded"
-                                        >
-                                            WhatsApp
-                                        </button>
-                                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        {templates.map(template => (
+                            <div key={template.id} className="card card-shadow overflow-hidden">
+                                <div className="bg-gradient-to-r from-brand-500 to-green-600 px-5 py-3">
+                                    <h3 className="font-semibold text-white">{template.title}</h3>
                                 </div>
 
-                                {/* Sesotho */}
-                                <div className="border-t pt-3">
-                                    <p className="text-xs font-semibold text-gray-600 mb-2">SESOTHO</p>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded mb-2">
-                                        {template.st
-                                            .replace('{name}', 'John')
-                                            .replace('{order_number}', '123456')
-                                            .replace('{total}', 'R499.99')
-                                            .replace('{business_name}', seller.business_name)}
-                                    </p>
-                                    <div className="flex gap-2 text-xs">
-                                        <button
-                                            onClick={() => copyToClipboard(template.st)}
-                                            className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 rounded"
-                                        >
-                                            Copy
-                                        </button>
-                                        <button
-                                            onClick={() => sendViaWhatsApp(template.st)}
-                                            className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 font-bold py-2 rounded"
-                                        >
-                                            WhatsApp
-                                        </button>
+                                <div className="p-5 space-y-4">
+                                    {/* English */}
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">English</p>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg leading-relaxed">
+                                            {template.en
+                                                .replace('{name}', 'John')
+                                                .replace('{order_number}', '123456')
+                                                .replace('{total}', 'R499.99')
+                                                .replace('{business_name}', seller.business_name)}
+                                        </p>
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                onClick={() => copyToClipboard(template.en)}
+                                                className="flex items-center gap-1.5 flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 rounded-lg text-xs transition-colors justify-center"
+                                            >
+                                                <Icons.copy /> Copy
+                                            </button>
+                                            <button
+                                                onClick={() => sendViaWhatsApp(template.en)}
+                                                className="flex items-center gap-1.5 flex-1 bg-green-50 hover:bg-green-100 text-green-700 font-semibold py-2 rounded-lg text-xs transition-colors justify-center"
+                                            >
+                                                <Icons.whatsapp /> WhatsApp
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Sesotho */}
+                                    <div className="border-t pt-4">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Sesotho</p>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg leading-relaxed">
+                                            {template.st
+                                                .replace('{name}', 'John')
+                                                .replace('{order_number}', '123456')
+                                                .replace('{total}', 'R499.99')
+                                                .replace('{business_name}', seller.business_name)}
+                                        </p>
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                onClick={() => copyToClipboard(template.st)}
+                                                className="flex items-center gap-1.5 flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 rounded-lg text-xs transition-colors justify-center"
+                                            >
+                                                <Icons.copy /> Copy
+                                            </button>
+                                            <button
+                                                onClick={() => sendViaWhatsApp(template.st)}
+                                                className="flex items-center gap-1.5 flex-1 bg-green-50 hover:bg-green-100 text-green-700 font-semibold py-2 rounded-lg text-xs transition-colors justify-center"
+                                            >
+                                                <Icons.whatsapp /> WhatsApp
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             );
         };
 
         // ============================================================================
-        // MAIN APP COMPONENT
+        // MAIN APP COMPONENT — RESPONSIVE SIDEBAR + BOTTOM NAV
         // ============================================================================
 
         const App = () => {
             const [currentUser, setCurrentUser] = useState(null);
             const [currentTab, setCurrentTab] = useState('dashboard');
+            const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
             useEffect(() => {
                 const stored = localStorage.getItem('current_seller');
@@ -1555,59 +1858,111 @@
                 return <LoginScreen onLoginSuccess={setCurrentUser} />;
             }
 
+            const navItems = [
+                { id: 'dashboard', label: 'Dashboard', Icon: Icons.dashboard },
+                { id: 'products', label: 'Products', Icon: Icons.products },
+                { id: 'orders', label: 'Orders', Icon: Icons.orders },
+                { id: 'payments', label: 'Payments', Icon: Icons.payments },
+                { id: 'templates', label: 'Templates', Icon: Icons.templates },
+            ];
+
             return (
-                <div className="bg-white min-h-screen pb-24">
-                    {/* Top Header */}
-                    <div className="bg-green-600 text-white sticky top-0 z-40 shadow-sm">
-                        <div className="max-w-sm mx-auto px-4 py-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Logo className="w-6 h-6" />
-                                <div>
-                                    <h1 className="font-bold text-sm leading-none">WhatsApp Seller OS</h1>
-                                    <p className="text-xs text-green-50">{currentUser.business_name}</p>
+                <div className="min-h-screen bg-gray-50">
+                    {/* ======= DESKTOP SIDEBAR (hidden on mobile) ======= */}
+                    <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 bg-white border-r border-gray-200 z-50">
+                        {/* Sidebar Header */}
+                        <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
+                            <Logo size={36} />
+                            <div className="min-w-0">
+                                <h1 className="font-bold text-sm text-gray-900 leading-tight">Seller OS</h1>
+                                <p className="text-xs text-gray-500 truncate">{currentUser.business_name}</p>
+                            </div>
+                        </div>
+
+                        {/* Navigation */}
+                        <nav className="flex-1 px-3 py-4 space-y-1 sidebar-scroll overflow-y-auto">
+                            {navItems.map(({ id, label, Icon }) => (
+                                <button
+                                    key={id}
+                                    onClick={() => setCurrentTab(id)}
+                                    className={`sidebar-link w-full ${currentTab === id ? 'active' : ''}`}
+                                >
+                                    <Icon />
+                                    <span>{label}</span>
+                                </button>
+                            ))}
+                        </nav>
+
+                        {/* Sidebar Footer */}
+                        <div className="px-4 py-4 border-t border-gray-100">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-sm">
+                                    {currentUser.full_name?.charAt(0)?.toUpperCase() || 'S'}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{currentUser.full_name}</p>
+                                    <p className="text-xs text-gray-500 truncate">{currentUser.phone}</p>
                                 </div>
                             </div>
                             <button
                                 onClick={logout}
-                                className="text-xs font-bold bg-red-600 hover:bg-red-700 px-2 py-1 rounded"
+                                className="flex items-center gap-2 w-full text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors font-medium"
                             >
-                                Logout
+                                <Icons.logout /> Sign Out
                             </button>
                         </div>
-                    </div>
+                    </aside>
 
-                    {/* Content Area */}
-                    <div className="max-w-sm mx-auto px-4 py-4">
-                        <div className="tab-content">
-                            {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} />}
-                            {currentTab === 'products' && <ProductsScreen seller={currentUser} />}
-                            {currentTab === 'orders' && <OrdersScreen seller={currentUser} />}
-                            {currentTab === 'payments' && <PaymentsScreen seller={currentUser} />}
-                            {currentTab === 'templates' && <TemplatesScreen seller={currentUser} />}
-                        </div>
-                    </div>
-
-                    {/* Bottom Navigation */}
-                    <div className="max-w-sm mx-auto fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around">
-                        {[
-                            { id: 'dashboard', label: 'Dashboard' },
-                            { id: 'products', label: 'Products' },
-                            { id: 'orders', label: 'Orders' },
-                            { id: 'payments', label: 'Payments' },
-                            { id: 'templates', label: 'Templates' }
-                        ].map(tab => (
+                    {/* ======= MOBILE TOP HEADER (hidden on desktop) ======= */}
+                    <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-40">
+                        <div className="px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <Logo size={32} />
+                                <div>
+                                    <h1 className="font-bold text-sm text-gray-900 leading-none">Seller OS</h1>
+                                    <p className="text-xs text-gray-500">{currentUser.business_name}</p>
+                                </div>
+                            </div>
                             <button
-                                key={tab.id}
-                                onClick={() => setCurrentTab(tab.id)}
-                                className={`flex-1 py-3 px-2 text-center text-xs font-semibold transition-colors ${
-                                    currentTab === tab.id
-                                        ? 'nav-active border-b-4 text-green-600'
-                                        : 'text-gray-600 hover:text-gray-900'
-                                }`}
+                                onClick={logout}
+                                className="text-xs font-semibold text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
                             >
-                                {tab.label}
+                                Sign Out
                             </button>
-                        ))}
+                        </div>
+                    </div>
+
+                    {/* ======= MAIN CONTENT AREA ======= */}
+                    <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
+                        <div className="max-w-6xl mx-auto px-4 lg:px-8 py-5 lg:py-8">
+                            <div className="tab-content">
+                                {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} />}
+                                {currentTab === 'products' && <ProductsScreen seller={currentUser} />}
+                                {currentTab === 'orders' && <OrdersScreen seller={currentUser} />}
+                                {currentTab === 'payments' && <PaymentsScreen seller={currentUser} />}
+                                {currentTab === 'templates' && <TemplatesScreen seller={currentUser} />}
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* ======= MOBILE BOTTOM NAVIGATION (hidden on desktop) ======= */}
+                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-bottom">
+                        <div className="flex justify-around">
+                            {navItems.map(({ id, label, Icon }) => (
+                                <button
+                                    key={id}
+                                    onClick={() => setCurrentTab(id)}
+                                    className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 px-1 text-xs font-medium transition-colors ${
+                                        currentTab === id
+                                            ? 'text-brand-500'
+                                            : 'text-gray-400 hover:text-gray-600'
+                                    }`}
+                                >
+                                    <Icon style={{ width: 20, height: 20 }} />
+                                    <span>{label}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             );
