@@ -125,11 +125,18 @@
         .phone-header { background: var(--green-500); color: white; padding: 20px 16px 14px; }
         .phone-header .store-name { font-weight: 700; font-size: 15px; }
         .phone-header .store-sub { font-size: 11px; opacity: 0.8; }
-        .phone-products { flex: 1; padding: 12px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .phone-product { background: var(--gray-50); border-radius: 12px; padding: 8px; }
-        .phone-product .img { width: 100%; aspect-ratio: 1; background: var(--gray-200); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        .phone-product .name { font-size: 10px; font-weight: 600; margin-top: 6px; color: var(--gray-700); }
+        .phone-products { flex: 1; padding: 10px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .phone-product { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid var(--gray-100); }
+        .phone-product .img { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 24px; position: relative; }
+        .phone-product .img .badge-new { position: absolute; top: 6px; right: 6px; background: var(--green-500); color: white; font-size: 7px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+        .phone-product .img .badge-hot { position: absolute; top: 6px; right: 6px; background: #ef4444; color: white; font-size: 7px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+        .phone-product .details { padding: 6px 8px 8px; }
+        .phone-product .name { font-size: 10px; font-weight: 600; color: var(--gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .phone-product .price-row { display: flex; align-items: center; justify-content: space-between; margin-top: 3px; }
         .phone-product .price { font-size: 11px; font-weight: 800; color: var(--green-600); }
+        .phone-product .heart { font-size: 10px; color: var(--gray-300); }
+        .phone-product .colors { display: flex; gap: 3px; margin-top: 4px; }
+        .phone-product .colors span { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); }
         .phone-cart { background: var(--green-500); color: white; text-align: center; padding: 10px; font-size: 12px; font-weight: 700; border-radius: 0 0 30px 30px; }
         .floating-notif {
             position: absolute; right: -30px; top: 80px; background: white; border-radius: 16px;
@@ -446,32 +453,63 @@
                     <div class="phone">
                         <div class="phone-screen">
                             <div class="phone-header">
-                                <div class="store-name">🛍️ StyleHub</div>
-                                <div class="store-sub">Accessories & Home • Johannesburg</div>
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                    <div style="width:28px;height:28px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;">N</div>
+                                    <div>
+                                        <div class="store-name">Naledi's Boutique</div>
+                                        <div class="store-sub">Fashion & Accessories • Maseru</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:6px;font-size:9px;">
+                                    <span style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:10px;">All</span>
+                                    <span style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:10px;">clothing</span>
+                                    <span style="background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:10px;">bags</span>
+                                </div>
                             </div>
                             <div class="phone-products">
                                 <div class="phone-product">
-                                    <div class="img">👜</div>
-                                    <div class="name">Leather Bag</div>
-                                    <div class="price">R350.00</div>
+                                    <div class="img" style="background:linear-gradient(135deg,#fce7f3,#fecdd3);">
+                                        <span style="font-size:28px;">👗</span>
+                                        <span class="badge-new">New</span>
+                                    </div>
+                                    <div class="details">
+                                        <div class="name">Summer Dress</div>
+                                        <div class="price-row"><span class="price">R320.00</span><span class="heart">♡</span></div>
+                                        <div class="colors"><span style="background:#1e293b"></span><span style="background:#dc2626"></span><span style="background:#f59e0b"></span></div>
+                                    </div>
                                 </div>
                                 <div class="phone-product">
-                                    <div class="img">⌚</div>
-                                    <div class="name">Smart Watch</div>
-                                    <div class="price">R499.00</div>
+                                    <div class="img" style="background:linear-gradient(135deg,#dbeafe,#c7d2fe);">
+                                        <span style="font-size:28px;">👜</span>
+                                        <span class="badge-hot">Hot</span>
+                                    </div>
+                                    <div class="details">
+                                        <div class="name">Leather Tote</div>
+                                        <div class="price-row"><span class="price">R450.00</span><span class="heart" style="color:#ef4444;">♥</span></div>
+                                        <div class="colors"><span style="background:#78350f"></span><span style="background:#1e293b"></span></div>
+                                    </div>
                                 </div>
                                 <div class="phone-product">
-                                    <div class="img">🎧</div>
-                                    <div class="name">Wireless Earbuds</div>
-                                    <div class="price">R199.00</div>
+                                    <div class="img" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);">
+                                        <span style="font-size:28px;">🧣</span>
+                                    </div>
+                                    <div class="details">
+                                        <div class="name">Basotho Scarf</div>
+                                        <div class="price-row"><span class="price">R180.00</span><span class="heart">♡</span></div>
+                                    </div>
                                 </div>
                                 <div class="phone-product">
-                                    <div class="img">💡</div>
-                                    <div class="name">LED Desk Lamp</div>
-                                    <div class="price">R125.00</div>
+                                    <div class="img" style="background:linear-gradient(135deg,#fef9c3,#fde68a);">
+                                        <span style="font-size:28px;">👟</span>
+                                    </div>
+                                    <div class="details">
+                                        <div class="name">Canvas Sneakers</div>
+                                        <div class="price-row"><span class="price">R275.00</span><span class="heart">♡</span></div>
+                                        <div class="colors"><span style="background:white;border-color:#d1d5db"></span><span style="background:#1e293b"></span><span style="background:#16a34a"></span></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="phone-cart">🛒 View Cart • 2 items • R849.00</div>
+                            <div class="phone-cart">🛒 View Cart • 2 items • R770.00</div>
                         </div>
                     </div>
                     <div class="floating-notif">
@@ -917,11 +955,57 @@
                     </div>
                 </div>
                 <div class="text-center fade-up">
-                    <div style="background:white;border-radius:24px;padding:32px;box-shadow:0 8px 40px rgba(0,0,0,0.06);display:inline-block">
-                        <div style="font-size:64px;margin-bottom:16px">🛍️💬📦</div>
-                        <div style="font-size:15px;color:var(--gray-500);max-width:260px;margin:0 auto">
-                            <strong style="color:var(--gray-900)">One platform replaces</strong><br>
-                            scattered WhatsApp chats, paper notebooks, and spreadsheets
+                    <div style="background:white;border-radius:24px;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,0.06);display:inline-block;text-align:left;max-width:360px;width:100%;">
+                        <!-- Mini dashboard header -->
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--gray-100);">
+                            <div style="width:32px;height:32px;background:var(--green-500);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                                <svg width="16" height="16" viewBox="0 0 40 40" fill="none"><rect x="4" y="6" width="18" height="14" rx="4" fill="white"/><rect x="18" y="16" width="18" height="14" rx="4" fill="#D4A017"/></svg>
+                            </div>
+                            <div>
+                                <div style="font-size:13px;font-weight:700;color:var(--gray-900);">Naledi's Boutique</div>
+                                <div style="font-size:10px;color:var(--gray-400);">Seller Dashboard</div>
+                            </div>
+                        </div>
+                        <!-- Mini stat cards -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+                            <div style="background:var(--green-50);border-radius:10px;padding:10px 12px;">
+                                <div style="font-size:9px;color:var(--gray-400);font-weight:600;text-transform:uppercase;">Revenue</div>
+                                <div style="font-size:18px;font-weight:800;color:var(--green-600);">R12,450</div>
+                                <div style="font-size:9px;color:var(--green-600);font-weight:600;">↑ 23% this week</div>
+                            </div>
+                            <div style="background:#eff6ff;border-radius:10px;padding:10px 12px;">
+                                <div style="font-size:9px;color:var(--gray-400);font-weight:600;text-transform:uppercase;">Orders</div>
+                                <div style="font-size:18px;font-weight:800;color:#2563eb;">34</div>
+                                <div style="font-size:9px;color:#2563eb;font-weight:600;">8 new today</div>
+                            </div>
+                        </div>
+                        <!-- Mini order list -->
+                        <div style="font-size:10px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Recent Orders</div>
+                        <div style="display:flex;flex-direction:column;gap:6px;">
+                            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray-50);border-radius:8px;">
+                                <div style="width:6px;height:6px;background:var(--green-500);border-radius:50%;flex-shrink:0;"></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:11px;font-weight:600;color:var(--gray-800);">Thabo M. — R320.00</div>
+                                    <div style="font-size:9px;color:var(--gray-400);">ORD-0042 • Confirmed</div>
+                                </div>
+                                <div style="font-size:8px;color:white;background:var(--green-500);padding:2px 6px;border-radius:4px;font-weight:700;flex-shrink:0;">Paid</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray-50);border-radius:8px;">
+                                <div style="width:6px;height:6px;background:#f59e0b;border-radius:50%;flex-shrink:0;"></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:11px;font-weight:600;color:var(--gray-800);">Lerato K. — R450.00</div>
+                                    <div style="font-size:9px;color:var(--gray-400);">ORD-0041 • Preparing</div>
+                                </div>
+                                <div style="font-size:8px;color:#92400e;background:#fef3c7;padding:2px 6px;border-radius:4px;font-weight:700;flex-shrink:0;">Pending</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--gray-50);border-radius:8px;">
+                                <div style="width:6px;height:6px;background:#3b82f6;border-radius:50%;flex-shrink:0;"></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:11px;font-weight:600;color:var(--gray-800);">Mpho S. — R180.00</div>
+                                    <div style="font-size:9px;color:var(--gray-400);">ORD-0040 • Dispatched</div>
+                                </div>
+                                <div style="font-size:8px;color:white;background:#3b82f6;padding:2px 6px;border-radius:4px;font-weight:700;flex-shrink:0;">Shipped</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -985,6 +1069,48 @@
                 <div class="faq-item" onclick="this.classList.toggle('open')">
                     <div class="faq-q"><h3>Can my customers track their orders?</h3><div class="faq-icon">+</div></div>
                     <div class="faq-a"><p>Yes. Every order has a unique tracking link sent via WhatsApp. Customers can see real-time status updates — from confirmed to out for delivery to delivered — without needing an account.</p></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== TESTIMONIALS ===== -->
+    <section style="padding:80px 0;">
+        <div class="container">
+            <div class="text-center" style="margin-bottom:48px">
+                <p class="section-label fade-up">Trusted by Sellers</p>
+                <h2 class="section-title fade-up">What merchants are saying</h2>
+            </div>
+            <div class="grid-3 fade-up">
+                <div class="testimonial-card">
+                    <div class="quote">"I used to spend hours every evening messaging customers on WhatsApp about their orders. Now they get updates automatically. I just focus on making my products — Khotso Connect handles the rest."</div>
+                    <div class="author">
+                        <div class="avatar">N</div>
+                        <div>
+                            <div class="author-name">Naledi Mokoena</div>
+                            <div class="author-role">Fashion & Accessories • Maseru</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="quote">"My customers love the tracking links. They click the WhatsApp link and see exactly where their order is. No more 'where is my order?' messages — it has cut my support chats in half."</div>
+                    <div class="author">
+                        <div class="avatar" style="background:#dbeafe;color:#2563eb;">T</div>
+                        <div>
+                            <div class="author-name">Thabo Molefe</div>
+                            <div class="author-role">Electronics & Gadgets • Johannesburg</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="quote">"I was using a notebook to track orders and payments. Setting up Khotso Connect took me two minutes and now I see everything on my phone — revenue, pending orders, which customers still owe."</div>
+                    <div class="author">
+                        <div class="avatar" style="background:#fef3c7;color:#92400e;">L</div>
+                        <div>
+                            <div class="author-name">Lineo Ramohlanka</div>
+                            <div class="author-role">Home Goods & Crafts • Leribe</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
