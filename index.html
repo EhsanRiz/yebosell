@@ -946,7 +946,9 @@
                             </div>
                         </div>
                         <div class="why-item">
-                            <div class="icon" style="background:#fce7f3"><span class="geo-flag">🇱🇸</span></div>
+                            <div class="icon" style="background:#fce7f3"><span class="geo-flag" style="font-size:28px;line-height:1;display:flex;align-items:center;justify-content:center;">
+                                <svg width="28" height="20" viewBox="0 0 28 20" style="border-radius:2px;"><rect width="28" height="7" fill="#00209F"/><rect y="7" width="28" height="6" fill="white"/><rect y="13" width="28" height="7" fill="#009543"/><path d="M14 6 L11 13 h6 z" fill="none" stroke="#000" stroke-width="0.8"/><line x1="14" y1="6" x2="14" y2="4.5" stroke="#000" stroke-width="0.6"/></svg>
+                            </span></div>
                             <div>
                                 <h4 class="geo-pricing-title">Local pricing</h4>
                                 <p class="geo-pricing-desc">Maloti &amp; Rands, no conversion fees, local bank support</p>
@@ -1280,9 +1282,9 @@
                 document.querySelectorAll('.geo-phone').forEach(function(el) {
                     el.textContent = el.textContent.replace('+266 5800 1234', '+27 82 555 0199');
                 });
-                // Swap flag emoji
+                // Swap flag SVG
                 document.querySelectorAll('.geo-flag').forEach(function(el) {
-                    el.textContent = '🇿🇦';
+                    el.innerHTML = '<svg width="28" height="20" viewBox="0 0 28 20" style="border-radius:2px;"><rect width="28" height="7" fill="#DE3831"/><rect y="13" width="28" height="7" fill="#002395"/><rect y="6" width="28" height="8" fill="white"/><polygon points="0,0 10,10 0,20" fill="#007A4D"/><polygon points="0,1 9,10 0,19" fill="#FFB612"/><polygon points="0,2.5 7.5,10 0,17.5" fill="#000"/><rect y="9" width="28" height="2" fill="#007A4D"/></svg>';
                 });
                 // Swap pricing card text
                 document.querySelectorAll('.geo-pricing-title').forEach(function(el) {
