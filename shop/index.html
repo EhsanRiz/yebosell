@@ -703,7 +703,7 @@
                                         <h2 className="text-lg font-bold text-gray-900">Your Cart</h2>
                                         <p className="text-xs text-gray-400">{cartCount} item{cartCount !== 1 ? 's' : ''}</p>
                                     </div>
-                                    <button onClick={() => setShowCart(false)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                                    <button onClick={() => setShowCart(false)} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto modal-scroll p-4 space-y-3">
@@ -732,11 +732,11 @@
                                                 </div>
                                                 <div className="flex items-center justify-end gap-0 mt-2">
                                                     <button onClick={() => updateQuantity(key, item.quantity - 1)}
-                                                        className="w-8 h-8 rounded-l-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-base font-bold transition">−</button>
-                                                    <span className="w-10 h-8 border-t border-b border-gray-200 bg-white flex items-center justify-center font-bold text-sm">{item.quantity}</span>
+                                                        className="w-10 h-10 rounded-l-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-base font-bold transition">−</button>
+                                                    <span className="w-12 h-10 border-t border-b border-gray-200 bg-white flex items-center justify-center font-bold text-sm">{item.quantity}</span>
                                                     <button onClick={() => updateQuantity(key, item.quantity + 1)}
                                                         disabled={item.quantity >= maxStock}
-                                                        className="w-8 h-8 rounded-r-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-base font-bold transition disabled:opacity-30 disabled:cursor-not-allowed">+</button>
+                                                        className="w-10 h-10 rounded-r-lg bg-white border border-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-100 text-base font-bold transition disabled:opacity-30 disabled:cursor-not-allowed">+</button>
                                                 </div>
                                             </div>
                                         );
@@ -766,7 +766,7 @@
                                         <h2 className="text-lg font-bold text-gray-900">Checkout</h2>
                                         <p className="text-xs text-gray-400">{cartCount} item{cartCount !== 1 ? 's' : ''} · {formatCurrency(cartTotal)}</p>
                                     </div>
-                                    <button onClick={() => setShowCheckout(false)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                                    <button onClick={() => setShowCheckout(false)} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
                                 </div>
 
                                 <form onSubmit={submitOrder} className="flex-1 overflow-y-auto modal-scroll p-5 space-y-4">
@@ -1551,7 +1551,7 @@
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                             <h2 className="text-lg font-bold text-gray-900">My Orders</h2>
-                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                            <button onClick={onClose} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto modal-scroll p-5">
@@ -1702,7 +1702,7 @@
                                 <h2 className="text-lg font-bold text-gray-900">Order Tracking</h2>
                                 <p className="text-xs text-gray-400">{currentOrder.order_number}</p>
                             </div>
-                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                            <button onClick={onClose} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">
@@ -1790,7 +1790,7 @@
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                             <h2 className="text-lg font-bold text-gray-900">Store Info</h2>
-                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
+                            <button onClick={onClose} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition">✕</button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">

@@ -470,7 +470,7 @@
                         </button>
                     </div>
 
-                    <div className="absolute bottom-6 text-center">
+                    <div className="mt-8 text-center pb-6">
                         <p className="text-gray-500 text-xs mb-1">Developed by</p>
                         <a href="https://4dcs.co.za" target="_blank" rel="noopener noreferrer" className="text-gray-400 text-sm font-semibold hover:text-white transition-colors">4D <span className="italic">Climate Solutions</span></a>
                         <p className="text-gray-600 text-xs mt-2">&copy; 2026 Khotso Connect. All rights reserved.</p>
@@ -4157,22 +4157,25 @@
                     </main>
 
                     {/* ======= MOBILE BOTTOM NAVIGATION (hidden on desktop) ======= */}
-                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-bottom">
-                        <div className="flex justify-around">
-                            {navItems.map(({ id, label, Icon }) => (
-                                <button
-                                    key={id}
-                                    onClick={() => setCurrentTab(id)}
-                                    className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 px-1 text-xs font-medium transition-colors ${
-                                        currentTab === id
-                                            ? 'text-brand-500'
-                                            : 'text-gray-400 hover:text-gray-600'
-                                    }`}
-                                >
-                                    <Icon style={{ width: 20, height: 20 }} />
-                                    <span>{label}</span>
-                                </button>
-                            ))}
+                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+                        <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none' }}>
+                            <style>{`.mobile-bottom-nav::-webkit-scrollbar { display: none; }`}</style>
+                            <div className="flex mobile-bottom-nav" style={{ minWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                                {navItems.map(({ id, label, Icon }) => (
+                                    <button
+                                        key={id}
+                                        onClick={() => setCurrentTab(id)}
+                                        className={`flex flex-col items-center gap-0.5 py-2.5 px-4 text-xs font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
+                                            currentTab === id
+                                                ? 'text-brand-500'
+                                                : 'text-gray-400 hover:text-gray-600'
+                                        }`}
+                                    >
+                                        <Icon style={{ width: 20, height: 20 }} />
+                                        <span>{label}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
