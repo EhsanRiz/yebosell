@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Khotso Connect — WhatsApp-Powered Commerce for Southern Africa</title>
     <meta name="description" content="Sell smarter. Reach further. Grow together. Turn your WhatsApp into a full online store. Manage products, orders, payments, and delivery — built for Southern African merchants.">
+    <!-- Open Graph / WhatsApp / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://khotsoconnect.com/">
+    <meta property="og:title" content="Khotso Connect — WhatsApp-Powered Commerce">
+    <meta property="og:description" content="Turn your WhatsApp into a full online store. Manage products, orders, payments & delivery — built for Southern African merchants.">
+    <meta property="og:image" content="https://khotsoconnect.com/assets/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="Khotso Connect">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Khotso Connect — WhatsApp-Powered Commerce">
+    <meta name="twitter:description" content="Turn your WhatsApp into a full online store. Built for Southern African merchants.">
+    <meta name="twitter:image" content="https://khotsoconnect.com/assets/og-image.png">
     <link rel="icon" type="image/png" href="/assets/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -307,11 +321,19 @@
         .demo-arrow .arr-icon { font-size: 24px; animation: float 2s ease-in-out infinite; }
         .demo-arrow .arr-text { font-size: 10px; color: var(--gray-400); font-weight: 600; }
 
+        .demo-nav-arrows { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: calc(100% + 64px); justify-content: space-between; pointer-events: none; z-index: 10; }
+        .demo-nav-btn { width: 36px; height: 36px; border-radius: 50%; background: white; border: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: all 0.2s; font-size: 14px; color: var(--gray-600); }
+        .demo-nav-btn:hover { background: var(--green-50); border-color: var(--green-300); color: var(--green-600); }
+        .demo-dots { display: none; justify-content: center; gap: 6px; margin-top: 12px; }
+        .demo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); transition: all 0.2s; cursor: pointer; }
+        .demo-dot.active { background: var(--green-500); width: 20px; border-radius: 4px; }
         @media (max-width: 768px) {
             .demo-layout { grid-template-columns: 1fr; }
-            .demo-right { order: -1; }
+            .demo-right { order: -1; position: relative; }
             .demo-phone { width: 240px; height: 460px; }
             .demo-arrow { display: none; }
+            .demo-nav-arrows { display: flex; }
+            .demo-dots { display: flex; }
         }
 
         .fade-up { opacity: 0; transform: translateY(24px); transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -324,6 +346,13 @@
         .store-finder { background: white; border-radius: 16px; padding: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); display: flex; max-width: 480px; border: 1px solid var(--gray-200); }
         .store-finder input { flex: 1; border: none; outline: none; padding: 14px 18px; font-size: 15px; font-family: inherit; background: transparent; }
         .store-finder .btn { border-radius: 12px; white-space: nowrap; }
+        .featured-stores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 680px; margin: 32px auto 0; }
+        .featured-store { background: white; border-radius: 16px; padding: 20px 16px; border: 1px solid var(--gray-100); text-align: center; transition: all 0.2s; cursor: pointer; text-decoration: none; display: block; }
+        .featured-store:hover { border-color: var(--green-300); box-shadow: 0 4px 20px rgba(37,211,102,0.1); transform: translateY(-2px); }
+        .featured-store .fs-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 10px; }
+        .featured-store .fs-name { font-size: 14px; font-weight: 700; color: var(--gray-900); margin-bottom: 2px; }
+        .featured-store .fs-cat { font-size: 11px; color: var(--gray-400); }
+        @media (max-width: 768px) { .featured-stores { grid-template-columns: 1fr 1fr 1fr; gap: 10px; } .featured-store { padding: 14px 10px; } .featured-store .fs-icon { width: 40px; height: 40px; font-size: 18px; } .featured-store .fs-name { font-size: 12px; } }
 
         /* ===== FAQ ===== */
         .faq-list { max-width: 720px; margin: 0 auto; }
@@ -431,7 +460,7 @@
                     <h1>Turn WhatsApp into your <span class="gradient">online store</span></h1>
                     <p class="subtitle">Sell smarter. Reach further. Grow together. Manage products, orders, payments, and deliveries — with automatic WhatsApp notifications to every customer.</p>
                     <div class="hero-buttons">
-                        <a href="#get-started" class="btn btn-primary btn-lg">Start Selling Free →</a>
+                        <a href="#get-started" class="btn btn-primary btn-lg">Open Your Free Store →</a>
                         <a href="#find-store" class="btn btn-outline btn-lg">Find a Store</a>
                     </div>
                     <div class="hero-stats">
@@ -693,8 +722,12 @@
                     </div>
                 </div>
                 <div class="demo-right">
+                    <div class="demo-nav-arrows">
+                        <button class="demo-nav-btn" onclick="goSlide((demoSlide - 1 + SLIDE_COUNT) % SLIDE_COUNT)" aria-label="Previous">‹</button>
+                        <button class="demo-nav-btn" onclick="goSlide((demoSlide + 1) % SLIDE_COUNT)" aria-label="Next">›</button>
+                    </div>
                     <div class="demo-phone">
-                        <div class="demo-screen">
+                        <div class="demo-screen" id="demo-screen">
                             <!-- Slide 0: Sign Up -->
                             <div class="demo-slide active" id="ds0">
                                 <div class="slide-header">
@@ -910,6 +943,14 @@
                             </div>
                         </div>
                     </div>
+                    <div class="demo-dots" id="demo-dots">
+                        <div class="demo-dot active" onclick="goSlide(0)"></div>
+                        <div class="demo-dot" onclick="goSlide(1)"></div>
+                        <div class="demo-dot" onclick="goSlide(2)"></div>
+                        <div class="demo-dot" onclick="goSlide(3)"></div>
+                        <div class="demo-dot" onclick="goSlide(4)"></div>
+                        <div class="demo-dot" onclick="goSlide(5)"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1028,6 +1069,24 @@
                 </div>
             </div>
             <p class="fade-up" style="margin-top:16px;font-size:13px;color:var(--gray-400)">Or track an existing order at <a href="/track/" style="color:var(--green-600);font-weight:600">/track</a></p>
+            <div class="featured-stores fade-up">
+                <a href="/shop/?s=naledi-boutique" class="featured-store">
+                    <div class="fs-icon" style="background:linear-gradient(135deg,#fce7f3,#fecdd3);">👗</div>
+                    <div class="fs-name">Naledi's Boutique</div>
+                    <div class="fs-cat">Fashion • Maseru</div>
+                </a>
+                <a href="/shop/?s=tech-zone-jozi" class="featured-store">
+                    <div class="fs-icon" style="background:linear-gradient(135deg,#dbeafe,#c7d2fe);">📱</div>
+                    <div class="fs-name">Tech Zone Jozi</div>
+                    <div class="fs-cat">Electronics • Johannesburg</div>
+                </a>
+                <a href="/shop/?s=lineo-crafts" class="featured-store">
+                    <div class="fs-icon" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);">🧶</div>
+                    <div class="fs-name">Lineo's Crafts</div>
+                    <div class="fs-cat">Home Goods • Leribe</div>
+                </a>
+            </div>
+            <p class="fade-up" style="margin-top:12px;font-size:12px;color:var(--gray-300);">Featured stores — tap to browse</p>
         </div>
     </section>
 
@@ -1125,8 +1184,8 @@
                 <h2>Ready to grow your business?</h2>
                 <p>Join sellers across Southern Africa who are turning WhatsApp conversations into real revenue.</p>
                 <div class="cta-buttons">
-                    <a href="/dashboard/" class="btn btn-white btn-lg">Create Your Store →</a>
-                    <a href="#how-it-works" class="btn btn-lg" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)">Learn More</a>
+                    <a href="/dashboard/" class="btn btn-white btn-lg">Open Your Free Store →</a>
+                    <a href="#demo" class="btn btn-lg" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)">Watch It In Action</a>
                 </div>
             </div>
         </div>
@@ -1204,9 +1263,10 @@
         let progressAnim = null;
 
         function goSlide(n) {
-            // Remove active from all slides and tabs
+            // Remove active from all slides, tabs, and dots
             document.querySelectorAll('.demo-slide').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.demo-dot').forEach(d => d.classList.remove('active'));
             // Cancel any running progress animation
             if (progressAnim) { cancelAnimationFrame(progressAnim); progressAnim = null; }
             document.querySelectorAll('.tab-progress-bar').forEach(b => b.style.width = '0%');
@@ -1216,6 +1276,9 @@
             document.getElementById('ds' + n).classList.add('active');
             const tab = document.querySelector('.demo-tab[data-slide="' + n + '"]');
             if (tab) tab.classList.add('active');
+            // Update dots
+            var dots = document.querySelectorAll('.demo-dot');
+            if (dots[n]) dots[n].classList.add('active');
 
             // Animate progress bar
             const bar = tab ? tab.querySelector('.tab-progress-bar') : null;
@@ -1265,6 +1328,26 @@
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         });
+
+        // ===== TOUCH SWIPE FOR DEMO =====
+        (function() {
+            var screen = document.getElementById('demo-screen');
+            if (!screen) return;
+            var startX = 0, startY = 0, distX = 0;
+            screen.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+            screen.addEventListener('touchend', function(e) {
+                distX = e.changedTouches[0].clientX - startX;
+                var distY = e.changedTouches[0].clientY - startY;
+                // Only trigger if horizontal swipe > 40px and more horizontal than vertical
+                if (Math.abs(distX) > 40 && Math.abs(distX) > Math.abs(distY)) {
+                    if (distX < 0) goSlide((demoSlide + 1) % SLIDE_COUNT); // swipe left = next
+                    else goSlide((demoSlide - 1 + SLIDE_COUNT) % SLIDE_COUNT); // swipe right = prev
+                }
+            }, { passive: true });
+        })();
 
         // ===== GEO-BASED LOCALIZATION =====
         // Default: Lesotho (Maloti M, +266). SA visitors get ZAR (R, +27).
