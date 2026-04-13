@@ -53,7 +53,7 @@
         .logo .icon { width: 36px; height: 36px; background: var(--green-500); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
         .logo span.accent { color: var(--kc-gold); }
         .logo-group { display: flex; flex-direction: column; }
-        .logo-group .logo-tagline { font-size: 9px; font-weight: 500; color: var(--gray-400); letter-spacing: 0.04em; margin-top: -2px; }
+        .logo-group .logo-tagline { font-size: 11px; font-weight: 500; color: var(--gray-400); letter-spacing: 0.04em; margin-top: -2px; }
         .nav-links { display: flex; align-items: center; gap: 32px; }
         .nav-links a { font-size: 14px; font-weight: 500; color: var(--gray-600); transition: color 0.2s; }
         .nav-links a:hover { color: var(--green-600); }
@@ -191,6 +191,8 @@
         .step-num { width: 44px; height: 44px; background: var(--green-50); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: var(--green-600); margin-bottom: 20px; }
         .step-card h3 { font-size: 19px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; }
         .step-card p { font-size: 14px; color: var(--gray-500); line-height: 1.6; }
+        .browser-bar { display: inline-block; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 6px 14px; margin-top: 10px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 12.5px; color: var(--gray-600); position: relative; padding-left: 42px; }
+        .browser-bar::before { content: ''; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px; border-radius: 50%; background: #e74c3c; box-shadow: 14px 0 0 #f39c12, 28px 0 0 #2ecc71; }
 
         /* ===== FEATURES ===== */
         .feature-card {
@@ -572,7 +574,8 @@
                 <div class="step-card fade-up delay-1">
                     <div class="step-num">1</div>
                     <h3>Create your store</h3>
-                    <p>Sign up with your phone number, choose a store name, and set your PIN. Your online store is live in under a minute at khotsoconnect.com/shop/?s=yourname.</p>
+                    <p>Sign up with your phone number, choose a store name, and set your PIN. Your online store is live in under a minute.</p>
+                    <span class="browser-bar">khotsoconnect.com/shop/?s=yourname</span>
                 </div>
                 <div class="step-card fade-up delay-2">
                     <div class="step-num">2</div>
