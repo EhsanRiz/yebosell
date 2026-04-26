@@ -11,42 +11,90 @@
 
 ## 🎯 PICK UP HERE (start of next session)
 
-**360Dialog is LIVE.** WABA `1260080010524740` provisioned, number `+27 72 521 7745` is **Connected**, display name **YeboSell** approved by Meta. 2 of 4 message templates submitted and showing **In review**:
+**🔴 InnovaEarth WABA is BANNED** — confirmed via Meta WhatsApp Manager. Phone number `+27 72 521 7745` shows **Banned** status. Account status: **Disabled — does not meet policy guidelines**. Cited: **WhatsApp Business Commerce Policy** violation (almost certainly anti-evasion linking to the previously banned 4D Climate Solutions WABA).
 
-| Template | Category | Status |
-|---|---|---|
-| `order_confirmation` | Utility | ⏳ In review |
-| `order_status_update` | Utility | ⏳ In review |
-| `delivery_notification` | Utility | ❌ Not submitted yet |
-| `otp_verification` | Authentication | ❌ Not submitted yet |
+**Action: WAIT.** Request Review has been filed with Meta. Do NOT touch the WABA, do NOT try to create another, do NOT retry templates — any action looks like evasion to Meta's automation and escalates the situation.
+
+### Current state of artefacts
+
+| Item | Status |
+|---|---|
+| WABA `1260080010524740` | 🔴 Banned |
+| Number `+27 72 521 7745` | 🔴 Banned (was "Connected" briefly during the window before propagation) |
+| Display name `YeboSell` | Was Meta-approved before the ban — irrelevant now |
+| Template `order_confirmation` | ⏳ "In review" but will likely auto-reject when Meta processes it |
+| Template `order_status_update` | ⏳ Same as above |
+| Templates 3 + 4 | ❌ Blocked — "WhatsApp business account restricted from creating a new template" |
+| Meta Request Review | ✅ Filed (24–48h response window) |
+| Business Verification | 🔴 **Unverified** — this is the critical missing piece |
+
+### Realistic appeal odds: 20–30%
+
+Lower than initially estimated. Strong link signals (same FB personal account + same Meta Business Manager as the prior 4D Climate Solutions ban) + Commerce Policy citation + Unverified business = Meta's anti-evasion fingerprint. Plan for denial.
 
 ### Immediate next actions (in order)
 
-1. **Submit `delivery_notification` and `otp_verification`** — easiest path: Meta WhatsApp Manager → Manage templates → Create template (works directly, bypasses 360Dialog UI). Template specs are documented in this session's chat.
-2. **Wait for Meta approvals** — Utility usually 1–3h, Authentication up to 24h. Watch Templates list for "In review" → "Approved" / "Rejected".
-3. **🔒 ROTATE THE 360Dialog API KEY** — old key was leaked in chat during this session. Go to 360Dialog hub → Channel → API Keys → Revoke + Generate new. Store ONLY in 1Password as `D360_API_KEY`. Never paste into chat, commits, or frontend code.
-4. **Update Supabase Edge Functions** (`whatsapp-notify`, `whatsapp-webhook`):
-   - API base: `https://waba-v2.360dialog.io`
-   - Auth header: `D360-API-KEY: $D360_API_KEY` (from Supabase secrets, NOT in code)
-   - Send endpoint: `POST /messages`
-   - Switch from Meta Graph API direct calls to 360Dialog's compatible API surface
-5. **Set the webhook URL in 360Dialog** to `https://nizrqwvfuxbuhertypva.supabase.co/functions/v1/whatsapp-webhook` once the function is deployed
-6. **End-to-end test** — place a test order on yebosell.co.za, verify the WhatsApp template message lands on a real buyer's phone
+1. **🟢 START Business Verification on InnovaEarth NOW** ← **DO THIS FIRST, regardless of appeal outcome**
+   - Meta Business Suite → Business Settings → Business Info → Business Verification → "Start verification"
+   - Need: CIPC registration certificate, proof of address (utility bill / bank letter ≤90 days), director ID
+   - Takes 1–3 business days
+   - Why it matters: a *verified* InnovaEarth helps the appeal AND is mandatory groundwork for the clean-room rebuild if appeal fails. Going clean-room on an unverified business gets banned again immediately.
 
-### Open Meta concern (likely benign — track but don't panic)
+2. **Wait for Meta Request Review response** (24–48h typical)
+   - Check email at `hello@innovaearth.com`
+   - Check Meta Business Support Home for status updates
 
-Earlier in the session, Meta Business Support Home showed the InnovaEarth WABA as **"Account Disabled"** and a Request Review was filed. But within minutes both templates submitted successfully via Meta WhatsApp Manager directly, and the number shows **Connected**. The "Account Disabled" badge was likely Meta UI lag or a feature-specific limitation that auto-resolved.
+3. **DO NOT:**
+   - Create another WABA / Business Manager / Facebook account today
+   - Retry template submission
+   - Add another phone number
+   - Open another Request Review (one is enough; multiple = looks suspicious)
 
-If templates approve cleanly → ignore the appeal, move on. If anything gets blocked → escalate via 360Dialog support (chat widget in their hub) AND keep the Request Review filed.
+### Three possible outcomes — and what each means
 
-**Anti-evasion linking risk** to previously-banned 4D Climate Solutions WABA: same FB personal account + same Business Manager were used. Different legal entity (InnovaEarth) and different email (`hello@innovaearth.com`) help, but if Meta does eventually disable, the clean-room rebuild plan is in this session's chat.
+#### Outcome A: Appeal succeeds, WABA reinstated (~25% probability)
+- Submit remaining 2 templates (`delivery_notification`, `otp_verification`) — specs in last session's chat
+- Wait for all 4 templates to be Approved
+- Rotate the leaked 360Dialog API key
+- Update Supabase Edge Functions to use 360Dialog API (`https://waba-v2.360dialog.io`, auth header `D360-API-KEY`)
+- Set webhook URL in 360Dialog → `https://nizrqwvfuxbuhertypva.supabase.co/functions/v1/whatsapp-webhook`
+- End-to-end test on yebosell.co.za
 
-### Why 360Dialog over Infobip
-At YeboSell's current volume (~1.5k msgs/mo), Infobip would be ~$45/mo cheaper. We chose 360Dialog anyway because:
-- Previous WABA was permanently banned — account stability is the #1 risk now, and 360Dialog has the closest active Meta relationship
-- Faster template approval queue (WhatsApp-only specialist)
-- Embedded Signup gets you live in under an hour vs Infobip's sales-led onboarding
-- BSP can be switched later without losing the WABA (the WABA stays with Meta; only routing changes)
+#### Outcome B: Appeal denied — clean-room rebuild required (~75% probability)
+**Prerequisites BEFORE attempting another WABA:**
+- ✅ InnovaEarth Business Verification complete (the #1 priority above)
+- A **different** Facebook personal account does the embedded signup (co-founder/partner — someone with no admin role on the prior banned 4D Climate Solutions WABA or its Business Manager)
+- A **brand-new Meta Business Manager** under that fresh FB account (don't reuse the existing InnovaEarth BM `1280250267552755` — it's now flagged)
+- Different device + IP for setup if practical
+- InnovaEarth entity, website, email, SIM all stay the same
+- 360Dialog account: cancel current `vOaWldPA` partnership, sign up fresh under the new BM (or transfer if 360Dialog supports it)
+
+**Cost of clean-room:** another ~$59 month-1 on 360Dialog, possibly small CIPC re-pull fees, ~1 week elapsed time
+
+#### Outcome C: Appeal pending past 72h
+- Ping 360Dialog support (chat widget in their hub) and ask them to escalate via partner channel
+- Their direct Meta partner relationship can sometimes unblock cases that go silent
+
+### Productive work during the wait (doesn't touch Meta)
+
+- Prep Supabase Edge Function code for 360Dialog (will work for whichever outcome)
+- Smoke test yebosell.co.za across all pages — find any rebrand leftovers
+- Style "How It Works" URL as browser-bar mockup (Open follow-up #7)
+- Rename internal CSS prefix `kc-` → `ys-` (Open follow-up #12)
+- Document the WhatsApp template specs as comments in YeboSell code so they're not lost
+
+### Reference: 360Dialog & WABA identifiers (for support escalation)
+
+- 360Dialog partner ID: `vOaWldPA`
+- 360Dialog channel ID: `GvevVDCH`
+- WABA External ID: `1260080010524740`
+- Meta Business Manager ID: `1280250267552755`
+- WhatsApp account ID (per Business Support Home): `3954025628064622`
+- Number: `+27 72 521 7745`
+
+### Why we still believe 360Dialog was the right BSP choice
+
+The ban is a Meta-side decision and would have happened on Infobip, Twilio, or any BSP — Meta acts before the BSP layer. 360Dialog's partner relationship may actually help the appeal (escalation channel). Don't switch BSPs over this.
 
 ---
 
@@ -84,18 +132,19 @@ InnovaEarth (Pty) Ltd is the registered SA company that **owns** YeboSell. To ru
 - Data storage region: United States (POPIA note — should be flagged in Privacy page)
 - Business Messaging Limit: 250 users/24h (Tier 1, auto-tiers up with quality)
 
-### Meta WABA "Account Disabled" scare → likely benign
-- First attempt to submit a template via 360Dialog returned `"WhatsApp business account does not have permission to perform this action"`
-- Meta Business Support Home showed WABA status: **"Account Disabled"** (ID `3954025628064622`, business ID `1280250267552755`)
-- Filed a **Request Review** via Meta Business Support Home with full InnovaEarth business case
-- Within minutes, templates began submitting successfully via **Meta WhatsApp Manager → Manage templates** (bypassing 360Dialog UI). WhatsApp Manager shows number as **Connected**
-- Conclusion: "Account Disabled" badge was Meta UI lag or a feature-specific limitation, NOT a full ban. Likely safe to ignore the appeal IF templates approve cleanly
-- Diagnostic data (preserved for clean-room rebuild if needed):
-  - Previously banned WABA was under **4D Climate Solutions** (different legal entity from InnovaEarth ✅ helps the case)
+### Meta WABA disabled — confirmed real ban (NOT UI lag, as initially hoped)
+- **Initial signal:** template submission via 360Dialog returned `"WhatsApp business account does not have permission to perform this action"`
+- **First read:** Meta Business Support Home showed "Account Disabled" but template submission via Meta WhatsApp Manager directly worked twice (`order_confirmation`, `order_status_update` both went to "In review"). Initially interpreted as UI lag.
+- **Confirmation:** When attempting Template 3, hit hard error **"WhatsApp business account restricted from creating a new template"**. Returning to Phone Numbers showed status: **🔴 Banned**. Settings → WhatsApp accounts showed: 🔴 Disabled, "This account doesn't meet our policy guidelines", **Business verification: Unverified**, cited Commerce Policy violation.
+- **Action taken:** filed Request Review via Meta Business Support Home with full InnovaEarth business case (CIPC reg, public website, opt-in policy). 24–48h response window.
+- **Diagnostic data:**
+  - Previously banned WABA was under **4D Climate Solutions** (different legal entity from InnovaEarth)
   - Same FB personal account used for embedded signup ⚠️ strong link signal
-  - Same Meta Business Manager ⚠️ strong link signal
-  - Different email (`hello@innovaearth.com`) ✅ helps
-- Clean-room fallback if Meta does eventually disable: would require co-founder/partner FB account + brand-new Business Manager (InnovaEarth entity, website, SIM, email all stay the same)
+  - Same Meta Business Manager (`1280250267552755`) ⚠️ strong link signal
+  - Different email (`hello@innovaearth.com`) ✅ helps slightly
+  - InnovaEarth Business Verification: NOT done before WABA creation — this is now identified as the critical missing piece
+- **Realistic appeal odds:** 20–30%. Plan for denial.
+- **Clean-room fallback** documented in PICK UP HERE section: requires verified InnovaEarth business + new FB account + new Business Manager. Same legal entity, website, email, SIM can carry over.
 
 ### WhatsApp message templates — drafted + 2 of 4 submitted
 All bodies end with `— YeboSell` sign-off (avoids Meta's "ends with placeholder" warning).
@@ -246,10 +295,12 @@ ccf8a49 Rebrand: Khotso Connect → YeboSell
 - ✅ InnovaEarth full website built and pushed to GitHub
 - ✅ InnovaEarth Cloudflare Pages deployment live at innovaearth.com
 - ✅ 360Dialog account created on Regular plan
-- ✅ WABA `1260080010524740` provisioned, number `+27 72 521 7745` Connected
+- ✅ WABA `1260080010524740` provisioned (now banned, but signup process is documented and reusable)
 - ✅ WhatsApp display name "YeboSell" Meta-approved
-- ✅ 2 of 4 message templates submitted to Meta (`order_confirmation`, `order_status_update`) — In review
-- ✅ Meta Request Review filed for the "Account Disabled" badge (likely benign)
+- ✅ 2 of 4 message templates drafted + submitted to Meta (will likely auto-reject given WABA ban)
+- ✅ Meta Request Review filed (24–48h response window)
+- ✅ Diagnostic data captured for potential clean-room rebuild
+- ✅ Identified Business Verification as the critical missing prerequisite for next attempt
 
 ---
 
