@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Khotso Connect</title>
+    <title>YeboSell</title>
     <meta name="description" content="Browse and shop from your favorite local seller">
-    <meta property="og:title" content="Khotso Connect Store">
+    <meta property="og:title" content="YeboSell Store">
     <meta property="og:description" content="Browse products from a local WhatsApp seller">
     <meta property="og:type" content="website">
     <link rel="icon" type="image/png" href="/assets/favicon.png">
@@ -216,7 +216,7 @@
                         if (methods.length > 0) {
                             setFormData(prev => ({ ...prev, delivery_method: prev.delivery_method || methods[0] }));
                         }
-                        document.title = `${sellerData.business_name} | Khotso Connect`;
+                        document.title = `${sellerData.business_name} | YeboSell`;
 
                         const { data: productsData } = await supabase
                             .from('products').select('*').eq('seller_id', sellerData.id).eq('is_active', true).order('sort_order', { ascending: true });
@@ -569,7 +569,7 @@
                     {/* ===== DEMO STORE BANNER ===== */}
                     {isDemo && (
                         <div style={{background:'linear-gradient(90deg,#fef3c7,#fde68a)',padding:'10px 16px',textAlign:'center',fontSize:'13px',fontWeight:600,color:'#92400e',borderBottom:'1px solid #f59e0b'}}>
-                            🏪 This is a demo store — browse products to see how a Khotso Connect store looks!
+                            🏪 This is a demo store — browse products to see how a YeboSell store looks!
                             <a href="/dashboard/" style={{marginLeft:'8px',color:'#166534',textDecoration:'underline',fontWeight:700}}>Open your own free store →</a>
                         </div>
                     )}
@@ -1049,7 +1049,7 @@
                                 </div>
                             )}
                             <p className="text-gray-500 text-sm mb-3">
-                                Powered by <a href="/" className="text-brand-600 font-semibold hover:underline">Khotso Connect</a>
+                                Powered by <a href="/" className="font-semibold hover:underline"><span className="text-brand-600">Yebo</span><span className="text-amber-500">Sell</span></a>
                             </p>
                             <div className="text-center mb-2">
                                 <p className="text-xs text-gray-400 leading-tight">Developed by</p>
@@ -1544,7 +1544,7 @@
                     lines.push('━━━━━━━━━━━━━━━');
                     lines.push(`📊 *${orders.length} order${orders.length !== 1 ? 's' : ''}* — Grand Total: *${formatCurrency(grandTotal)}*`);
                     lines.push('');
-                    lines.push('_Sent from Khotso Connect_');
+                    lines.push('_Sent from YeboSell_');
 
                     const message = lines.join('\n');
 
