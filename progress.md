@@ -26,23 +26,22 @@
 | Template `order_status_update` | ⏳ Same as above |
 | Templates 3 + 4 | ❌ Blocked — "WhatsApp business account restricted from creating a new template" |
 | Meta Request Review | ✅ Filed (24–48h response window) |
-| Business Verification | 🔴 **Unverified** — this is the critical missing piece |
+| Business Verification | 🟢 **Verified** (confirmed via Meta email + Business Settings) — completed same-day, much faster than typical 1–3 days |
 
-### Realistic appeal odds: 20–30%
+### Revised appeal odds: 40–50% (up from 20–30%)
 
-Lower than initially estimated. Strong link signals (same FB personal account + same Meta Business Manager as the prior 4D Climate Solutions ban) + Commerce Policy citation + Unverified business = Meta's anti-evasion fingerprint. Plan for denial.
+InnovaEarth Business Verification went through same-day (unusually fast). This materially strengthens the appeal — Meta's reviewers now see a verified SA company with public branded website + clean docs. The "Unverified" status was a real downward pressure on the original odds; removing it lifts the ceiling.
+
+Still planning for denial as the more likely outcome (link signals from same FB account + same Business Manager remain the dominant risk factor) but Outcome A is now meaningfully on the table.
 
 ### Immediate next actions (in order)
 
-1. **🟢 START Business Verification on InnovaEarth NOW** ← **DO THIS FIRST, regardless of appeal outcome**
-   - Meta Business Suite → Business Settings → Business Info → Business Verification → "Start verification"
-   - Need: CIPC registration certificate, proof of address (utility bill / bank letter ≤90 days), director ID
-   - Takes 1–3 business days
-   - Why it matters: a *verified* InnovaEarth helps the appeal AND is mandatory groundwork for the clean-room rebuild if appeal fails. Going clean-room on an unverified business gets banned again immediately.
+1. ✅ **DONE — Business Verification complete** (same-day approval, much faster than expected)
 
-2. **Wait for Meta Request Review response** (24–48h typical)
-   - Check email at `hello@innovaearth.com`
+2. **Wait for Meta Request Review response** (24–48h typical, 72h max before escalating to 360Dialog support)
+   - Check email at `ehsan.haider@mac.com` (the registered admin address) AND `hello@innovaearth.com`
    - Check Meta Business Support Home for status updates
+   - Verified business is now picked up automatically by the appeal review process
 
 3. **DO NOT:**
    - Create another WABA / Business Manager / Facebook account today
