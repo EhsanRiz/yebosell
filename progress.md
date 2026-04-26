@@ -1,33 +1,45 @@
 # YeboSell — Progress Log
-**Date:** 26 April 2026 (updated late-session)
+**Date:** 26 April 2026 (updated late-late-session — 360Dialog live + templates submitted)
 **Live site:** https://yebosell.co.za
 **GitHub:** https://github.com/EhsanRiz/yebosell (main, latest `3bfeb9b`)
 **Supabase project:** `nizrqwvfuxbuhertypva`
 **Cloudflare Worker:** `yebosell`
+**WhatsApp WABA:** `1260080010524740` (number `+27 72 521 7745`, display name `YeboSell`)
+**360Dialog:** Regular plan, channel ID `GvevVDCH`
 
 ---
 
 ## 🎯 PICK UP HERE (start of next session)
 
-You're mid-flight on **WhatsApp BSP setup via 360Dialog**. The remaining steps before you can call the WhatsApp Cloud API from YeboSell:
+**360Dialog is LIVE.** WABA `1260080010524740` provisioned, number `+27 72 521 7745` is **Connected**, display name **YeboSell** approved by Meta. 2 of 4 message templates submitted and showing **In review**:
 
-### Immediate next action
-**Finish deploying the InnovaEarth website**, because Meta's BSP / WABA verification needs a public, branded site that ties to InnovaEarth (Pty) Ltd. We built the site this session and pushed it to GitHub, but Cloudflare Pages needs to be wired up.
+| Template | Category | Status |
+|---|---|---|
+| `order_confirmation` | Utility | ⏳ In review |
+| `order_status_update` | Utility | ⏳ In review |
+| `delivery_notification` | Utility | ❌ Not submitted yet |
+| `otp_verification` | Authentication | ❌ Not submitted yet |
 
-**Steps to resume:**
-1. **Cloudflare Dashboard → Workers & Pages → Create application → Pages → Connect to Git → `EhsanRiz/innovaearth`**
-   - Build settings: leave all blank (no build command, no output dir)
-   - Production branch: `main`
-   - Click **Save and Deploy** — first deploy in ~60s
-2. **Custom domains → Add `innovaearth.com`** → Cloudflare auto-creates the CNAME
-3. Smoke test the live site at https://innovaearth.com (8 pages)
-4. **Then proceed to 360Dialog signup** at https://hub.360dialog.com/signup
-   - Plan: **Regular ($59/month + Meta wholesale)** — includes BSP support layer, 80 msg/sec, 24/7 support
-   - Use **InnovaEarth (Pty) Ltd** as the registered entity
-   - Use the **fresh SA SIM** that's been confirmed never-used-on-WhatsApp
-   - You'll need: CIPC registration cert, business proof of address, director ID
-5. Once 360Dialog is live: WhatsApp Cloud API number → submit message templates for Meta approval (order confirmation, status updates, delivery notifications, OTP)
-6. Update Supabase Edge Functions (`whatsapp-notify`, `whatsapp-webhook`) to use 360Dialog API instead of direct Meta Graph API
+### Immediate next actions (in order)
+
+1. **Submit `delivery_notification` and `otp_verification`** — easiest path: Meta WhatsApp Manager → Manage templates → Create template (works directly, bypasses 360Dialog UI). Template specs are documented in this session's chat.
+2. **Wait for Meta approvals** — Utility usually 1–3h, Authentication up to 24h. Watch Templates list for "In review" → "Approved" / "Rejected".
+3. **🔒 ROTATE THE 360Dialog API KEY** — old key was leaked in chat during this session. Go to 360Dialog hub → Channel → API Keys → Revoke + Generate new. Store ONLY in 1Password as `D360_API_KEY`. Never paste into chat, commits, or frontend code.
+4. **Update Supabase Edge Functions** (`whatsapp-notify`, `whatsapp-webhook`):
+   - API base: `https://waba-v2.360dialog.io`
+   - Auth header: `D360-API-KEY: $D360_API_KEY` (from Supabase secrets, NOT in code)
+   - Send endpoint: `POST /messages`
+   - Switch from Meta Graph API direct calls to 360Dialog's compatible API surface
+5. **Set the webhook URL in 360Dialog** to `https://nizrqwvfuxbuhertypva.supabase.co/functions/v1/whatsapp-webhook` once the function is deployed
+6. **End-to-end test** — place a test order on yebosell.co.za, verify the WhatsApp template message lands on a real buyer's phone
+
+### Open Meta concern (likely benign — track but don't panic)
+
+Earlier in the session, Meta Business Support Home showed the InnovaEarth WABA as **"Account Disabled"** and a Request Review was filed. But within minutes both templates submitted successfully via Meta WhatsApp Manager directly, and the number shows **Connected**. The "Account Disabled" badge was likely Meta UI lag or a feature-specific limitation that auto-resolved.
+
+If templates approve cleanly → ignore the appeal, move on. If anything gets blocked → escalate via 360Dialog support (chat widget in their hub) AND keep the Request Review filed.
+
+**Anti-evasion linking risk** to previously-banned 4D Climate Solutions WABA: same FB personal account + same Business Manager were used. Different legal entity (InnovaEarth) and different email (`hello@innovaearth.com`) help, but if Meta does eventually disable, the clean-room rebuild plan is in this session's chat.
 
 ### Why 360Dialog over Infobip
 At YeboSell's current volume (~1.5k msgs/mo), Infobip would be ~$45/mo cheaper. We chose 360Dialog anyway because:
@@ -49,10 +61,59 @@ InnovaEarth (Pty) Ltd is the registered SA company that **owns** YeboSell. To ru
 | DKIM authentication | ⚠️ Verify | Confirm in Google Admin Console → Apps → Gmail → Authenticate email → status should be "Authenticated" |
 | DMARC TXT record | ⚠️ Add manually | Cloudflare DNS → TXT, name `_dmarc`, content `v=DMARC1; p=none; rua=mailto:hello@innovaearth.com` |
 | InnovaEarth website (8 pages) | ✅ Built + pushed | Repo: github.com/EhsanRiz/innovaearth, latest commit `866642a` |
-| Cloudflare Pages deployment | ⏳ Pending | Connect repo to Pages, bind `innovaearth.com` |
+| Cloudflare Pages deployment | ✅ Live | innovaearth.com serving correctly; cache purge resolved logo size discrepancy between `.pages.dev` and `.com` |
 
 **InnovaEarth repo location (local):** `/Users/ehsanrizvi/Documents/Claude/Projects/InnovaEarth/`
 **InnovaEarth Cloudflare account:** Same as YeboSell — `3ed4a36f8edbaa255c5d1bf30fd6169c`
+
+---
+
+## SESSION WORK (26 April 2026 — late-late session, 360Dialog WABA live + templates)
+
+### InnovaEarth deployment confirmed live
+- `innovaearth.pages.dev` and `innovaearth.com` both serve correctly
+- Logo size discrepancy traced to Cloudflare edge cache; resolved by Cache → Purge Everything in CF Dashboard
+
+### 360Dialog signup completed (Embedded Signup via Meta)
+- Account: **InnovaEarth** on `app.360dialog.io` / `wabamanagement.360dialog.io` (channel ID `GvevVDCH`, partner ID `vOaWldPA`)
+- Plan: **Regular ($59/mo + Meta wholesale)**
+- Number: **+27 72 521 7745** (fresh SA SIM, never on WhatsApp before — confirmed)
+- WhatsApp **Display Name: YeboSell** ✅ Meta-approved (caught at the Meta verification screen — initial 360Dialog UI label "InnovaEarth" was just the partner-side account label, not the public WABA display name)
+- WABA External ID: **`1260080010524740`**
+- Hosting: **Cloud API hosted by Meta** (modern, recommended)
+- Data storage region: United States (POPIA note — should be flagged in Privacy page)
+- Business Messaging Limit: 250 users/24h (Tier 1, auto-tiers up with quality)
+
+### Meta WABA "Account Disabled" scare → likely benign
+- First attempt to submit a template via 360Dialog returned `"WhatsApp business account does not have permission to perform this action"`
+- Meta Business Support Home showed WABA status: **"Account Disabled"** (ID `3954025628064622`, business ID `1280250267552755`)
+- Filed a **Request Review** via Meta Business Support Home with full InnovaEarth business case
+- Within minutes, templates began submitting successfully via **Meta WhatsApp Manager → Manage templates** (bypassing 360Dialog UI). WhatsApp Manager shows number as **Connected**
+- Conclusion: "Account Disabled" badge was Meta UI lag or a feature-specific limitation, NOT a full ban. Likely safe to ignore the appeal IF templates approve cleanly
+- Diagnostic data (preserved for clean-room rebuild if needed):
+  - Previously banned WABA was under **4D Climate Solutions** (different legal entity from InnovaEarth ✅ helps the case)
+  - Same FB personal account used for embedded signup ⚠️ strong link signal
+  - Same Meta Business Manager ⚠️ strong link signal
+  - Different email (`hello@innovaearth.com`) ✅ helps
+- Clean-room fallback if Meta does eventually disable: would require co-founder/partner FB account + brand-new Business Manager (InnovaEarth entity, website, SIM, email all stay the same)
+
+### WhatsApp message templates — drafted + 2 of 4 submitted
+All bodies end with `— YeboSell` sign-off (avoids Meta's "ends with placeholder" warning).
+
+| Name | Category | Variables | Body summary | Status |
+|---|---|---|---|---|
+| `order_confirmation` | Utility | 4 | name, order#, total, track URL | ⏳ In review |
+| `order_status_update` | Utility | 4 | name, order#, full status sentence, track URL | ⏳ In review |
+| `delivery_notification` | Utility | 5 | name, order#, method, ETA, track URL | ❌ Not yet submitted |
+| `otp_verification` | Authentication | 1 | OTP code | ❌ Not yet submitted |
+
+**Lesson learned:** Meta enforces ~15–20 chars of static text per variable. `order_status_update` initially had 5 vars and failed validation; fixed by merging the status label and contextual sentence into one variable (`{{3}}`). `delivery_notification` may hit the same warning and need similar restructuring.
+
+### API key & security
+- 360Dialog API key was generated AND mistakenly pasted in chat → flagged for immediate rotation
+- API base URL: `https://waba-v2.360dialog.io`
+- Webhook URL field in 360Dialog: leave blank for now; set to `https://nizrqwvfuxbuhertypva.supabase.co/functions/v1/whatsapp-webhook` once Edge Function is deployed
+- Future: API key lives ONLY in Supabase → Project Settings → Edge Functions → Secrets as `D360_API_KEY`. Never in code, commits, screenshots, or chat.
 
 ---
 
@@ -156,12 +217,13 @@ ccf8a49 Rebrand: Khotso Connect → YeboSell
 ## OPEN FOLLOW-UPS
 
 ### Immediate / next (in order)
-1. **Deploy InnovaEarth site to Cloudflare Pages** + bind `innovaearth.com` custom domain ← *START HERE*
-2. **Verify InnovaEarth email deliverability** — confirm DKIM is "Authenticated" in Google Admin Console; add the DMARC TXT record to Cloudflare DNS
-3. **360Dialog signup** at hub.360dialog.com using InnovaEarth (Pty) Ltd, the fresh SA SIM, and InnovaEarth registration docs
-4. **Submit WhatsApp message templates** through 360Dialog for Meta approval (order confirmation, status updates, delivery notifications, OTP)
+1. **Submit `delivery_notification` and `otp_verification` templates** ← *START HERE* (via Meta WhatsApp Manager → Manage templates, since that worked first try)
+2. **Wait for all 4 templates to be Approved by Meta** (1–24h)
+3. **🔒 Rotate the 360Dialog API key** (old one was leaked in chat)
+4. **Verify InnovaEarth email deliverability** — confirm DKIM is "Authenticated" in Google Admin Console; add the DMARC TXT record to Cloudflare DNS
 5. **Update Supabase Edge Functions** (`whatsapp-notify`, `whatsapp-webhook`) to call the 360Dialog API instead of Meta Graph API directly
-6. **End-to-end test:** place a test order on yebosell.co.za, verify WhatsApp confirmation reaches the buyer
+6. **Set 360Dialog webhook URL** to deployed Supabase Edge Function endpoint
+7. **End-to-end test:** place a test order on yebosell.co.za, verify WhatsApp confirmation reaches the buyer
 
 ### Lower priority
 7. Style the raw URL in How It Works as a browser-bar mockup
@@ -182,6 +244,12 @@ ccf8a49 Rebrand: Khotso Connect → YeboSell
 - ✅ BSP decision made (360Dialog Regular plan)
 - ✅ InnovaEarth domain on Cloudflare + Google Workspace email live
 - ✅ InnovaEarth full website built and pushed to GitHub
+- ✅ InnovaEarth Cloudflare Pages deployment live at innovaearth.com
+- ✅ 360Dialog account created on Regular plan
+- ✅ WABA `1260080010524740` provisioned, number `+27 72 521 7745` Connected
+- ✅ WhatsApp display name "YeboSell" Meta-approved
+- ✅ 2 of 4 message templates submitted to Meta (`order_confirmation`, `order_status_update`) — In review
+- ✅ Meta Request Review filed for the "Account Disabled" badge (likely benign)
 
 ---
 
