@@ -66,9 +66,23 @@ After name change and BSP wiring, do a click-through of landing → shop → das
 
 User's stated order:
 1. ✅ **Lock the name** — YeboSell
-2. **WhatsApp BSP setup** ← next
-3. **Fix everything** (sign-out dropdown + full Khotso Connect → YeboSell rebrand sweep + any other UX issues found)
-4. **Test** (click-through QA on all apps, desktop + mobile)
+2. ✅ **Rebrand sweep** — Khotso Connect → YeboSell across all 7 HTML files + config + wrangler. CSS tokens renamed `--kc-*` → `--ys-*`. Wordmark unified as `Yebo<span>Sell</span>` (dark green / gold contrast). Footer credit updated to "Developed by InnovaEarth, in partnership with 4D Climate Solutions". Tagline preserved.
+3. **WhatsApp BSP setup** ← next
+4. **Sign-out dropdown fix + any other UX issues found during testing**
+5. **Test** (click-through QA on all apps, desktop + mobile)
+
+## Infrastructure to-do (user does, outside Claude)
+
+- Domain: `yebosell.co.za` ✅ secured. Still need: `.com`, `.africa`
+- Cloudflare Pages: rename project `whatsapp-seller-os` → `yebosell`, add `yebosell.co.za` custom domain, set `khotsoconnect.com` 301 → yebosell.co.za (or remove)
+- DNS for yebosell.co.za → Cloudflare
+- GitHub repo rename: `whatsapp-seller-os` → `yebosell` (optional but recommended; auto-redirects). If renamed, update GitHub MCP scoping in Claude Code settings (currently `EhsanRiz/whatsapp-seller-os`).
+- `selleros.co.za`: 301 → yebosell.co.za, or let lapse
+- Social handles: grab `@yebosell` on IG, X, TikTok, FB
+- CIPC trademark search (class 35 + class 42)
+- Replace artwork: `assets/favicon.png`, `assets/og-image.png`, `assets/4d-logo.png` (the 4d-logo file is partner branding — fine to keep)
+- Render: confirmed not used. Ignore.
+- Supabase: project URL is opaque, no rename needed.
 
 ---
 
