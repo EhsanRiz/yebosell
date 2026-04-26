@@ -16,26 +16,25 @@ We're now revisiting **strategic + UX issues** before more feature work.
 
 ## Open threads (in priority order)
 
-### 1. Brand name (DECISION PENDING)
+### 1. Brand name — ✅ LOCKED: **YeboSell**
 
-User wants to revisit "Khotso Connect" because the rollout will cover **South Africa + Lesotho + other regional countries**, and "Khotso" (Sesotho for "peace") is too Lesotho-narrow for SA audiences.
+After comparing YeboSell vs. Sella vs. YeboShop/YeboTill, user settled on **YeboSell**.
 
-**User preference so far:** likes **YeboSell** ("Yebo" = "yes" in Zulu — energetic, recognizable in SA).
+**Why YeboSell won over Sella:**
+- Sella has a major incumbent collision (Banca Sella — Italian bank with "Smart Business Sella" SME app, payments/POS vertical, EU trademark). `sella.africa` already taken by a marketplace.
+- YeboSell exact mark is clean: no company, trademark, or social handle on the exact string.
 
-**Web search findings on YeboSell:**
-- Exact name "YeboSell" has **no existing company, trademark, social handle, or app** — clean.
-- Domains `yebosell.com`, `.co.za`, `.africa` appear unused (whois lookups blocked, but no indexed presence).
-- **BUT** the "Yebo" prefix is crowded in SA commerce:
-  - **Yebo Fresh** (yebofresh.co.za) — major SA township ecommerce, recently acquired by Smollan. 🔴 Highest collision risk.
-  - Yebo Sales (East London, civils/sanitation) — different industry, low risk.
-  - Yebo South Africa (travel/culture), Yebo Group (packaging), Yebo Biltong, Yebo Clothing, Yebo Electronics — low risk.
+**Known caveats to manage:**
+- **Yebo Fresh** (yebofresh.co.za) — Smollan-acquired SA township ecom. Different sub-vertical (B2B distribution to spaza shops vs. our seller-tools-on-WhatsApp), but expect *some* "are you Yebo Fresh?" confusion. Differentiate hard in positioning.
+- Other "Yebo" brands (Sales, Clothing, Biltong, Group, Electronics, South Africa, Fresh) are in unrelated verticals — low risk.
 
-**Alternatives offered if user wants to dodge Yebo Fresh shadow:**
-- **YeboShop** — same energy, retail-explicit
-- **YeboTill** — POS-flavored, distinctive
-- **YeboCart**, **YeboTrade**
+**Pre-launch to-dos around the name:**
+- CIPC trademark search (class 35 advertising/business + class 42 software) before formal launch
+- Grab domains: yebosell.com, yebosell.co.za, yebosell.africa
+- Grab social handles: @yebosell on IG, X, TikTok, FB
+- Update `BRAND_NAME` in `assets/config.js` and run a full rebrand sweep across all HTML pages (same surface as the prior Khotso Connect pass)
 
-**Recommendation made:** YeboSell is legally defensible, but YeboTill or YeboShop give 90% of the energy with less Yebo Fresh confusion. User has not made a final call yet — **resume here by asking the user to lock the name.**
+**Tagline carry-over question:** keep "Sell smarter. Reach further. Grow together." or change? Not yet decided.
 
 ### 2. WhatsApp BSP integration (PLAN STAGE)
 
@@ -66,10 +65,10 @@ After name change and BSP wiring, do a click-through of landing → shop → das
 ## Working agreement
 
 User's stated order:
-1. **Lock the name** ← stuck here
-2. **WhatsApp BSP setup**
-3. **Fix everything** (starting with sign-out, plus rebrand sweep)
-4. **Test**
+1. ✅ **Lock the name** — YeboSell
+2. **WhatsApp BSP setup** ← next
+3. **Fix everything** (sign-out dropdown + full Khotso Connect → YeboSell rebrand sweep + any other UX issues found)
+4. **Test** (click-through QA on all apps, desktop + mobile)
 
 ---
 
