@@ -440,16 +440,15 @@
                         }
                     } catch (feeErr) { console.warn('Platform fee creation failed:', feeErr); }
 
-                    // WhatsApp notification
+                    // Tokenized tracking link (source of truth; no WhatsApp API needed)
+                    const trackUrl = `${SITE_URL}/track/?t=${order.track_token}`;
+                    // Persist to the buyer's device so all their orders live in one place (the YeboSell app)
                     try {
-                        await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}` },
-                            body: JSON.stringify({ order_id: order.id, new_status: 'order_confirmation' }),
-                        });
-                    } catch (waErr) { console.warn('Buyer WhatsApp notification failed:', waErr); }
-
-                    const trackUrl = `${SITE_URL}/track/?order=${orderNumber}&p=${encodeURIComponent(formData.phone)}`;
+                        const list = JSON.parse(localStorage.getItem('yebosell_orders') || '[]');
+                        const entry = { token: order.track_token, order_number: orderNumber, seller_name: seller.business_name, seller_slug: getSellerSlug(), created_at: new Date().toISOString() };
+                        const next = [entry, ...list.filter(o => o && o.token !== order.track_token)];
+                        localStorage.setItem('yebosell_orders', JSON.stringify(next.slice(0, 100)));
+                    } catch (e) {}
                     setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount, delivery_method: formData.delivery_method, delivery_fee: computedDeliveryFee, pickup_address: seller.pickup_address });
                     // Save buyer info for next time
                     try { localStorage.setItem(`buyer_${getSellerSlug()}`, JSON.stringify({ name: formData.name, phone: formData.phone })); } catch(e) {}
@@ -947,7 +946,7 @@
                                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                                     </div>
                                     <h2 className="text-xl font-bold">Order Placed!</h2>
-                                    <p className="text-brand-100 text-sm mt-1">We'll notify you on WhatsApp</p>
+                                    <p className="text-brand-100 text-sm mt-1">Track your order with the link below</p>
                                 </div>
                                 <div className="p-5 space-y-4">
                                     <div className="text-center bg-gray-50 rounded-xl py-3 px-4">
@@ -1009,6 +1008,10 @@
                                                     Copy
                                                 </button>
                                             </div>
+                                            <a href={orderData.track_url} target="_blank" rel="noopener"
+                                                className="block mt-2 text-xs font-bold text-brand-600 hover:underline">
+                                                📲 Open tracker &amp; save to my phone →
+                                            </a>
                                         </div>
                                     )}
                                     <button onClick={continueShopping}

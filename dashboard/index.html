@@ -12,7 +12,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=3"></script>
+    <script src="/assets/config.js?v=5"></script>
 
     <script>
         tailwind.config = {
@@ -98,6 +98,9 @@
         const getStatusLabel = window.getStatusLabel;
         const whatsappLink = window.whatsappLink;
         const whatsappShareLink = window.whatsappShareLink;
+        const notifyBuyer = window.notifyBuyer;
+        const buildBuyerNotice = window.buildBuyerNotice;
+        const trackLink = window.trackLink;
 
         // ============================================================================
         // SVG ICONS (inline for zero-dependency)
@@ -2083,31 +2086,28 @@
                         .eq('id', orderId);
                     if (error) throw error;
 
-                    // Determine which statuses should trigger a WhatsApp notification
+                    // Offer to notify the buyer via the seller's own WhatsApp (click-to-chat, no API)
                     const notifyStatuses = ['confirmed', 'preparing', 'paid', 'dispatched', 'shipped', 'delivered', 'cancelled'];
                     const notifyDelivery = ['ready_for_pickup', 'out_for_delivery', 'in_transit', 'delivered'];
-
                     const shouldNotify =
                         (field === 'status' && notifyStatuses.includes(value)) ||
                         (field === 'delivery_status' && notifyDelivery.includes(value));
 
                     if (shouldNotify) {
-                        try {
-                            const notifyStatus = (field === 'delivery_status')
-                                ? value
-                                : value;
-
-                            await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                                },
-                                body: JSON.stringify({ order_id: orderId, new_status: notifyStatus }),
-                            });
-                            console.log(`WhatsApp notification sent for order ${orderId} → ${notifyStatus} (field: ${field})`);
-                        } catch (waErr) {
-                            console.warn('WhatsApp notification failed (non-blocking):', waErr);
+                        const order = orders.find(o => o.id === orderId) || {};
+                        const milestone = (field === 'delivery_status')
+                            ? ({ ready_for_pickup: 'ready_for_pickup', out_for_delivery: 'out_for_delivery', in_transit: 'out_for_delivery', delivered: 'delivered' }[value] || 'status_update')
+                            : ({ confirmed: 'order_confirmation', paid: 'payment_received', delivered: 'delivered' }[value] || 'status_update');
+                        const ctx = {
+                            name: order.customer_name, order: order.order_number,
+                            seller: seller.business_name, total: formatCurrency(order.total),
+                            link: trackLink(order.track_token), lang: seller.preferred_language,
+                            pickup: seller.pickup_address, statusLabel: getStatusLabel(value)
+                        };
+                        const auto = (() => { try { return localStorage.getItem('yebosell_autonotify') === '1'; } catch (e) { return false; } })();
+                        const go = auto || window.confirm('Notify the buyer on WhatsApp about this update?');
+                        if (go && order.customer_phone && notifyBuyer(order.customer_phone, milestone, ctx)) {
+                            try { supabase.from('notification_log').insert({ order_id: orderId, order_number: order.order_number, status_sent: value, customer_phone: order.customer_phone, success: true }); } catch (e) {}
                         }
                     }
 
@@ -2533,7 +2533,7 @@
                 try {
                     const { data, error } = await supabase
                         .from('orders')
-                        .select('id, order_number, total, payment_status, customer_phone, customer_name, created_at')
+                        .select('id, order_number, total, payment_status, customer_phone, customer_name, created_at, track_token')
                         .eq('seller_id', seller.id)
                         .order('created_at', { ascending: false });
 
@@ -2697,29 +2697,16 @@
                                 const remaining = orderTotal - newTotalPaid;
 
                                 if (customerPhone) {
-                                    try {
-                                        await fetch(SUPABASE_URL + '/functions/v1/whatsapp-notify', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                                            },
-                                            body: JSON.stringify({
-                                                order_id: payment.order_id,
-                                                new_status: 'payment_receipt',
-                                                receipt_data: {
-                                                    amount_paid: thisAmount,
-                                                    payment_method: payment.payment_method,
-                                                    total_paid: newTotalPaid,
-                                                    order_total: orderTotal,
-                                                    remaining: remaining > 0 ? remaining : 0,
-                                                    fully_paid: newTotalPaid >= orderTotal,
-                                                }
-                                            }),
-                                        });
-                                        console.log('Payment receipt sent for order ' + orderNumber);
-                                    } catch (waErr) {
-                                        console.warn('Receipt notification failed:', waErr);
+                                    const ctx = {
+                                        name: customerName, order: orderNumber,
+                                        seller: seller.business_name, total: formatCurrency(orderTotal),
+                                        link: trackLink(order.track_token), lang: seller.preferred_language,
+                                        statusLabel: 'Payment received'
+                                    };
+                                    const auto = (() => { try { return localStorage.getItem('yebosell_autonotify') === '1'; } catch (e) { return false; } })();
+                                    const go = auto || window.confirm('Send the buyer a payment confirmation on WhatsApp?');
+                                    if (go && notifyBuyer(customerPhone, 'payment_received', ctx)) {
+                                        try { supabase.from('notification_log').insert({ order_id: payment.order_id, order_number: orderNumber, status_sent: 'payment_received', customer_phone: customerPhone, success: true }); } catch (e) {}
                                     }
                                 }
                             }

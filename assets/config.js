@@ -75,3 +75,46 @@ window.whatsappLink = (phone, message) => {
 window.whatsappShareLink = (message) => {
     return `https://wa.me/?text=${encodeURIComponent(message)}`;
 };
+
+// ============================================================================
+// BUYER NOTIFICATIONS (click-to-chat, no WhatsApp API)
+// Pre-filled messages the SELLER sends from their own WhatsApp. EN + Sesotho.
+// ctx: { name, order, seller, total, link, pickup, statusLabel, lang }
+// ============================================================================
+window.BUYER_TEMPLATES = {
+    en: {
+        order_confirmation: c => `Hi ${c.name || 'there'} 👋 Thanks for your order *${c.order}* with ${c.seller} — total ${c.total}. Track it anytime here:\n${c.link}`,
+        payment_received:   c => `✅ Payment received for order *${c.order}*. We're preparing it now. Track your order:\n${c.link}`,
+        status_update:      c => `📦 Update on your order *${c.order}*: ${c.statusLabel}. Track it here:\n${c.link}`,
+        ready_for_pickup:   c => `🏪 Your order *${c.order}* is ready for pickup${c.pickup ? ' at ' + c.pickup : ''}. Details:\n${c.link}`,
+        out_for_delivery:   c => `🚗 Your order *${c.order}* is out for delivery. Follow it here:\n${c.link}`,
+        delivered:          c => `✅ Your order *${c.order}* has been delivered. Thank you for shopping with ${c.seller}! 🙏\n${c.link}`
+    },
+    st: {
+        order_confirmation: c => `Lumela ${c.name || ''} 👋 Kea leboha ka oda ea hau *${c.order}* ho ${c.seller} — kakaretso ${c.total}. Lekola oda ea hau mona:\n${c.link}`,
+        payment_received:   c => `✅ Tefo e amohetsoe bakeng sa oda *${c.order}*. Re ea e lokisa hona joale. Lekola oda:\n${c.link}`,
+        status_update:      c => `📦 Tlhahiso ka oda ea hau *${c.order}*: ${c.statusLabel}. Lekola mona:\n${c.link}`,
+        ready_for_pickup:   c => `🏪 Oda ea hau *${c.order}* e se e loketse ho nkuoa${c.pickup ? ' ' + c.pickup : ''}. Lintlha:\n${c.link}`,
+        out_for_delivery:   c => `🚗 Oda ea hau *${c.order}* e tsamaisoa ho uena. E sale morao mona:\n${c.link}`,
+        delivered:          c => `✅ Oda ea hau *${c.order}* e fihlile. Kea leboha ka ho reka le ${c.seller}! 🙏\n${c.link}`
+    }
+};
+
+window.buildBuyerNotice = (milestone, ctx) => {
+    const lang = (ctx && ctx.lang === 'st') ? 'st' : 'en';
+    const set = window.BUYER_TEMPLATES[lang] || window.BUYER_TEMPLATES.en;
+    const fn = set[milestone] || set.status_update;
+    return fn(ctx || {});
+};
+
+// Opens the SELLER's own WhatsApp with a pre-filled buyer message. No API, no WABA.
+window.notifyBuyer = (phone, milestone, ctx) => {
+    if (!phone) { alert('No buyer phone number on this order.'); return false; }
+    window.open(window.whatsappLink(phone, window.buildBuyerNotice(milestone, ctx)), '_blank');
+    return true;
+};
+
+// Build the tokenized tracking link for an order
+window.trackLink = (trackToken) => trackToken
+    ? `${window.SITE_URL}/track/?t=${trackToken}`
+    : `${window.SITE_URL}/track/`;

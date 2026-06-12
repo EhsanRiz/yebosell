@@ -3,14 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Your Order — YeboSell</title>
+    <title>Track Your Orders — YeboSell</title>
     <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <!-- PWA: installable, permanent buyer app -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#166534">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="YeboSell">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=4"></script>
+    <script src="/assets/config.js?v=5"></script>
+    <script>
+        // ---- PWA: service worker + install prompt capture (plain JS, runs before React) ----
+        window.__yeboDeferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.__yeboDeferredPrompt = e;
+            window.dispatchEvent(new Event('yebo-can-install'));
+        });
+        window.addEventListener('appinstalled', () => {
+            try { localStorage.setItem('yebosell_installed', '1'); } catch (e) {}
+            window.__yeboDeferredPrompt = null;
+            window.dispatchEvent(new Event('yebo-installed'));
+        });
+        window.__yeboPromptInstall = async () => {
+            const p = window.__yeboDeferredPrompt;
+            if (!p) return;
+            p.prompt();
+            try { await p.userChoice; } catch (e) {}
+            try { localStorage.setItem('yebosell_installed', '1'); } catch (e) {}
+            window.__yeboDeferredPrompt = null;
+            window.dispatchEvent(new Event('yebo-installed'));
+        };
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -23,16 +58,12 @@
         }
     </script>
     <style>
-        :root {
-            --kc-gold: #D4A017;
-        }
+        :root { --kc-gold: #D4A017; }
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .timeline-line { position: absolute; left: 15px; top: 36px; bottom: 0; width: 2px; background: #e2e8f0; }
-        .timeline-line.active { background: #25D366; }
         .accent { color: var(--kc-gold); }
     </style>
 </head>
@@ -48,7 +79,7 @@
 
         const DELIVERY_LABELS = {
             pickup: 'Customer Pickup', self_delivery: 'Seller Delivery',
-            courier: 'Courier / Third Party', taxi: 'Via Taxi', bus: 'Via Bus'
+            courier: 'Courier / Third Party', taxi: 'Via Taxi', bus: 'Via Bus', local_courier: 'Local Courier'
         };
 
         const DELIVERY_STATUS_STEPS = [
@@ -59,6 +90,26 @@
             { key: 'delivered', label: 'Delivered', icon: '✅', desc: 'Your order has been delivered' }
         ];
 
+        // ---- buyer order list persistence (the permanent app) ----
+        const readMyOrders = () => {
+            try { return JSON.parse(localStorage.getItem('yebosell_orders') || '[]').filter(o => o && o.token); }
+            catch (e) { return []; }
+        };
+        const persistMyOrder = (token, data) => {
+            try {
+                const list = readMyOrders();
+                const entry = {
+                    token,
+                    order_number: (data && data.order && data.order.order_number) || '',
+                    seller_name: (data && data.seller && data.seller.business_name) || '',
+                    seller_slug: (data && data.seller && data.seller.slug) || '',
+                    created_at: (data && data.order && data.order.created_at) || new Date().toISOString()
+                };
+                const next = [entry, ...list.filter(o => o.token !== token)];
+                localStorage.setItem('yebosell_orders', JSON.stringify(next.slice(0, 100)));
+            } catch (e) {}
+        };
+
         function TrackingPage() {
             const [orderNumber, setOrderNumber] = useState('');
             const [phone, setPhone] = useState('');
@@ -68,75 +119,93 @@
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
             const [searched, setSearched] = useState(false);
+            const [myOrders, setMyOrders] = useState([]);
+            const [showLegacyForm, setShowLegacyForm] = useState(false);
+            const [canInstall, setCanInstall] = useState(typeof window !== 'undefined' && !!window.__yeboDeferredPrompt);
 
-            // Check URL params on load
+            // PWA install availability
             useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                const ord = params.get('order') || params.get('o');
-                const ph = params.get('phone') || params.get('p');
-                if (ord) setOrderNumber(ord.toUpperCase());
-                if (ph) setPhone(ph);
-                if (ord && ph) {
-                    // Auto-search
-                    setTimeout(() => lookupOrder(ord.toUpperCase(), ph), 100);
-                }
+                const on = () => setCanInstall(true);
+                const off = () => setCanInstall(false);
+                window.addEventListener('yebo-can-install', on);
+                window.addEventListener('yebo-installed', off);
+                return () => { window.removeEventListener('yebo-can-install', on); window.removeEventListener('yebo-installed', off); };
             }, []);
 
+            const isStandalone = (typeof window !== 'undefined') &&
+                (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+            const installed = (() => { try { return localStorage.getItem('yebosell_installed') === '1'; } catch (e) { return false; } })();
+            const showInstall = canInstall && !isStandalone && !installed;
+
+            // On load: token link → load that order; else show My Orders (+ legacy form)
+            useEffect(() => {
+                setMyOrders(readMyOrders());
+                const params = new URLSearchParams(window.location.search);
+                const token = params.get('t');
+                if (token) {
+                    loadByToken(token);
+                    return;
+                }
+                const ord = params.get('order') || params.get('o');
+                const ph = params.get('phone') || params.get('p');
+                if (ord) { setOrderNumber(ord.toUpperCase()); setShowLegacyForm(true); }
+                if (ph) { setPhone(ph); setShowLegacyForm(true); }
+                if (ord && ph) { setTimeout(() => lookupOrder(ord.toUpperCase(), ph), 100); }
+            }, []);
+
+            const loadByToken = async (token) => {
+                setLoading(true); setError(''); setSearched(true);
+                try {
+                    const { data, error: rpcError } = await supabase.rpc('get_tracked_order', { p_token: token });
+                    if (rpcError || !data || !data.order) {
+                        setError('Order not found. This tracking link may be incorrect or expired.');
+                        setOrder(null); setLoading(false);
+                        return;
+                    }
+                    setOrder(data.order);
+                    setItems(data.items || []);
+                    setSeller(data.seller || null);
+                    persistMyOrder(token, data);
+                    setMyOrders(readMyOrders());
+                    try { window.history.replaceState({}, '', `/track/?t=${token}`); } catch (e) {}
+                } catch (err) {
+                    setError('Something went wrong. Please try again.');
+                }
+                setLoading(false);
+            };
+
+            // Legacy lookup by order number + phone (kept ~60 days for old links)
             const lookupOrder = async (num, ph) => {
                 const searchNum = num || orderNumber;
                 const searchPhone = ph || phone;
                 if (!searchNum.trim()) { setError('Please enter your order number'); return; }
                 if (!searchPhone.trim()) { setError('Please enter your phone number for verification'); return; }
-
-                setLoading(true);
-                setError('');
-                setSearched(true);
-
+                setLoading(true); setError(''); setSearched(true);
                 try {
                     const { data, error: fetchError } = await supabase
-                        .from('orders')
-                        .select('*')
-                        .eq('order_number', searchNum.trim().toUpperCase())
-                        .single();
-
-                    if (fetchError || !data) {
-                        setError('Order not found. Please check your order number.');
-                        setOrder(null);
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Verify phone matches
+                        .from('orders').select('*').eq('order_number', searchNum.trim().toUpperCase()).single();
+                    if (fetchError || !data) { setError('Order not found. Please check your order number.'); setOrder(null); setLoading(false); return; }
                     const cleanInput = searchPhone.replace(/[^0-9]/g, '');
                     const cleanOrder = (data.customer_phone || '').replace(/[^0-9]/g, '');
                     if (!cleanOrder.includes(cleanInput) && !cleanInput.includes(cleanOrder)) {
-                        setError('Phone number does not match this order.');
-                        setOrder(null);
-                        setLoading(false);
-                        return;
+                        setError('Phone number does not match this order.'); setOrder(null); setLoading(false); return;
                     }
-
                     setOrder(data);
-
-                    // Load items
-                    const { data: itemsData } = await supabase
-                        .from('order_items')
-                        .select('*')
-                        .eq('order_id', data.id);
+                    const { data: itemsData } = await supabase.from('order_items').select('*').eq('order_id', data.id);
                     setItems(itemsData || []);
-
-                    // Load seller
-                    const { data: sellerData } = await supabase
-                        .from('sellers')
+                    const { data: sellerData } = await supabase.from('sellers')
                         .select('business_name, phone, logo_url, pickup_address, delivery_notes, slug')
-                        .eq('id', data.seller_id)
-                        .single();
+                        .eq('id', data.seller_id).single();
                     setSeller(sellerData);
-
-                } catch (err) {
-                    setError('Something went wrong. Please try again.');
-                }
+                    if (data.track_token) { persistMyOrder(data.track_token, { order: data, seller: sellerData }); setMyOrders(readMyOrders()); }
+                } catch (err) { setError('Something went wrong. Please try again.'); }
                 setLoading(false);
+            };
+
+            const backToHome = () => {
+                setOrder(null); setSeller(null); setItems([]); setError(''); setSearched(false);
+                setMyOrders(readMyOrders());
+                try { window.history.replaceState({}, '', '/track/'); } catch (e) {}
             };
 
             const getActiveSteps = () => {
@@ -148,7 +217,6 @@
                     return true;
                 });
             };
-
             const getStepStatus = (stepKey, steps) => {
                 const currentIndex = steps.findIndex(s => s.key === (order?.delivery_status || 'pending'));
                 const stepIndex = steps.findIndex(s => s.key === stepKey);
@@ -156,6 +224,13 @@
                 if (stepIndex === currentIndex) return 'current';
                 return 'upcoming';
             };
+
+            const InstallButton = () => showInstall ? (
+                <button onClick={() => window.__yeboPromptInstall()}
+                    className="flex items-center justify-center gap-2 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-2xl transition shadow-md">
+                    📲 Add YeboSell to your phone
+                </button>
+            ) : null;
 
             return (
                 <div className="min-h-screen bg-gray-50">
@@ -166,51 +241,102 @@
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                             </div>
                             <div>
-                                <h1 className="text-lg font-bold text-gray-900">Track Your Order</h1>
+                                <h1 className="text-lg font-bold text-gray-900">{order ? 'Track Your Order' : 'My Orders'}</h1>
                                 <p className="text-xs text-gray-400">Powered by YeboSell</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="max-w-lg mx-auto px-4 py-6">
-                        {/* Search form */}
+                    <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+
+                        {/* ===== HOME / MY ORDERS (no order loaded) ===== */}
                         {!order && (
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4 fade-in">
-                                <div className="text-center mb-2">
-                                    <div className="text-4xl mb-2">📦</div>
-                                    <h2 className="text-lg font-bold text-gray-900">Where's my order?</h2>
-                                    <p className="text-sm text-gray-500">Enter your order number and phone to track</p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Order Number</label>
-                                    <input type="text" value={orderNumber}
-                                        onChange={e => setOrderNumber(e.target.value.toUpperCase())}
-                                        placeholder="ORD-20260411-123"
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Phone Number (for verification)</label>
-                                    <input type="tel" value={phone}
-                                        onChange={e => setPhone(e.target.value)}
-                                        placeholder="+27... or +266..."
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                </div>
-
-                                {error && (
-                                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>
+                            <div className="space-y-4 fade-in">
+                                {loading && (
+                                    <div className="flex justify-center py-10"><div className="spin w-8 h-8 border-brand-500 border-t-transparent rounded-full" style={{ borderWidth: 3, borderStyle: 'solid' }}></div></div>
                                 )}
 
-                                <button onClick={() => lookupOrder()} disabled={loading}
-                                    className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
-                                    {loading ? 'Searching...' : 'Track Order'}
-                                </button>
+                                {showInstall && (
+                                    <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 space-y-2">
+                                        <p className="text-sm font-semibold text-brand-900">Keep all your orders in one place</p>
+                                        <p className="text-xs text-brand-700">Add YeboSell to your home screen — install once, and every future order shows up here automatically.</p>
+                                        <InstallButton />
+                                    </div>
+                                )}
+
+                                {/* My Orders list */}
+                                {myOrders.length > 0 && (
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">Your Orders</h3>
+                                        <div className="space-y-2">
+                                            {myOrders.map((o) => (
+                                                <button key={o.token} onClick={() => loadByToken(o.token)}
+                                                    className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-brand-300 hover:bg-brand-50 transition text-left">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-gray-900 font-mono truncate">{o.order_number || 'Order'}</p>
+                                                        <p className="text-xs text-gray-500 truncate">{o.seller_name || 'Seller'} · {o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</p>
+                                                    </div>
+                                                    <span className="text-brand-600 text-sm font-bold flex-shrink-0">Track →</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {myOrders.length === 0 && !loading && (
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+                                        <div className="text-4xl mb-2">📦</div>
+                                        <h2 className="text-lg font-bold text-gray-900">No orders yet</h2>
+                                        <p className="text-sm text-gray-500">Orders you place will appear here automatically. Have a tracking link or order number? Use the option below.</p>
+                                    </div>
+                                )}
+
+                                {/* Track by order number (legacy fallback) */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                                    <button onClick={() => setShowLegacyForm(v => !v)}
+                                        className="w-full flex items-center justify-between text-sm font-semibold text-gray-700">
+                                        <span>Track by order number</span>
+                                        <span className="text-gray-400">{showLegacyForm ? '−' : '+'}</span>
+                                    </button>
+                                    {showLegacyForm && (
+                                        <div className="space-y-3 mt-4 fade-in">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Order Number</label>
+                                                <input type="text" value={orderNumber}
+                                                    onChange={e => setOrderNumber(e.target.value.toUpperCase())}
+                                                    placeholder="ORD-20260411-123"
+                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Phone Number (for verification)</label>
+                                                <input type="tel" value={phone}
+                                                    onChange={e => setPhone(e.target.value)}
+                                                    placeholder="+27... or +266..."
+                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                            </div>
+                                            {error && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>)}
+                                            <button onClick={() => lookupOrder()} disabled={loading}
+                                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
+                                                {loading ? 'Searching...' : 'Track Order'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Error when a token link failed (no form open) */}
+                                {error && !showLegacyForm && (
+                                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>
+                                )}
                             </div>
                         )}
 
-                        {/* Order found */}
+                        {/* ===== ORDER DETAIL ===== */}
                         {order && (
                             <div className="space-y-4 fade-in">
+                                {myOrders.length > 0 && (
+                                    <button onClick={backToHome} className="text-sm font-semibold text-brand-600 hover:underline">← My Orders</button>
+                                )}
+
                                 {/* Order header card */}
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                     <div className="bg-brand-500 text-white px-5 py-4">
@@ -224,12 +350,10 @@
                                                 <p className="text-xl font-bold">{formatCurrency(order.total)}</p>
                                             </div>
                                         </div>
-                                        {seller && (
-                                            <p className="text-brand-100 text-xs mt-2">From: <strong className="text-white">{seller.business_name}</strong></p>
-                                        )}
+                                        {seller && (<p className="text-brand-100 text-xs mt-2">From: <strong className="text-white">{seller.business_name}</strong></p>)}
                                     </div>
                                     <div className="px-5 py-4">
-                                        <div className="flex items-center gap-2 mb-3">
+                                        <div className="flex items-center gap-2 mb-3 flex-wrap">
                                             <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: getStatusColor(order.status) + '15', color: getStatusColor(order.status) }}>
                                                 {getStatusLabel(order.status)}
                                             </span>
@@ -255,25 +379,17 @@
                                             const isLast = i === arr.length - 1;
                                             return (
                                                 <div key={step.key} className="relative flex gap-4 pb-6">
-                                                    {/* Timeline line */}
                                                     {!isLast && (
-                                                        <div className={`absolute left-[15px] top-[36px] bottom-0 w-0.5 ${
-                                                            status === 'completed' ? 'bg-brand-500' : 'bg-gray-200'
-                                                        }`} />
+                                                        <div className={`absolute left-[15px] top-[36px] bottom-0 w-0.5 ${status === 'completed' ? 'bg-brand-500' : 'bg-gray-200'}`} />
                                                     )}
-                                                    {/* Icon circle */}
                                                     <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${
                                                         status === 'completed' ? 'bg-brand-500 text-white' :
                                                         status === 'current' ? 'bg-brand-100 border-2 border-brand-500 text-brand-600' :
-                                                        'bg-gray-100 text-gray-400'
-                                                    }`}>
+                                                        'bg-gray-100 text-gray-400'}`}>
                                                         {status === 'completed' ? '✓' : step.icon}
                                                     </div>
-                                                    {/* Content */}
                                                     <div className="flex-1 pt-1">
-                                                        <p className={`text-sm font-semibold ${
-                                                            status === 'upcoming' ? 'text-gray-400' : 'text-gray-900'
-                                                        }`}>{step.label}</p>
+                                                        <p className={`text-sm font-semibold ${status === 'upcoming' ? 'text-gray-400' : 'text-gray-900'}`}>{step.label}</p>
                                                         <p className={`text-xs ${status === 'upcoming' ? 'text-gray-300' : 'text-gray-500'}`}>{step.desc}</p>
                                                         {status === 'current' && order.delivery_updated_at && (
                                                             <p className="text-xs text-brand-600 mt-0.5">Updated: {new Date(order.delivery_updated_at).toLocaleString()}</p>
@@ -332,7 +448,7 @@
                                 </div>
 
                                 {/* Contact seller */}
-                                {seller && (
+                                {seller && seller.phone && (
                                     <a href={`https://wa.me/${(seller.phone || '').replace(/[^0-9]/g, '')}?text=Hi, I'd like an update on my order ${order.order_number}`}
                                         target="_blank" rel="noopener"
                                         className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition shadow-md">
@@ -341,10 +457,11 @@
                                     </a>
                                 )}
 
-                                {/* Track another */}
-                                <button onClick={() => { setOrder(null); setSeller(null); setItems([]); setError(''); setSearched(false); }}
+                                <InstallButton />
+
+                                <button onClick={backToHome}
                                     className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-2xl transition text-sm">
-                                    Track Another Order
+                                    {myOrders.length > 0 ? 'Back to My Orders' : 'Track Another Order'}
                                 </button>
                             </div>
                         )}
