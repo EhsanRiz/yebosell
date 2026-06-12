@@ -1477,37 +1477,29 @@
                 setLoading(true); setError('');
                 const normalized = normalizePhone(phone);
                 try {
-                    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-                    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-                    await supabase.from('buyer_otps').insert([{
-                        phone: normalized, otp_code: otpCode, expires_at: expiresAt, seller_id: sellerId
-                    }]);
-                    // Send OTP via WhatsApp
-                    try {
-                        await fetch(`${SUPABASE_URL}/functions/v1/whatsapp-notify`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}` },
-                            body: JSON.stringify({ phone: normalized, otp_code: otpCode, type: 'buyer_otp' }),
-                        });
-                    } catch (e) { console.warn('OTP WhatsApp send failed:', e); }
+                    // Send the code by SMS (server-side via BulkSMS; no WhatsApp API)
+                    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}` },
+                        body: JSON.stringify({ phone: normalized }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) { setError(data.error || 'Failed to send code. Please try again.'); setLoading(false); return; }
                     setStep('otp');
-                } catch (err) { setError('Failed to send OTP. Please try again.'); }
+                } catch (err) { setError('Failed to send code. Please try again.'); }
                 setLoading(false);
             };
 
             const verifyOtp = async () => {
-                if (!otp.trim()) { setError('Please enter the OTP'); return; }
+                if (!otp.trim()) { setError('Please enter the code'); return; }
                 setLoading(true); setError('');
                 const normalized = normalizePhone(phone);
                 try {
-                    const { data: otpRecord } = await supabase.from('buyer_otps')
-                        .select('*').eq('phone', normalized).eq('otp_code', otp.trim())
-                        .eq('seller_id', sellerId).gt('expires_at', new Date().toISOString())
-                        .order('created_at', { ascending: false }).limit(1).single();
+                    // Verify the SMS code server-side (marks it used, atomic)
+                    const { data: verified, error: vErr } = await supabase.rpc('get_orders_by_otp', { p_phone: normalized, p_otp: otp.trim() });
+                    if (vErr || !verified || !verified.length) { setError('Invalid or expired code. Please try again.'); setLoading(false); return; }
 
-                    if (!otpRecord) { setError('Invalid or expired OTP. Please try again.'); setLoading(false); return; }
-
-                    // Load orders
+                    // Load this seller's orders (with items for buy-again)
                     const { data: ordersData } = await supabase.from('orders')
                         .select('*, order_items(*)')
                         .eq('seller_id', sellerId)
@@ -1578,9 +1570,9 @@
                         <div className="flex-1 overflow-y-auto modal-scroll p-5">
                             {step === 'phone' && (
                                 <div className="space-y-4 slide-up">
-                                    <p className="text-sm text-gray-500">Enter your WhatsApp number to view your orders. We'll send you a verification code.</p>
+                                    <p className="text-sm text-gray-500">Enter your phone number to view your orders. We'll text you a verification code.</p>
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">WhatsApp Number</label>
+                                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Phone Number</label>
                                         <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                                             placeholder="+27... or 0..." className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50"
                                             onKeyDown={e => e.key === 'Enter' && requestOtp()} />
@@ -1588,14 +1580,14 @@
                                     {error && <p className="text-red-500 text-xs">{error}</p>}
                                     <button onClick={requestOtp} disabled={loading}
                                         className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition disabled:opacity-50">
-                                        {loading ? 'Sending...' : 'Send OTP via WhatsApp'}
+                                        {loading ? 'Sending...' : 'Text me a code'}
                                     </button>
                                 </div>
                             )}
 
                             {step === 'otp' && (
                                 <div className="space-y-4 slide-up">
-                                    <p className="text-sm text-gray-500">We sent a 6-digit code to your WhatsApp. Enter it below.</p>
+                                    <p className="text-sm text-gray-500">We sent a 6-digit code by SMS. Enter it below.</p>
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Verification Code</label>
                                         <input type="text" value={otp} onChange={e => setOtp(e.target.value)}

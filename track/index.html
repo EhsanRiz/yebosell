@@ -76,6 +76,8 @@
         const formatCurrency = window.formatCurrency;
         const getStatusColor = window.getStatusColor;
         const getStatusLabel = window.getStatusLabel;
+        const SUPABASE_URL = window.SUPABASE_URL;
+        const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
 
         const DELIVERY_LABELS = {
             pickup: 'Customer Pickup', self_delivery: 'Seller Delivery',
@@ -122,6 +124,11 @@
             const [myOrders, setMyOrders] = useState([]);
             const [showLegacyForm, setShowLegacyForm] = useState(false);
             const [canInstall, setCanInstall] = useState(typeof window !== 'undefined' && !!window.__yeboDeferredPrompt);
+            const [syncStep, setSyncStep] = useState('idle'); // 'idle' | 'code'
+            const [syncPhone, setSyncPhone] = useState('');
+            const [syncCode, setSyncCode] = useState('');
+            const [syncError, setSyncError] = useState('');
+            const [syncLoading, setSyncLoading] = useState(false);
 
             // PWA install availability
             useEffect(() => {
@@ -140,6 +147,7 @@
             // On load: token link → load that order; else show My Orders (+ legacy form)
             useEffect(() => {
                 setMyOrders(readMyOrders());
+                trySilentRefresh();
                 const params = new URLSearchParams(window.location.search);
                 const token = params.get('t');
                 if (token) {
@@ -200,6 +208,71 @@
                     if (data.track_token) { persistMyOrder(data.track_token, { order: data, seller: sellerData }); setMyOrders(readMyOrders()); }
                 } catch (err) { setError('Something went wrong. Please try again.'); }
                 setLoading(false);
+            };
+
+            // Merge a server-returned order list into the device's persistent "My Orders"
+            const mergeServerOrders = (serverList) => {
+                try {
+                    const map = {};
+                    readMyOrders().forEach(o => { if (o.token) map[o.token] = o; });
+                    (serverList || []).forEach(o => {
+                        if (!o || !o.token) return;
+                        map[o.token] = Object.assign({}, map[o.token], {
+                            token: o.token, order_number: o.order_number, seller_name: o.seller_name,
+                            created_at: o.created_at, status: o.status, payment_status: o.payment_status,
+                            delivery_status: o.delivery_status, total: o.total
+                        });
+                    });
+                    const merged = Object.keys(map).map(k => map[k])
+                        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+                    localStorage.setItem('yebosell_orders', JSON.stringify(merged.slice(0, 200)));
+                    setMyOrders(merged);
+                    return merged;
+                } catch (e) { return readMyOrders(); }
+            };
+
+            // After verifying once, silently refresh the full list on every app open
+            const trySilentRefresh = () => {
+                let sync = null;
+                try { sync = JSON.parse(localStorage.getItem('yebosell_sync') || 'null'); } catch (e) {}
+                if (sync && sync.phone && sync.proof) {
+                    supabase.rpc('get_orders_by_phone', { p_phone: sync.phone, p_order_number: sync.proof })
+                        .then(({ data }) => { if (data && data.length) mergeServerOrders(data); })
+                        .catch(() => {});
+                }
+            };
+
+            const sendCode = async () => {
+                const p = syncPhone.trim();
+                if (!p) { setSyncError('Please enter your phone number'); return; }
+                setSyncLoading(true); setSyncError('');
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                        body: JSON.stringify({ phone: p })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) { setSyncError(data.error || 'Could not send the code. Please try again.'); setSyncLoading(false); return; }
+                    setSyncStep('code');
+                } catch (e) { setSyncError('Network error. Please try again.'); }
+                setSyncLoading(false);
+            };
+
+            const verifyCode = async () => {
+                const p = syncPhone.trim(); const c = syncCode.trim();
+                if (!c) { setSyncError('Please enter the code'); return; }
+                setSyncLoading(true); setSyncError('');
+                try {
+                    const { data, error: rpcErr } = await supabase.rpc('get_orders_by_otp', { p_phone: p, p_otp: c });
+                    if (rpcErr) { setSyncError('Verification failed. Please try again.'); setSyncLoading(false); return; }
+                    const list = data || [];
+                    if (!list.length) { setSyncError('Invalid or expired code, or no orders found for this number.'); setSyncLoading(false); return; }
+                    mergeServerOrders(list);
+                    try { localStorage.setItem('yebosell_sync', JSON.stringify({ phone: p, proof: list[0].order_number })); } catch (e) {}
+                    setSyncStep('idle'); setSyncCode(''); setSyncPhone('');
+                } catch (e) { setSyncError('Something went wrong. Please try again.'); }
+                setSyncLoading(false);
             };
 
             const backToHome = () => {
@@ -276,7 +349,14 @@
                                                         <p className="text-sm font-bold text-gray-900 font-mono truncate">{o.order_number || 'Order'}</p>
                                                         <p className="text-xs text-gray-500 truncate">{o.seller_name || 'Seller'} · {o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</p>
                                                     </div>
-                                                    <span className="text-brand-600 text-sm font-bold flex-shrink-0">Track →</span>
+                                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                        {o.status && (
+                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: getStatusColor(o.status) + '15', color: getStatusColor(o.status) }}>
+                                                                {getStatusLabel(o.status)}
+                                                            </span>
+                                                        )}
+                                                        <span className="text-brand-600 text-xs font-bold">Track →</span>
+                                                    </div>
                                                 </button>
                                             ))}
                                         </div>
@@ -291,36 +371,64 @@
                                     </div>
                                 )}
 
-                                {/* Track by order number (legacy fallback) */}
+                                {/* Get all my orders — one-time SMS verify, then auto-syncs */}
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                                    <button onClick={() => setShowLegacyForm(v => !v)}
-                                        className="w-full flex items-center justify-between text-sm font-semibold text-gray-700">
-                                        <span>Track by order number</span>
-                                        <span className="text-gray-400">{showLegacyForm ? '−' : '+'}</span>
-                                    </button>
-                                    {showLegacyForm && (
-                                        <div className="space-y-3 mt-4 fade-in">
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Order Number</label>
-                                                <input type="text" value={orderNumber}
-                                                    onChange={e => setOrderNumber(e.target.value.toUpperCase())}
-                                                    placeholder="ORD-20260411-123"
-                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Phone Number (for verification)</label>
-                                                <input type="tel" value={phone}
-                                                    onChange={e => setPhone(e.target.value)}
-                                                    placeholder="+27... or +266..."
-                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                            </div>
-                                            {error && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>)}
-                                            <button onClick={() => lookupOrder()} disabled={loading}
+                                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Get all my orders</h3>
+                                    <p className="text-xs text-gray-500 mb-3">Verify your phone once and every order you've placed shows up here — and stays up to date automatically, on this device and future ones.</p>
+
+                                    {syncStep === 'idle' && (
+                                        <div className="space-y-3">
+                                            <input type="tel" value={syncPhone} onChange={e => setSyncPhone(e.target.value)}
+                                                placeholder="+27... or +266..."
+                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                            {syncError && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{syncError}</div>)}
+                                            <button onClick={sendCode} disabled={syncLoading}
                                                 className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
-                                                {loading ? 'Searching...' : 'Track Order'}
+                                                {syncLoading ? 'Sending...' : 'Text me a code'}
                                             </button>
                                         </div>
                                     )}
+
+                                    {syncStep === 'code' && (
+                                        <div className="space-y-3 fade-in">
+                                            <p className="text-xs text-gray-500">Enter the 6-digit code sent to <strong>{syncPhone}</strong></p>
+                                            <input type="text" inputMode="numeric" value={syncCode}
+                                                onChange={e => setSyncCode(e.target.value.replace(/[^0-9]/g, ''))}
+                                                placeholder="123456" maxLength={6}
+                                                onKeyDown={e => e.key === 'Enter' && verifyCode()}
+                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                            {syncError && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{syncError}</div>)}
+                                            <button onClick={verifyCode} disabled={syncLoading}
+                                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
+                                                {syncLoading ? 'Verifying...' : 'Verify & load my orders'}
+                                            </button>
+                                            <button onClick={() => { setSyncStep('idle'); setSyncError(''); }}
+                                                className="w-full text-xs font-semibold text-gray-500 hover:text-gray-700">← Use a different number</button>
+                                        </div>
+                                    )}
+
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                        <button onClick={() => setShowLegacyForm(v => !v)}
+                                            className="w-full flex items-center justify-between text-xs font-semibold text-gray-500">
+                                            <span>Track a single order by number instead</span>
+                                            <span className="text-gray-400">{showLegacyForm ? '−' : '+'}</span>
+                                        </button>
+                                        {showLegacyForm && (
+                                            <div className="space-y-3 mt-3 fade-in">
+                                                <input type="text" value={orderNumber} onChange={e => setOrderNumber(e.target.value.toUpperCase())}
+                                                    placeholder="ORD-20260411-123"
+                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                                                    placeholder="Phone for verification"
+                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                                {error && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>)}
+                                                <button onClick={() => lookupOrder()} disabled={loading}
+                                                    className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl transition disabled:opacity-50">
+                                                    {loading ? 'Searching...' : 'Track Order'}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Error when a token link failed (no form open) */}
