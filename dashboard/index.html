@@ -280,6 +280,7 @@
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
             const [otp, setOtp] = useState('');
+            const [email, setEmail] = useState('');
 
             const handlePhoneChange = (e) => {
                 const val = e.target.value.replace(/\D/g, '').slice(0, 12);
@@ -319,6 +320,39 @@
                     return;
                 }
 
+                // ---------- FORGOT PIN (phone → SMS OTP → new PIN) ----------
+                if (mode === 'reset') {
+                    if (step === 1) {
+                        if (!phone || phone.length < 8) { setError('Please enter your phone number'); return; }
+                        setLoading(true);
+                        try {
+                            const r = await fetch(`${SUPABASE_URL}/functions/v1/send-otp`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                                body: JSON.stringify({ phone: cleanPhone })
+                            });
+                            const d = await r.json().catch(() => ({}));
+                            if (!r.ok) { setError(d.error || 'Could not send the code. Please try again.'); setLoading(false); return; }
+                            setStep(2);
+                        } catch (e) { setError('Could not send the code. Please try again.'); }
+                        setLoading(false);
+                        return;
+                    }
+                    if (step === 2) {
+                        if (!otp || otp.length < 4) { setError('Enter the code sent to your phone'); return; }
+                        if (!pin || pin.length !== 6) { setError('Choose a new 6-digit PIN'); return; }
+                        setLoading(true);
+                        try {
+                            const { data: res, error: rpcErr } = await supabase.rpc('seller_reset_pin', { p_phone: cleanPhone, p_otp: otp, p_new_pin: pin });
+                            if (rpcErr) throw new Error('Reset failed. Please try again.');
+                            if (!res || res.error) throw new Error((res && res.message) || 'Reset failed');
+                            localStorage.setItem('current_seller', JSON.stringify(res.seller));
+                            onLoginSuccess(res.seller);
+                        } catch (err) { setError(err.message); } finally { setLoading(false); }
+                        return;
+                    }
+                }
+
                 // ---------- REGISTER (phone+PIN → name → business → SMS OTP → create) ----------
                 if (step === 1) {
                     if (!phone || phone.length < 8) { setError('Please enter a valid phone number'); return; }
@@ -350,7 +384,7 @@
                     setLoading(true);
                     try {
                         const { data: res, error: rpcErr } = await supabase.rpc('seller_register', {
-                            p_phone: cleanPhone, p_otp: otp, p_pin: pin, p_full_name: fullName, p_business_name: businessName
+                            p_phone: cleanPhone, p_otp: otp, p_pin: pin, p_full_name: fullName, p_business_name: businessName, p_email: email
                         });
                         if (rpcErr) throw new Error('Registration failed. Please try again.');
                         if (!res || res.error) throw new Error((res && res.message) || 'Registration failed');
@@ -361,13 +395,14 @@
                 }
             };
 
-            const toggleMode = () => {
-                setMode(mode === 'login' ? 'register' : 'login');
+            const switchTo = (m) => {
+                setMode(m);
                 setStep(1);
                 setPhone('');
                 setPin('');
                 setFullName('');
                 setBusinessName('');
+                setEmail('');
                 setOtp('');
                 setError('');
             };
@@ -384,46 +419,79 @@
 
                     <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                            {mode === 'login' ? 'Welcome Back' : 'Join Us'}
+                            {mode === 'login' ? 'Welcome Back' : mode === 'reset' ? 'Reset PIN' : 'Join Us'}
                         </h2>
 
+                        {/* Phone — step 1 of every mode */}
                         {step === 1 && (
-                            <>
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                                    <input
-                                        type="tel"
-                                        value={phone}
-                                        onChange={handlePhoneChange}
-                                        placeholder="e.g. 27xxxxxxxx or 266xxxxxxx"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
-                                    />
-                                </div>
-
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">6-Digit PIN</label>
-                                    <input
-                                        type="text"
-                                        value={pin}
-                                        onChange={handlePinChange}
-                                        placeholder="000000"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
-                                    />
-                                </div>
-                            </>
-                        )}
-
-                        {mode === 'register' && step === 2 && (
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Your Full Name</label>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                                 <input
-                                    type="text"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    placeholder="John Doe"
+                                    type="tel"
+                                    value={phone}
+                                    onChange={handlePhoneChange}
+                                    placeholder="e.g. 27xxxxxxxx or 266xxxxxxx"
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                 />
                             </div>
+                        )}
+
+                        {/* OTP — register step 4, reset step 2 */}
+                        {((mode === 'register' && step === 4) || (mode === 'reset' && step === 2)) && (
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Enter the SMS code</label>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="123456"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
+                                />
+                                <p className="text-xs text-gray-500 mt-2">We sent a 6-digit code by SMS to verify your number.</p>
+                            </div>
+                        )}
+
+                        {/* PIN — login/register step 1 (your/choose PIN), reset step 2 (new PIN) */}
+                        {((step === 1 && mode !== 'reset') || (mode === 'reset' && step === 2)) && (
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {mode === 'login' ? 'Your PIN' : mode === 'reset' ? 'New 6-Digit PIN' : 'Choose a 6-Digit PIN'}
+                                </label>
+                                <input
+                                    type="text"
+                                    value={pin}
+                                    onChange={handlePinChange}
+                                    placeholder="000000"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
+                                />
+                            </div>
+                        )}
+
+                        {mode === 'register' && step === 2 && (
+                            <>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Your Full Name</label>
+                                    <input
+                                        type="text"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        placeholder="John Doe"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                    />
+                                </div>
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-gray-400 font-normal">(optional)</span></label>
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="you@example.com"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">For receipts &amp; account notices. You can add it later in Settings.</p>
+                                </div>
+                            </>
                         )}
 
                         {mode === 'register' && step === 3 && (
@@ -442,21 +510,6 @@
                             </div>
                         )}
 
-                        {mode === 'register' && step === 4 && (
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Verify your phone</label>
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={otp}
-                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    placeholder="123456"
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
-                                />
-                                <p className="text-xs text-gray-500 mt-2">We sent a 6-digit code by SMS to verify your number.</p>
-                            </div>
-                        )}
-
                         {error && (
                             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                                 {error}
@@ -469,14 +522,22 @@
                             className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 transition-colors"
                         >
                             {loading ? <Spinner size="sm" /> : null}
-                            {mode === 'login' ? 'Sign In' : step === 4 ? 'Create Account' : step === 3 ? 'Send Code' : 'Continue'}
+                            {mode === 'login' ? 'Sign In' : mode === 'reset' ? (step === 2 ? 'Reset PIN' : 'Send Code') : step === 4 ? 'Create Account' : step === 3 ? 'Send Code' : 'Continue'}
                         </button>
 
+                        {mode === 'login' && (
+                            <button
+                                onClick={() => switchTo('reset')}
+                                className="w-full text-center text-gray-500 hover:text-gray-700 font-medium py-1 text-sm"
+                            >
+                                Forgot PIN?
+                            </button>
+                        )}
                         <button
-                            onClick={toggleMode}
+                            onClick={() => switchTo(mode === 'login' ? 'register' : 'login')}
                             className="w-full text-center text-green-600 hover:text-green-700 font-medium py-2 text-sm"
                         >
-                            {mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Sign In'}
+                            {mode === 'register' ? 'Already have an account? Sign In' : mode === 'reset' ? '← Back to Sign In' : "Don't have an account? Register"}
                         </button>
                     </div>
 
@@ -3378,6 +3439,7 @@
             // ---- Profile & Store ----
             const [profile, setProfile] = useState({
                 full_name: seller.full_name || '',
+                email: seller.email || '',
                 business_name: seller.business_name || '',
                 business_description: seller.business_description || '',
                 seller_phone: seller.seller_phone || seller.phone || '',
@@ -3554,6 +3616,7 @@
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <SettingsInputField label="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+27..." type="tel" />
                             <SettingsInputField label="Location" value={profile.location} onChange={v => setProfile({...profile, location: v})} placeholder="City, Province" />
+                            <SettingsInputField label="Email (optional)" value={profile.email} onChange={v => setProfile({...profile, email: v})} placeholder="you@example.com" type="email" />
                         </div>
                         <SettingsInputField label="Address" value={profile.address} onChange={v => setProfile({...profile, address: v})} placeholder="Full street address" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
