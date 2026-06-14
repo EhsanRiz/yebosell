@@ -281,6 +281,7 @@
             const [error, setError] = useState('');
             const [otp, setOtp] = useState('');
             const [email, setEmail] = useState('');
+            const [info, setInfo] = useState('');
 
             const handlePhoneChange = (e) => {
                 const val = e.target.value.replace(/\D/g, '').slice(0, 12);
@@ -301,8 +302,25 @@
                 return p;
             };
 
+            const resendCode = async () => {
+                setError(''); setInfo('');
+                const cleanPhone = normalizePhone(phone);
+                setLoading(true);
+                try {
+                    const r = await fetch(`${SUPABASE_URL}/functions/v1/send-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                        body: JSON.stringify({ phone: cleanPhone })
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok) { setError(d.error || 'Could not resend just yet — please wait a moment and try again.'); }
+                    else { setInfo('Code resent.'); }
+                } catch (e) { setError('Could not resend the code. Please try again.'); }
+                setLoading(false);
+            };
+
             const handleContinue = async () => {
-                setError('');
+                setError(''); setInfo('');
                 const cleanPhone = normalizePhone(phone);
 
                 // ---------- LOGIN ----------
@@ -357,6 +375,12 @@
                 if (step === 1) {
                     if (!phone || phone.length < 8) { setError('Please enter a valid phone number'); return; }
                     if (!pin || pin.length !== 6) { setError('Choose a 6-digit PIN'); return; }
+                    setLoading(true);
+                    try {
+                        const { data: taken } = await supabase.rpc('phone_is_registered', { p_phone: cleanPhone });
+                        if (taken) { setError('This number is already registered. Please log in instead.'); setLoading(false); return; }
+                    } catch (e) { /* non-blocking: duplicate is still caught at account creation */ }
+                    setLoading(false);
                     setStep(2); return;
                 }
                 if (step === 2) {
@@ -405,6 +429,7 @@
                 setEmail('');
                 setOtp('');
                 setError('');
+                setInfo('');
             };
 
             return (
@@ -449,6 +474,11 @@
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
                                 />
                                 <p className="text-xs text-gray-500 mt-2">We sent a 6-digit code by SMS to verify your number.</p>
+                                {info && <p className="text-xs text-green-600 mt-2">{info}</p>}
+                                <button type="button" onClick={resendCode} disabled={loading}
+                                    className="mt-2 text-xs font-semibold text-green-600 hover:text-green-700 disabled:text-gray-400">
+                                    Didn't get the code? Resend
+                                </button>
                             </div>
                         )}
 
