@@ -389,10 +389,9 @@
                 try {
                     const { data: vd, error: verr } = await supabase.auth.verifyOtp({ phone: cleanPhone, token: otp, type: 'sms' });
                     if (verr || !vd || !vd.session) { setError((verr && verr.message) || 'Invalid or expired code'); setLoading(false); return; }
-                    const { data: link } = await supabase.rpc('link_current_seller');
-                    if (!link || !link.seller) { setError('No account found for this number'); setLoading(false); return; }
-                    if (!link.seller.is_admin) { await supabase.auth.signOut(); setError('Access denied. Admin privileges required.'); setLoading(false); return; }
-                    onLoginSuccess(link.seller);
+                    const { data: sessRes } = await supabase.rpc('admin_session');
+                    if (!sessRes || !sessRes.admin) { await supabase.auth.signOut(); setError('Access denied. Admin privileges required.'); setLoading(false); return; }
+                    onLoginSuccess(sessRes.admin);
                 } catch (err) { setError('Something went wrong. Please try again.'); }
                 setLoading(false);
             };
@@ -1002,8 +1001,8 @@
                     try {
                         const { data: sess } = await supabase.auth.getSession();
                         if (sess && sess.session) {
-                            const { data: link } = await supabase.rpc('link_current_seller');
-                            if (link && link.seller && link.seller.is_admin) { setAdmin(link.seller); setLoading(false); return; }
+                            const { data: sessRes } = await supabase.rpc('admin_session');
+                            if (sessRes && sessRes.admin) { setAdmin(sessRes.admin); setLoading(false); return; }
                         }
                     } catch (e) {}
                     setLoading(false);
