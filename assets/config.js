@@ -118,3 +118,20 @@ window.notifyBuyer = (phone, milestone, ctx) => {
 window.trackLink = (trackToken) => trackToken
     ? `${window.SITE_URL}/track/?t=${trackToken}`
     : `${window.SITE_URL}/track/`;
+
+// Canonical phone normalization to E.164 — accepts the local formats people type:
+//   South Africa: 0XX XXX XXXX        -> +27XXXXXXXXX
+//   Lesotho:      XXXX XXXX (8 digits) -> +266XXXXXXXX
+//   Also handles +.., 00.., 27.., 266.. prefixes.
+window.normalizePhone = (raw) => {
+    let s = (raw || '').toString().trim();
+    if (s.startsWith('+')) return '+' + s.slice(1).replace(/\D/g, '');
+    const p = s.replace(/\D/g, '');
+    if (p.startsWith('00')) return '+' + p.slice(2);
+    if (p.startsWith('266')) return '+' + p;          // Lesotho with country code
+    if (p.startsWith('27')) return '+' + p;           // SA with country code
+    if (p.startsWith('0')) return '+27' + p.slice(1); // SA local  0XX XXX XXXX
+    if (p.length === 8) return '+266' + p;            // Lesotho local  XXXX XXXX
+    if (p.length === 9) return '+27' + p;             // SA local without leading 0
+    return '+' + p;
+};

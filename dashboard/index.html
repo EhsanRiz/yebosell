@@ -12,7 +12,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=5"></script>
+    <script src="/assets/config.js?v=6"></script>
 
     <script>
         tailwind.config = {
@@ -300,14 +300,7 @@
                 setPin(val);
             };
 
-            const normalizePhone = (raw) => {
-                let p = (raw || '').replace(/[^0-9+]/g, '');
-                if (p.startsWith('0')) return '+27' + p.slice(1);
-                if (/^27\d/.test(p) && !p.startsWith('+')) return '+' + p;
-                if (/^266\d/.test(p) && !p.startsWith('+')) return '+' + p;
-                if (!p.startsWith('+')) return '+' + p;
-                return p;
-            };
+            const normalizePhone = window.normalizePhone;
 
             const resendCode = async () => {
                 setError(''); setInfo('');
@@ -2316,7 +2309,7 @@
                                         type="tel"
                                         value={formData.customer_phone}
                                         onChange={(e) => setFormData(prev => ({ ...prev, customer_phone: e.target.value }))}
-                                        placeholder="e.g. 27xxxxxxxx or 266xxxxxxx"
+                                        placeholder="0XX XXX XXXX (SA)  ·  XXXX XXXX (Lesotho)"
                                         className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
