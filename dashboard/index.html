@@ -364,6 +364,7 @@
                             if (verr || !vd || !vd.session) { setError((verr && verr.message) || 'Invalid or expired code.'); setLoading(false); return; }
                             const { data: link, error: lerr } = await supabase.rpc('link_current_seller');
                             if (lerr || !link || link.error) { setError((link && link.message) || 'No seller account for this number — please register.'); setLoading(false); return; }
+                            try { await supabase.rpc('record_login_event', { p_method: 'otp' }); } catch (e) {}
                             localStorage.setItem('current_seller', JSON.stringify(link.seller));
                             onLoginSuccess(link.seller);
                         } catch (e) { setError('Something went wrong. Please try again.'); }
