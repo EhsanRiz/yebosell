@@ -270,6 +270,12 @@
         // LOGIN SCREEN
         // ============================================================================
 
+        const EyeIcon = ({ off }) => off ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        );
+
         const LoginScreen = ({ onLoginSuccess }) => {
             const [mode, setMode] = useState('login');
             const [step, setStep] = useState(1);
@@ -282,6 +288,7 @@
             const [otp, setOtp] = useState('');
             const [email, setEmail] = useState('');
             const [info, setInfo] = useState('');
+            const [showPin, setShowPin] = useState(false);
 
             const handlePhoneChange = (e) => {
                 const val = e.target.value.replace(/\D/g, '').slice(0, 12);
@@ -488,13 +495,19 @@
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     {mode === 'login' ? 'Your PIN' : mode === 'reset' ? 'New 6-Digit PIN' : 'Choose a 6-Digit PIN'}
                                 </label>
-                                <input
-                                    type="text"
-                                    value={pin}
-                                    onChange={handlePinChange}
-                                    placeholder="000000"
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showPin ? 'text' : 'password'}
+                                        value={pin}
+                                        onChange={handlePinChange}
+                                        placeholder="••••••"
+                                        className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center text-2xl tracking-widest bg-gray-50"
+                                    />
+                                    <button type="button" onClick={() => setShowPin(v => !v)} aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        <EyeIcon off={showPin} />
+                                    </button>
+                                </div>
                             </div>
                         )}
 
@@ -3420,18 +3433,30 @@
         // SETTINGS HELPERS (defined outside component to prevent re-mount on keystroke)
         // ============================================================================
 
-        const SettingsInputField = ({ label, value, onChange, type = 'text', placeholder = '', textarea = false }) => (
-            <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">{label}</label>
-                {textarea ? (
-                    <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows="3"
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none" />
-                ) : (
-                    <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50" />
-                )}
-            </div>
-        );
+        const SettingsInputField = ({ label, value, onChange, type = 'text', placeholder = '', textarea = false }) => {
+            const [reveal, setReveal] = useState(false);
+            const isPw = type === 'password';
+            return (
+                <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">{label}</label>
+                    {textarea ? (
+                        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows="3"
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none" />
+                    ) : (
+                        <div className="relative">
+                            <input type={isPw && reveal ? 'text' : type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+                                className={`w-full border border-gray-200 rounded-xl px-4 py-2.5 ${isPw ? 'pr-11' : ''} text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50`} />
+                            {isPw && (
+                                <button type="button" onClick={() => setReveal(v => !v)} aria-label={reveal ? 'Hide' : 'Show'}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <EyeIcon off={reveal} />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
 
         const SettingsSaveButton = ({ onClick, saving, label = 'Save Changes' }) => (
             <button onClick={onClick} disabled={saving}
