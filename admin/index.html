@@ -362,16 +362,51 @@
         // LOGIN SCREEN (admin-only)
         // ============================================================================
         const LoginScreen = ({ onLoginSuccess }) => {
+            const [mode, setMode] = useState('login');     // 'login' | 'reset'
+            const [step, setStep] = useState('phone');     // reset flow: 'phone' -> 'code' -> 'newpass'
             const [phone, setPhone] = useState('');
+            const [password, setPassword] = useState('');
             const [otp, setOtp] = useState('');
-            const [step, setStep] = useState('phone');
+            const [newPass, setNewPass] = useState('');
+            const [newPass2, setNewPass2] = useState('');
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
+            const [info, setInfo] = useState('');
 
             const normPhone = window.normalizePhone;
 
+            const finishAdmin = async () => {
+                const { data: sessRes } = await supabase.rpc('admin_session');
+                if (!sessRes || !sessRes.admin) {
+                    await supabase.auth.signOut();
+                    setError('Access denied. Admin privileges required.');
+                    setLoading(false);
+                    return false;
+                }
+                onLoginSuccess(sessRes.admin);
+                return true;
+            };
+
+            // PASSWORD LOGIN — no SMS, no OTP credits used
             const handleLogin = async () => {
                 setError('');
+                const cleanPhone = normPhone(phone);
+                if (!phone || phone.length < 8) { setError('Enter a valid phone number'); return; }
+                if (!password) { setError('Enter your password'); return; }
+                setLoading(true);
+                try {
+                    const { data, error: e } = await supabase.auth.signInWithPassword({ phone: cleanPhone, password });
+                    if (e || !data || !data.session) {
+                        setError('Phone or password incorrect. First time here? Use “Set / forgot password”.');
+                        setLoading(false); return;
+                    }
+                    await finishAdmin();
+                } catch (err) { setError('Something went wrong. Please try again.'); setLoading(false); }
+            };
+
+            // SET / FORGOT PASSWORD via one OTP, then password is used for all future logins
+            const handleReset = async () => {
+                setError(''); setInfo('');
                 const cleanPhone = normPhone(phone);
                 if (step === 'phone') {
                     if (!phone || phone.length < 8) { setError('Enter a valid phone number'); return; }
@@ -379,22 +414,35 @@
                     try {
                         const { error: e } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
                         if (e) { setError(e.message || 'Could not send code'); setLoading(false); return; }
-                        setStep('code');
+                        setStep('code'); setInfo('We sent a one-time code by SMS.');
                     } catch (err) { setError('Could not send code'); }
-                    setLoading(false);
-                    return;
+                    setLoading(false); return;
                 }
-                if (!otp || otp.length < 4) { setError('Enter the code sent to your phone'); return; }
+                if (step === 'code') {
+                    if (!otp || otp.length < 4) { setError('Enter the code sent to your phone'); return; }
+                    setLoading(true);
+                    try {
+                        const { data: vd, error: verr } = await supabase.auth.verifyOtp({ phone: cleanPhone, token: otp, type: 'sms' });
+                        if (verr || !vd || !vd.session) { setError((verr && verr.message) || 'Invalid or expired code'); setLoading(false); return; }
+                        // must be an admin to proceed
+                        const { data: sessRes } = await supabase.rpc('admin_session');
+                        if (!sessRes || !sessRes.admin) { await supabase.auth.signOut(); setError('Access denied. Admin privileges required.'); setLoading(false); return; }
+                        setStep('newpass'); setInfo('Code verified. Set your password.');
+                    } catch (err) { setError('Something went wrong. Please try again.'); }
+                    setLoading(false); return;
+                }
+                // step === 'newpass'
+                if ((newPass || '').length < 8) { setError('Password must be at least 8 characters'); return; }
+                if (newPass !== newPass2) { setError('Passwords do not match'); return; }
                 setLoading(true);
                 try {
-                    const { data: vd, error: verr } = await supabase.auth.verifyOtp({ phone: cleanPhone, token: otp, type: 'sms' });
-                    if (verr || !vd || !vd.session) { setError((verr && verr.message) || 'Invalid or expired code'); setLoading(false); return; }
-                    const { data: sessRes } = await supabase.rpc('admin_session');
-                    if (!sessRes || !sessRes.admin) { await supabase.auth.signOut(); setError('Access denied. Admin privileges required.'); setLoading(false); return; }
-                    onLoginSuccess(sessRes.admin);
-                } catch (err) { setError('Something went wrong. Please try again.'); }
-                setLoading(false);
+                    const { error: e } = await supabase.auth.updateUser({ password: newPass });
+                    if (e) { setError(e.message || 'Could not set password'); setLoading(false); return; }
+                    await finishAdmin();   // already in a verified session
+                } catch (err) { setError('Something went wrong. Please try again.'); setLoading(false); }
             };
+
+            const switchMode = (m) => { setMode(m); setStep('phone'); setError(''); setInfo(''); setOtp(''); setPassword(''); setNewPass(''); setNewPass2(''); };
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
@@ -421,28 +469,52 @@
                         </div>
                     <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8">
                         <div className="text-center mb-6">
-                            <h2 className="text-xl font-bold text-gray-900">Admin Sign In</h2>
+                            <h2 className="text-xl font-bold text-gray-900">{mode === 'login' ? 'Admin Sign In' : 'Set / Forgot Password'}</h2>
                         </div>
                         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm mb-4">{error}</div>}
+                        {info && !error && <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2.5 rounded-xl text-sm mb-4">{info}</div>}
                         <div className="space-y-3">
-                            {step === 'phone' ? (
-                                <input type="tel" placeholder="e.g. 5772 7054" value={phone} onChange={e => setPhone(window.formatLocalPhone(e.target.value))}
-                                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                            {mode === 'login' ? (
+                                <>
+                                    <input type="tel" placeholder="e.g. 5772 7054" value={phone} onChange={e => setPhone(window.formatLocalPhone(e.target.value))}
+                                        onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                                    <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                                    <button onClick={handleLogin} disabled={loading}
+                                        className="w-full py-3 bg-admin-600 hover:bg-admin-700 text-white rounded-xl font-semibold text-sm transition disabled:opacity-50">
+                                        {loading ? 'Please wait...' : 'Sign In'}
+                                    </button>
+                                    <button onClick={() => switchMode('reset')} className="w-full text-center text-admin-600 text-xs py-1 hover:text-admin-700 font-medium">Set / forgot password</button>
+                                </>
                             ) : (
                                 <>
-                                    <input type="text" inputMode="numeric" placeholder="6-digit code" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6}
-                                        onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-center text-lg tracking-widest focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
-                                    <p className="text-xs text-gray-500">We sent a 6-digit code by SMS to verify your admin number.</p>
+                                    {step === 'phone' && (
+                                        <input type="tel" placeholder="e.g. 5772 7054" value={phone} onChange={e => setPhone(window.formatLocalPhone(e.target.value))}
+                                            onKeyDown={e => e.key === 'Enter' && handleReset()}
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                                    )}
+                                    {step === 'code' && (
+                                        <input type="text" inputMode="numeric" placeholder="6-digit code" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6}
+                                            onKeyDown={e => e.key === 'Enter' && handleReset()}
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-center text-lg tracking-widest focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                                    )}
+                                    {step === 'newpass' && (
+                                        <>
+                                            <input type="password" placeholder="New password (min 8 chars)" value={newPass} onChange={e => setNewPass(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                                            <input type="password" placeholder="Confirm new password" value={newPass2} onChange={e => setNewPass2(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleReset()}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                                        </>
+                                    )}
+                                    <button onClick={handleReset} disabled={loading}
+                                        className="w-full py-3 bg-admin-600 hover:bg-admin-700 text-white rounded-xl font-semibold text-sm transition disabled:opacity-50">
+                                        {loading ? 'Please wait...' : step === 'phone' ? 'Send Code' : step === 'code' ? 'Verify Code' : 'Save Password'}
+                                    </button>
+                                    <button onClick={() => switchMode('login')} className="w-full text-center text-gray-500 text-xs py-1 hover:text-gray-700">← Back to sign in</button>
                                 </>
-                            )}
-                            <button onClick={handleLogin} disabled={loading}
-                                className="w-full py-3 bg-admin-600 hover:bg-admin-700 text-white rounded-xl font-semibold text-sm transition disabled:opacity-50">
-                                {loading ? 'Please wait...' : step === 'phone' ? 'Send Code' : 'Sign In as Admin'}
-                            </button>
-                            {step === 'code' && (
-                                <button onClick={() => { setStep('phone'); setOtp(''); setError(''); }} className="w-full text-center text-gray-500 text-xs py-1 hover:text-gray-700">← Use a different number</button>
                             )}
                         </div>
                     </div>
