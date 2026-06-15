@@ -4181,31 +4181,96 @@
         // MAIN APP COMPONENT — RESPONSIVE SIDEBAR + BOTTOM NAV
         // ============================================================================
 
+        // Device quick-unlock: when a real Supabase session exists, re-entering the
+        // app asks for the PIN instead of a fresh OTP. Verifies PIN via seller_login.
+        const LockScreen = ({ seller, onUnlock, onSignOut }) => {
+            const [pin, setPin] = useState('');
+            const [showPin, setShowPin] = useState(false);
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
+            const submit = async () => {
+                if (!pin) { setError('Enter your PIN'); return; }
+                setLoading(true); setError('');
+                try {
+                    const { data: res, error: e } = await supabase.rpc('seller_login', { p_phone: seller.phone, p_pin: pin });
+                    if (e || !res || res.error) { setError('Incorrect PIN'); setLoading(false); return; }
+                    onUnlock();
+                } catch (err) { setError('Something went wrong. Please try again.'); setLoading(false); }
+            };
+            return (
+                <div className="gradient-dark min-h-screen flex flex-col items-center justify-center p-4">
+                    <div className="mb-8 text-center">
+                        <Logo className="mx-auto mb-4" size={72} />
+                        <h1 className="text-white text-2xl font-bold">{seller.business_name || 'YeboSell'}</h1>
+                        <p className="text-gray-400 text-sm">Enter your PIN to unlock</p>
+                    </div>
+                    <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
+                        <div className="relative mb-4">
+                            <input type={showPin ? 'text' : 'password'} value={pin}
+                                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                placeholder="••••••" onKeyDown={e => e.key === 'Enter' && submit()}
+                                className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl text-center text-2xl tracking-widest bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                            <button type="button" onClick={() => setShowPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><EyeIcon off={showPin} /></button>
+                        </div>
+                        {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>}
+                        <button onClick={submit} disabled={loading} className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 rounded-xl mb-3">{loading ? 'Unlocking...' : 'Unlock'}</button>
+                        <button onClick={onSignOut} className="w-full text-center text-gray-500 hover:text-gray-700 text-sm py-1">Sign out</button>
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [currentUser, setCurrentUser] = useState(null);
+            const [locked, setLocked] = useState(false);
+            const [booting, setBooting] = useState(true);
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
             useEffect(() => {
-                const stored = localStorage.getItem('current_seller');
-                if (stored) {
-                    try {
-                        setCurrentUser(JSON.parse(stored));
-                    } catch (e) {
-                        console.error('Parse error:', e);
+                (async () => {
+                    let session = null;
+                    try { const { data } = await supabase.auth.getSession(); session = data ? data.session : null; } catch (e) {}
+                    const stored = localStorage.getItem('current_seller');
+                    if (stored) {
+                        try {
+                            setCurrentUser(JSON.parse(stored));
+                            const unlocked = sessionStorage.getItem('yebosell_unlocked') === '1';
+                            if (session && !unlocked) setLocked(true);
+                        } catch (e) { console.error('Parse error:', e); }
                     }
-                }
+                    setBooting(false);
+                })();
             }, []);
 
-            const logout = () => {
+            const onAuthed = (seller) => {
+                setCurrentUser(seller);
+                setLocked(false);
+                try { sessionStorage.setItem('yebosell_unlocked', '1'); } catch (e) {}
+            };
+
+            const logout = async () => {
                 if (window.confirm('Sign out?')) {
+                    try { await supabase.auth.signOut(); } catch (e) {}
                     localStorage.removeItem('current_seller');
+                    try { sessionStorage.removeItem('yebosell_unlocked'); } catch (e) {}
                     setCurrentUser(null);
+                    setLocked(false);
                 }
             };
 
+            if (booting) {
+                return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Spinner size="lg" /></div>;
+            }
+
             if (!currentUser) {
-                return <LoginScreen onLoginSuccess={setCurrentUser} />;
+                return <LoginScreen onLoginSuccess={onAuthed} />;
+            }
+
+            if (locked) {
+                return <LockScreen seller={currentUser}
+                    onUnlock={() => { setLocked(false); try { sessionStorage.setItem('yebosell_unlocked', '1'); } catch (e) {} }}
+                    onSignOut={logout} />;
             }
 
             const navItems = [
