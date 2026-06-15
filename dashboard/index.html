@@ -12,7 +12,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=6"></script>
+    <script src="/assets/config.js?v=7"></script>
 
     <script>
         tailwind.config = {
@@ -291,8 +291,7 @@
             const [showPin, setShowPin] = useState(false);
 
             const handlePhoneChange = (e) => {
-                const val = e.target.value.replace(/\D/g, '').slice(0, 12);
-                setPhone(val);
+                setPhone(window.formatLocalPhone(e.target.value));
             };
 
             const handlePinChange = (e) => {
@@ -490,7 +489,7 @@
                                     type="tel"
                                     value={phone}
                                     onChange={handlePhoneChange}
-                                    placeholder="e.g. 012 345 6789 or 1234 5678"
+                                    placeholder="e.g. 5772 7054"
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                 />
                             </div>
@@ -2309,7 +2308,7 @@
                                         type="tel"
                                         value={formData.customer_phone}
                                         onChange={(e) => setFormData(prev => ({ ...prev, customer_phone: e.target.value }))}
-                                        placeholder="0XX XXX XXXX (SA)  ·  XXXX XXXX (Lesotho)"
+                                        placeholder="e.g. 5772 7054"
                                         className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
@@ -3705,7 +3704,7 @@
                         </div>
                         <SettingsInputField label="Business Description" value={profile.business_description} onChange={v => setProfile({...profile, business_description: v})} placeholder="What do you sell?" textarea />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputField label="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+27..." type="tel" />
+                            <SettingsInputField label="Phone (WhatsApp)" value={profile.seller_phone} onChange={v => setProfile({...profile, seller_phone: v})} placeholder="+266 5772 7054" type="tel" />
                             <SettingsInputField label="Location" value={profile.location} onChange={v => setProfile({...profile, location: v})} placeholder="City, Province" />
                             <SettingsInputField label="Email (optional)" value={profile.email} onChange={v => setProfile({...profile, email: v})} placeholder="you@example.com" type="email" />
                         </div>

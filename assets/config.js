@@ -135,3 +135,23 @@ window.normalizePhone = (raw) => {
     if (p.length === 9) return '+27' + p;             // SA local without leading 0
     return '+' + p;
 };
+
+// Live input masking: format digits AS THE USER TYPES into the local layout.
+//   SA (starts 0):   0XX XXX XXXX   ·   Lesotho (8 digits): XXXX XXXX
+//   Country-code / + entries pass through as digits (normalizePhone handles E.164).
+window.formatLocalPhone = (raw) => {
+    const s = (raw || '').toString();
+    const hasPlus = s.trim().startsWith('+');
+    let d = s.replace(/\D/g, '');
+    if (hasPlus || d.startsWith('266') || d.startsWith('27')) {
+        return (hasPlus ? '+' : '') + d.slice(0, 12);
+    }
+    if (d.startsWith('0')) {                 // SA local: 0XX XXX XXXX
+        d = d.slice(0, 10);
+        const m = d.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
+        return [m[1], m[2], m[3]].filter(Boolean).join(' ');
+    }
+    d = d.slice(0, 8);                        // Lesotho local: XXXX XXXX
+    const m = d.match(/^(\d{0,4})(\d{0,4})$/);
+    return [m[1], m[2]].filter(Boolean).join(' ');
+};
