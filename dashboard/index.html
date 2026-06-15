@@ -314,14 +314,20 @@
                 const cleanPhone = normalizePhone(phone);
                 setLoading(true);
                 try {
-                    const r = await fetch(`${SUPABASE_URL}/functions/v1/send-otp`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-                        body: JSON.stringify({ phone: cleanPhone })
-                    });
-                    const d = await r.json().catch(() => ({}));
-                    if (!r.ok) { setError(d.error || 'Could not resend just yet — please wait a moment and try again.'); }
-                    else { setInfo('Code resent.'); }
+                    if (mode === 'otp') {
+                        const { error } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
+                        if (error) { setError(error.message || 'Could not resend just yet — please wait a moment.'); }
+                        else { setInfo('Code resent.'); }
+                    } else {
+                        const r = await fetch(`${SUPABASE_URL}/functions/v1/send-otp`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                            body: JSON.stringify({ phone: cleanPhone })
+                        });
+                        const d = await r.json().catch(() => ({}));
+                        if (!r.ok) { setError(d.error || 'Could not resend just yet — please wait a moment and try again.'); }
+                        else { setInfo('Code resent.'); }
+                    }
                 } catch (e) { setError('Could not resend the code. Please try again.'); }
                 setLoading(false);
             };
@@ -343,6 +349,35 @@
                         onLoginSuccess(res.seller);
                     } catch (err) { setError(err.message); } finally { setLoading(false); }
                     return;
+                }
+
+                // ---------- SIGN IN WITH SMS (real Supabase session) ----------
+                if (mode === 'otp') {
+                    if (step === 1) {
+                        if (!phone || phone.length < 8) { setError('Please enter your phone number'); return; }
+                        setLoading(true);
+                        try {
+                            const { error } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
+                            if (error) { setError(error.message || 'Could not send the code. Please try again.'); setLoading(false); return; }
+                            setStep(2);
+                        } catch (e) { setError('Could not send the code. Please try again.'); }
+                        setLoading(false);
+                        return;
+                    }
+                    if (step === 2) {
+                        if (!otp || otp.length < 4) { setError('Enter the code sent to your phone'); return; }
+                        setLoading(true);
+                        try {
+                            const { data: vd, error: verr } = await supabase.auth.verifyOtp({ phone: cleanPhone, token: otp, type: 'sms' });
+                            if (verr || !vd || !vd.session) { setError((verr && verr.message) || 'Invalid or expired code.'); setLoading(false); return; }
+                            const { data: link, error: lerr } = await supabase.rpc('link_current_seller');
+                            if (lerr || !link || link.error) { setError((link && link.message) || 'No seller account for this number — please register.'); setLoading(false); return; }
+                            localStorage.setItem('current_seller', JSON.stringify(link.seller));
+                            onLoginSuccess(link.seller);
+                        } catch (e) { setError('Something went wrong. Please try again.'); }
+                        setLoading(false);
+                        return;
+                    }
                 }
 
                 // ---------- FORGOT PIN (phone → SMS OTP → new PIN) ----------
@@ -451,7 +486,7 @@
 
                     <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                            {mode === 'login' ? 'Welcome Back' : mode === 'reset' ? 'Reset PIN' : 'Join Us'}
+                            {mode === 'login' ? 'Welcome Back' : mode === 'reset' ? 'Reset PIN' : mode === 'otp' ? 'Sign in with SMS' : 'Join Us'}
                         </h2>
 
                         {/* Phone — step 1 of every mode */}
@@ -469,7 +504,7 @@
                         )}
 
                         {/* OTP — register step 4, reset step 2 */}
-                        {((mode === 'register' && step === 4) || (mode === 'reset' && step === 2)) && (
+                        {((mode === 'register' && step === 4) || (mode === 'reset' && step === 2) || (mode === 'otp' && step === 2)) && (
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Enter the SMS code</label>
                                 <input
@@ -490,7 +525,7 @@
                         )}
 
                         {/* PIN — login/register step 1 (your/choose PIN), reset step 2 (new PIN) */}
-                        {((step === 1 && mode !== 'reset') || (mode === 'reset' && step === 2)) && (
+                        {((step === 1 && mode !== 'reset' && mode !== 'otp') || (mode === 'reset' && step === 2)) && (
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     {mode === 'login' ? 'Your PIN' : mode === 'reset' ? 'New 6-Digit PIN' : 'Choose a 6-Digit PIN'}
@@ -565,22 +600,30 @@
                             className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 transition-colors"
                         >
                             {loading ? <Spinner size="sm" /> : null}
-                            {mode === 'login' ? 'Sign In' : mode === 'reset' ? (step === 2 ? 'Reset PIN' : 'Send Code') : step === 4 ? 'Create Account' : step === 3 ? 'Send Code' : 'Continue'}
+                            {mode === 'login' ? 'Sign In' : mode === 'otp' ? (step === 2 ? 'Sign In' : 'Send Code') : mode === 'reset' ? (step === 2 ? 'Reset PIN' : 'Send Code') : step === 4 ? 'Create Account' : step === 3 ? 'Send Code' : 'Continue'}
                         </button>
 
                         {mode === 'login' && (
-                            <button
-                                onClick={() => switchTo('reset')}
-                                className="w-full text-center text-gray-500 hover:text-gray-700 font-medium py-1 text-sm"
-                            >
-                                Forgot PIN?
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => switchTo('otp')}
+                                    className="w-full text-center text-green-600 hover:text-green-700 font-medium py-1 text-sm"
+                                >
+                                    Sign in with an SMS code instead
+                                </button>
+                                <button
+                                    onClick={() => switchTo('reset')}
+                                    className="w-full text-center text-gray-500 hover:text-gray-700 font-medium py-1 text-sm"
+                                >
+                                    Forgot PIN?
+                                </button>
+                            </>
                         )}
                         <button
                             onClick={() => switchTo(mode === 'login' ? 'register' : 'login')}
                             className="w-full text-center text-green-600 hover:text-green-700 font-medium py-2 text-sm"
                         >
-                            {mode === 'register' ? 'Already have an account? Sign In' : mode === 'reset' ? '← Back to Sign In' : "Don't have an account? Register"}
+                            {mode === 'register' ? 'Already have an account? Sign In' : (mode === 'reset' || mode === 'otp') ? '← Back to Sign In' : "Don't have an account? Register"}
                         </button>
                     </div>
 
