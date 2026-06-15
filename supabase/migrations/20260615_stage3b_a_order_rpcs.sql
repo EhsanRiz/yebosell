@@ -1,0 +1,18 @@
+-- Stage 3b-A (applied 2026-06-15, additive — no RLS changes, nothing breaks yet).
+-- Groundwork for the RLS cutover: route public order creation + reads through
+-- SECURITY DEFINER RPCs so the anon key never needs direct access to `orders`.
+--
+--   update sellers set is_admin=true where phone='+26656300091';  -- MyShop = owner/admin
+--
+--   create_storefront_order(seller_id, name, phone, delivery_method, delivery_address,
+--     delivery_fee, payment_method, total, notes, discount_code, discount_amount, items jsonb)
+--     -> inserts order + order_items + platform_fee; returns {order_number, track_token, total}.
+--     (Stock decrement + discount usage stay client-side this increment.)
+--
+--   get_tracked_order_by_lookup(order_number, phone) -> sanitized order (server-side phone
+--     verify, no PII leak) for the legacy track form.
+--
+--   get_orders_by_otp(phone, otp) -> now also returns per-order `items` (for shop "My Orders"
+--     buy-again) so it needs no direct anon read of orders/order_items.
+--
+-- Full bodies applied live via MCP; see git history. All granted to anon, authenticated.
