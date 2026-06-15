@@ -1,0 +1,37 @@
+-- Stage 3b-C (applied 2026-06-15): RLS lockdown of the sensitive tables.
+-- orders / order_items / payments / platform_fees / notification_log are now
+-- accessible ONLY by the authenticated owner (seller_id belongs to auth.uid())
+-- or a platform admin. Public storefront/checkout/tracking go through SECURITY
+-- DEFINER RPCs (create_storefront_order, get_tracked_order, get_orders_by_otp/phone,
+-- get_tracked_order_by_lookup) which bypass RLS. Service role also bypasses RLS.
+--
+-- Helpers: is_platform_admin(), owns_seller(uuid)  [SECURITY DEFINER]
+-- Verified: a true anon client returns 0 rows for orders/order_items/payments/
+-- platform_fees, but products/sellers (storefront) still read, and checkout +
+-- tracking still work via the RPCs.
+--
+-- NOT locked this increment (still public): products, sellers, discount_codes,
+-- product_reviews, buyer_wishlists, platform_config, seller_settlements, customers,
+-- deliveries. (Increment 2 can scope their writes to owner/admin.)
+--
+-- ============================================================================
+-- ROLLBACK (restore the previous open access) if anything breaks:
+-- ============================================================================
+-- drop policy if exists orders_sel on public.orders; drop policy if exists orders_ins on public.orders;
+-- drop policy if exists orders_upd on public.orders; drop policy if exists orders_del on public.orders;
+-- create policy "Full access to orders" on public.orders for all using (true) with check (true);
+--
+-- drop policy if exists oi_sel on public.order_items; drop policy if exists oi_ins on public.order_items;
+-- drop policy if exists oi_upd on public.order_items; drop policy if exists oi_del on public.order_items;
+-- create policy "Full access to order_items" on public.order_items for all using (true) with check (true);
+--
+-- drop policy if exists pay_all on public.payments;
+-- create policy "Full access to payments" on public.payments for all using (true) with check (true);
+--
+-- drop policy if exists pf_sel on public.platform_fees; drop policy if exists pf_upd on public.platform_fees;
+-- create policy "Anyone can read platform_fees" on public.platform_fees for select using (true);
+-- create policy "Anyone can insert platform_fees" on public.platform_fees for insert with check (true);
+-- create policy "Anyone can update platform_fees" on public.platform_fees for update using (true);
+--
+-- drop policy if exists nl_ins on public.notification_log; drop policy if exists nl_sel on public.notification_log;
+-- create policy "Service role full access" on public.notification_log for all using (true) with check (true);
