@@ -363,30 +363,45 @@
         // ============================================================================
         const LoginScreen = ({ onLoginSuccess }) => {
             const [phone, setPhone] = useState('');
-            const [pin, setPin] = useState('');
+            const [otp, setOtp] = useState('');
+            const [step, setStep] = useState('phone');
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
 
+            const normPhone = (raw) => {
+                let p = (raw || '').replace(/[^0-9+]/g, '');
+                if (p.startsWith('0')) return '+27' + p.slice(1);
+                if (/^27\d/.test(p) && !p.startsWith('+')) return '+' + p;
+                if (/^266\d/.test(p) && !p.startsWith('+')) return '+' + p;
+                if (!p.startsWith('+')) return '+' + p;
+                return p;
+            };
+
             const handleLogin = async () => {
                 setError('');
-                if (!phone || phone.length < 10) { setError('Enter a valid phone number'); return; }
-                if (!pin || pin.length !== 6) { setError('PIN must be 6 digits'); return; }
+                const cleanPhone = normPhone(phone);
+                if (step === 'phone') {
+                    if (!phone || phone.length < 8) { setError('Enter a valid phone number'); return; }
+                    setLoading(true);
+                    try {
+                        const { error: e } = await supabase.auth.signInWithOtp({ phone: cleanPhone });
+                        if (e) { setError(e.message || 'Could not send code'); setLoading(false); return; }
+                        setStep('code');
+                    } catch (err) { setError('Could not send code'); }
+                    setLoading(false);
+                    return;
+                }
+                if (!otp || otp.length < 4) { setError('Enter the code sent to your phone'); return; }
                 setLoading(true);
                 try {
-                    let cleanPhone = phone.replace(/[^0-9+]/g, '');
-                    if (cleanPhone.startsWith('0')) cleanPhone = '+27' + cleanPhone.slice(1);
-                    else if (/^27\d/.test(cleanPhone) && !cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
-                    else if (/^266\d/.test(cleanPhone) && !cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
-
-                    const pinHash = hashPin(pin);
-                    const { data, error: qErr } = await supabase.from('sellers').select('*').eq('phone', cleanPhone).single();
-                    if (qErr) throw new Error('Phone or PIN incorrect');
-                    if (data.pin_hash !== pinHash) throw new Error('Phone or PIN incorrect');
-                    if (!data.is_admin) throw new Error('Access denied. Admin privileges required.');
-                    localStorage.setItem('admin_user', JSON.stringify(data));
-                    onLoginSuccess(data);
-                } catch (err) { setError(err.message); }
-                finally { setLoading(false); }
+                    const { data: vd, error: verr } = await supabase.auth.verifyOtp({ phone: cleanPhone, token: otp, type: 'sms' });
+                    if (verr || !vd || !vd.session) { setError((verr && verr.message) || 'Invalid or expired code'); setLoading(false); return; }
+                    const { data: link } = await supabase.rpc('link_current_seller');
+                    if (!link || !link.seller) { setError('No account found for this number'); setLoading(false); return; }
+                    if (!link.seller.is_admin) { await supabase.auth.signOut(); setError('Access denied. Admin privileges required.'); setLoading(false); return; }
+                    onLoginSuccess(link.seller);
+                } catch (err) { setError('Something went wrong. Please try again.'); }
+                setLoading(false);
             };
 
             return (
@@ -418,14 +433,25 @@
                         </div>
                         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm mb-4">{error}</div>}
                         <div className="space-y-3">
-                            <input type="tel" placeholder="Phone number" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
-                            <input type="password" placeholder="6-digit PIN" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                            {step === 'phone' ? (
+                                <input type="tel" placeholder="Admin phone number" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                            ) : (
+                                <>
+                                    <input type="text" inputMode="numeric" placeholder="6-digit code" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6}
+                                        onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-center text-lg tracking-widest focus:ring-2 focus:ring-admin-500 focus:border-transparent outline-none bg-gray-50" />
+                                    <p className="text-xs text-gray-500">We sent a 6-digit code by SMS to verify your admin number.</p>
+                                </>
+                            )}
                             <button onClick={handleLogin} disabled={loading}
                                 className="w-full py-3 bg-admin-600 hover:bg-admin-700 text-white rounded-xl font-semibold text-sm transition disabled:opacity-50">
-                                {loading ? 'Signing in...' : 'Sign In as Admin'}
+                                {loading ? 'Please wait...' : step === 'phone' ? 'Send Code' : 'Sign In as Admin'}
                             </button>
+                            {step === 'code' && (
+                                <button onClick={() => { setStep('phone'); setOtp(''); setError(''); }} className="w-full text-center text-gray-500 text-xs py-1 hover:text-gray-700">← Use a different number</button>
+                            )}
                         </div>
                     </div>
                     <div className="text-center mt-6">
@@ -977,16 +1003,18 @@
             const [settlements, setSettlements] = useState([]);
             const [config, setConfig] = useState({ fee_type: 'percentage', fee_value: 5, suspension_threshold: 500 });
 
-            // Auto-login from localStorage
+            // Auto-login from the shared Supabase session (set when an admin OTP's in here or in the dashboard)
             useEffect(() => {
-                const stored = localStorage.getItem('admin_user');
-                if (stored) {
+                (async () => {
                     try {
-                        const user = JSON.parse(stored);
-                        if (user.is_admin) { setAdmin(user); return; }
+                        const { data: sess } = await supabase.auth.getSession();
+                        if (sess && sess.session) {
+                            const { data: link } = await supabase.rpc('link_current_seller');
+                            if (link && link.seller && link.seller.is_admin) { setAdmin(link.seller); setLoading(false); return; }
+                        }
                     } catch (e) {}
-                }
-                setLoading(false);
+                    setLoading(false);
+                })();
             }, []);
 
             useEffect(() => { if (admin) loadAllData(); }, [admin]);
@@ -1008,7 +1036,8 @@
                 setLoading(false);
             };
 
-            const handleLogout = () => {
+            const handleLogout = async () => {
+                try { await supabase.auth.signOut(); } catch (e) {}
                 localStorage.removeItem('admin_user');
                 setAdmin(null);
             };

@@ -378,26 +378,31 @@
                 if (cart.length === 0) { alert('Cart is empty'); return; }
                 setSubmittingOrder(true);
                 try {
-                    const orderNumber = generateOrderNumber();
-                    const { data: order, error: orderError } = await supabase.from('orders').insert([{
-                        seller_id: seller.id, customer_name: formData.name, customer_phone: formData.phone,
-                        order_number: orderNumber, status: 'new', delivery_method: formData.delivery_method,
-                        delivery_address: formData.delivery_address || '',
-                        delivery_status: 'pending', delivery_fee: computedDeliveryFee,
-                        payment_method: formData.payment_method, total: finalTotal, notes: formData.notes, source: 'storefront',
-                        discount_code: discountApplied ? discountApplied.code : null,
-                        discount_amount: discountAmount
-                    }]).select().single();
-                    if (orderError) { alert('Failed to create order. Please try again.'); return; }
-
-                    await supabase.from('order_items').insert(cart.map(i => {
+                    const orderItems = cart.map(i => {
                         const variantLabel = [i.selectedColor, i.selectedSize].filter(Boolean).join(' / ');
                         return {
-                            order_id: order.id, product_id: i.id,
+                            product_id: i.id,
                             product_name: variantLabel ? `${i.name} (${variantLabel})` : i.name,
                             quantity: i.quantity, unit_price: i.price
                         };
-                    }));
+                    });
+                    const { data: result, error: orderError } = await supabase.rpc('create_storefront_order', {
+                        p_seller_id: seller.id,
+                        p_customer_name: formData.name,
+                        p_customer_phone: formData.phone,
+                        p_delivery_method: formData.delivery_method,
+                        p_delivery_address: formData.delivery_address || '',
+                        p_delivery_fee: computedDeliveryFee,
+                        p_payment_method: formData.payment_method,
+                        p_total: finalTotal,
+                        p_notes: formData.notes,
+                        p_discount_code: discountApplied ? discountApplied.code : null,
+                        p_discount_amount: discountAmount,
+                        p_items: orderItems
+                    });
+                    if (orderError || !result || result.error) { alert('Failed to create order. Please try again.'); setSubmittingOrder(false); return; }
+                    const orderNumber = result.order_number;
+                    const trackToken = result.track_token;
 
                     // Reduce inventory
                     for (const item of cart) {
@@ -426,27 +431,15 @@
                         await supabase.from('discount_codes').update({ used_count: discountApplied.used_count + 1 }).eq('id', discountApplied.id);
                     }
 
-                    // Create platform fee record
-                    try {
-                        const { data: pConfig } = await supabase.from('platform_config').select('fee_type, fee_value').limit(1).single();
-                        if (pConfig) {
-                            const feeAmt = pConfig.fee_type === 'percentage'
-                                ? finalTotal * Number(pConfig.fee_value) / 100
-                                : Number(pConfig.fee_value);
-                            await supabase.from('platform_fees').insert({
-                                order_id: order.id, seller_id: seller.id,
-                                order_total: finalTotal, fee_amount: Math.round(feeAmt * 100) / 100
-                            });
-                        }
-                    } catch (feeErr) { console.warn('Platform fee creation failed:', feeErr); }
+                    // (Order + items + platform fee are created atomically by the RPC above.)
 
                     // Tokenized tracking link (source of truth; no WhatsApp API needed)
-                    const trackUrl = `${SITE_URL}/track/?t=${order.track_token}`;
+                    const trackUrl = `${SITE_URL}/track/?t=${trackToken}`;
                     // Persist to the buyer's device so all their orders live in one place (the YeboSell app)
                     try {
                         const list = JSON.parse(localStorage.getItem('yebosell_orders') || '[]');
-                        const entry = { token: order.track_token, order_number: orderNumber, seller_name: seller.business_name, seller_slug: getSellerSlug(), created_at: new Date().toISOString() };
-                        const next = [entry, ...list.filter(o => o && o.token !== order.track_token)];
+                        const entry = { token: trackToken, order_number: orderNumber, seller_name: seller.business_name, seller_slug: getSellerSlug(), created_at: new Date().toISOString() };
+                        const next = [entry, ...list.filter(o => o && o.token !== trackToken)];
                         localStorage.setItem('yebosell_orders', JSON.stringify(next.slice(0, 100)));
                     } catch (e) {}
                     setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount, delivery_method: formData.delivery_method, delivery_fee: computedDeliveryFee, pickup_address: seller.pickup_address });
@@ -1495,18 +1488,21 @@
                 setLoading(true); setError('');
                 const normalized = normalizePhone(phone);
                 try {
-                    // Verify the SMS code server-side (marks it used, atomic)
+                    // Verify the SMS code server-side (marks it used) and get this buyer's orders+items
                     const { data: verified, error: vErr } = await supabase.rpc('get_orders_by_otp', { p_phone: normalized, p_otp: otp.trim() });
                     if (vErr || !verified || !verified.length) { setError('Invalid or expired code. Please try again.'); setLoading(false); return; }
 
-                    // Load this seller's orders (with items for buy-again)
-                    const { data: ordersData } = await supabase.from('orders')
-                        .select('*, order_items(*)')
-                        .eq('seller_id', sellerId)
-                        .eq('customer_phone', normalized)
-                        .order('created_at', { ascending: false });
+                    // Keep only this shop's orders; map RPC shape -> the shape the UI expects
+                    const ordersData = (verified || [])
+                        .filter(o => o.seller_id === sellerId)
+                        .map(o => ({
+                            order_number: o.order_number, created_at: o.created_at, status: o.status,
+                            payment_status: o.payment_status, delivery_status: o.delivery_status,
+                            total: o.total, track_token: o.token,
+                            order_items: (o.items || []).map(it => ({ product_name: it.product_name, product_id: it.product_id, quantity: it.quantity, unit_price: it.unit_price }))
+                        }));
 
-                    setOrders(ordersData || []);
+                    setOrders(ordersData);
                     setStep('orders');
                 } catch (err) { setError('Verification failed. Please try again.'); }
                 setLoading(false);

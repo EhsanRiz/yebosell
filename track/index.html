@@ -190,22 +190,12 @@
                 if (!searchPhone.trim()) { setError('Please enter your phone number for verification'); return; }
                 setLoading(true); setError(''); setSearched(true);
                 try {
-                    const { data, error: fetchError } = await supabase
-                        .from('orders').select('*').eq('order_number', searchNum.trim().toUpperCase()).single();
-                    if (fetchError || !data) { setError('Order not found. Please check your order number.'); setOrder(null); setLoading(false); return; }
-                    const cleanInput = searchPhone.replace(/[^0-9]/g, '');
-                    const cleanOrder = (data.customer_phone || '').replace(/[^0-9]/g, '');
-                    if (!cleanOrder.includes(cleanInput) && !cleanInput.includes(cleanOrder)) {
-                        setError('Phone number does not match this order.'); setOrder(null); setLoading(false); return;
-                    }
-                    setOrder(data);
-                    const { data: itemsData } = await supabase.from('order_items').select('*').eq('order_id', data.id);
-                    setItems(itemsData || []);
-                    const { data: sellerData } = await supabase.from('sellers')
-                        .select('business_name, phone, logo_url, pickup_address, delivery_notes, slug')
-                        .eq('id', data.seller_id).single();
-                    setSeller(sellerData);
-                    if (data.track_token) { persistMyOrder(data.track_token, { order: data, seller: sellerData }); setMyOrders(readMyOrders()); }
+                    // Server-side verified lookup (phone checked in the DB; no PII exposed to anon)
+                    const { data, error: rpcErr } = await supabase.rpc('get_tracked_order_by_lookup', { p_order_number: searchNum.trim(), p_phone: searchPhone });
+                    if (rpcErr || !data || !data.order) { setError('Order not found. Please check your order number and phone.'); setOrder(null); setLoading(false); return; }
+                    setOrder(data.order);
+                    setItems(data.items || []);
+                    setSeller(data.seller || null);
                 } catch (err) { setError('Something went wrong. Please try again.'); }
                 setLoading(false);
             };
