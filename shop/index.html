@@ -15,7 +15,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=7"></script>
+    <script src="/assets/config.js?v=8"></script>
 
     <script>
         tailwind.config = {
@@ -360,7 +360,7 @@
                     if (error || !data) { setDiscountError('Invalid discount code'); setDiscountApplied(null); setApplyingDiscount(false); return; }
                     if (data.expires_at && new Date(data.expires_at) < new Date()) { setDiscountError('This code has expired'); setDiscountApplied(null); setApplyingDiscount(false); return; }
                     if (data.max_uses && data.used_count >= data.max_uses) { setDiscountError('This code has reached its usage limit'); setDiscountApplied(null); setApplyingDiscount(false); return; }
-                    if (data.min_order > 0 && cartTotal < data.min_order) { setDiscountError(`Minimum order of R${parseFloat(data.min_order).toFixed(2)} required`); setDiscountApplied(null); setApplyingDiscount(false); return; }
+                    if (data.min_order > 0 && cartTotal < data.min_order) { setDiscountError(`Minimum order of M${parseFloat(data.min_order).toFixed(2)} required`); setDiscountApplied(null); setApplyingDiscount(false); return; }
                     setDiscountApplied(data);
                     setDiscountError('');
                 } catch (err) { setDiscountError('Could not validate code'); }
@@ -793,8 +793,8 @@
                                         <div className="space-y-2">
                                             {[
                                                 { value: 'pickup', label: "I'll Pickup", icon: '🏪', desc: 'Collect from seller', fee: 'Free' },
-                                                { value: 'self_delivery', label: 'Seller Delivery', icon: '🚗', desc: 'Delivered to your address', fee: seller?.delivery_fee > 0 ? (seller?.delivery_fee_type === 'free_above' ? `R${Number(seller.delivery_fee).toFixed(0)} (free above R${Number(seller.delivery_fee).toFixed(0)})` : `R${Number(seller.delivery_fee).toFixed(2)}`) : 'Free' },
-                                                { value: 'courier', label: 'Courier / Third Party', icon: '📦', desc: 'Via courier service', fee: seller?.delivery_fee > 0 ? `R${Number(seller.delivery_fee).toFixed(2)}` : 'Free' }
+                                                { value: 'self_delivery', label: 'Seller Delivery', icon: '🚗', desc: 'Delivered to your address', fee: seller?.delivery_fee > 0 ? (seller?.delivery_fee_type === 'free_above' ? `M${Number(seller.delivery_fee).toFixed(0)} (free above M${Number(seller.delivery_fee).toFixed(0)})` : `M${Number(seller.delivery_fee).toFixed(2)}`) : 'Free' },
+                                                { value: 'courier', label: 'Courier / Third Party', icon: '📦', desc: 'Via courier service', fee: seller?.delivery_fee > 0 ? `M${Number(seller.delivery_fee).toFixed(2)}` : 'Free' }
                                             ].filter(m => sellerDeliveryMethods.includes(m.value)).map(m => (
                                                 <label key={m.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${formData.delivery_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
                                                     <input type="radio" name="delivery" value={m.value} checked={formData.delivery_method === m.value}
@@ -883,7 +883,7 @@
                                                 <div>
                                                     <span className="text-sm font-mono font-bold text-green-700">{discountApplied.code}</span>
                                                     <span className="text-xs text-green-600 ml-2">
-                                                        {discountApplied.type === 'percentage' ? `${discountApplied.value}% off` : `R${parseFloat(discountApplied.value).toFixed(2)} off`}
+                                                        {discountApplied.type === 'percentage' ? `${discountApplied.value}% off` : `M${parseFloat(discountApplied.value).toFixed(2)} off`}
                                                     </span>
                                                 </div>
                                                 <button type="button" onClick={removeDiscount} className="text-xs text-red-500 font-semibold hover:text-red-700">Remove</button>

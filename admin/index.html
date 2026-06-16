@@ -10,7 +10,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=7"></script>
+    <script src="/assets/config.js?v=8"></script>
 
     <script>
         tailwind.config = {
@@ -614,8 +614,8 @@
                     <div className="card p-5 mb-6">
                         <h3 className="font-semibold text-gray-900 mb-2">Fee Configuration</h3>
                         <p className="text-sm text-gray-600">
-                            Current rate: <span className="font-bold text-admin-600">{config.fee_type === 'percentage' ? `${config.fee_value}%` : `R${Number(config.fee_value).toFixed(2)}`}</span> per order
-                            &nbsp;·&nbsp; Suspension threshold: <span className="font-bold text-red-500">R{Number(config.suspension_threshold).toFixed(2)}</span> outstanding
+                            Current rate: <span className="font-bold text-admin-600">{config.fee_type === 'percentage' ? `${config.fee_value}%` : `M${Number(config.fee_value).toFixed(2)}`}</span> per order
+                            &nbsp;·&nbsp; Suspension threshold: <span className="font-bold text-red-500">M{Number(config.suspension_threshold).toFixed(2)}</span> outstanding
                         </p>
                     </div>
 
@@ -1102,7 +1102,7 @@
                             <input type="number" value={feeValue} onChange={e => setFeeValue(e.target.value)} min="0" step={feeType === 'percentage' ? '0.5' : '0.01'}
                                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-admin-500" />
                             <p className="text-xs text-gray-400 mt-1">
-                                {feeType === 'percentage' ? `On a R100 order, platform earns R${(100 * parseFloat(feeValue || 0) / 100).toFixed(2)}` : `Flat R${parseFloat(feeValue || 0).toFixed(2)} per order`}
+                                {feeType === 'percentage' ? `On a M100 order, platform earns M${(100 * parseFloat(feeValue || 0) / 100).toFixed(2)}` : `Flat M${parseFloat(feeValue || 0).toFixed(2)} per order`}
                             </p>
                         </div>
                         <div>

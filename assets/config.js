@@ -32,7 +32,8 @@ window.hashPin = (pin) => {
     return hash.toString();
 };
 
-window.formatCurrency = (amount) => `R${parseFloat(amount || 0).toFixed(2)}`;
+// Lesotho Loti / Maloti (symbol "M", 1:1 with the Rand). Change to 'R' if launching in SA.
+window.formatCurrency = (amount) => `M${parseFloat(amount || 0).toFixed(2)}`;
 
 window.generateSlug = (name) => {
     return name.toLowerCase()
@@ -65,10 +66,13 @@ window.getStatusLabel = (status) => {
     return (status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
-// WhatsApp deep link helper
+// Convert any local or international phone into WhatsApp digits (E.164 without the +).
+// Routes through normalizePhone so local numbers get their country code (Lesotho +266 / SA +27).
+window.waNumber = (raw) => (window.normalizePhone ? window.normalizePhone(raw) : ('' + (raw || ''))).replace(/[^0-9]/g, '');
+
+// WhatsApp deep link helper — always targets the full international number.
 window.whatsappLink = (phone, message) => {
-    const cleanPhone = phone.replace(/[^0-9+]/g, '');
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${window.waNumber(phone)}?text=${encodeURIComponent(message)}`;
 };
 
 // WhatsApp share link (for sharing to groups)
