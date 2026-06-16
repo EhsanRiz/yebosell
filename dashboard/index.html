@@ -763,7 +763,10 @@
         // DASHBOARD SCREEN
         // ============================================================================
 
-        const DashboardScreen = ({ seller }) => {
+        const DashboardScreen = ({ seller, onNavigate }) => {
+            const isNewSeller = !window.localStorage.getItem('ys_welcomed_' + seller.id);
+            useEffect(() => { if (seller && seller.id) window.localStorage.setItem('ys_welcomed_' + seller.id, '1'); }, [seller && seller.id]);
+            const needsPickupAddress = (seller.delivery_methods || ['pickup']).includes('pickup') && !(seller.pickup_address && String(seller.pickup_address).trim());
             const [loading, setLoading] = useState(true);
             const [recentOrders, setRecentOrders] = useState([]);
             const [topProducts, setTopProducts] = useState([]);
@@ -950,7 +953,18 @@
 
             return (
                 <div>
-                    <PageHeader title={`Welcome back, ${seller.full_name}`} subtitle={seller.business_name} />
+                    <PageHeader title={isNewSeller ? `Welcome to YeboSell, ${seller.full_name}!` : `Welcome back, ${seller.full_name}`} subtitle={seller.business_name} />
+
+                    {needsPickupAddress && (
+                        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-amber-900">Finish setting up your storefront</p>
+                                <p className="text-xs text-amber-700 mt-0.5">Add your pickup address so buyers know where to collect their orders.</p>
+                            </div>
+                            <button onClick={() => onNavigate && onNavigate('settings')} className="text-xs font-semibold text-amber-800 underline whitespace-nowrap mt-0.5">Add address</button>
+                        </div>
+                    )}
 
                     {/* ===== TOP KPI CARDS ===== */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -4355,7 +4369,7 @@
                     <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
                         <div className="max-w-6xl mx-auto px-4 lg:px-8 py-5 lg:py-8">
                             <div className="tab-content">
-                                {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} />}
+                                {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} onNavigate={setCurrentTab} />}
                                 {currentTab === 'products' && <ProductsScreen seller={currentUser} />}
                                 {currentTab === 'orders' && <OrdersScreen seller={currentUser} />}
                                 {currentTab === 'payments' && <PaymentsScreen seller={currentUser} />}
