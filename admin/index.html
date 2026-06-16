@@ -632,10 +632,11 @@
                                 <tbody>
                                     {orders.slice(0, 15).map(o => {
                                         const fee = fees.find(f => f.order_id === o.id);
+                                        const oSeller = sellers.find(s => s.id === o.seller_id);
                                         return (
                                             <tr key={o.id} className="table-row border-b border-gray-50">
                                                 <td className="px-5 py-3 font-mono font-semibold text-xs">{o.order_number}</td>
-                                                <td className="px-5 py-3 text-gray-700">{o.seller_name || '—'}</td>
+                                                <td className="px-5 py-3 text-gray-700">{oSeller?.business_name || '—'}</td>
                                                 <td className="px-5 py-3 text-gray-600">{o.customer_name}</td>
                                                 <td className="px-5 py-3 font-semibold">{formatCurrency(o.total)}</td>
                                                 <td className="px-5 py-3 text-admin-600 font-medium">{fee ? formatCurrency(fee.fee_amount) : '—'}</td>
