@@ -470,7 +470,7 @@
             if (error) return (
                 <div className="flex items-center justify-center min-h-screen bg-gray-50">
                     <div className="text-center px-6 py-12">
-                        <div className="flex justify-center mb-4"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 20v-6h6v6"/></svg></div>
+                        <div className="text-5xl mb-4">🛍️</div>
                         <h1 className="text-2xl font-bold text-gray-800 mb-2">Store Not Found</h1>
                         <p className="text-gray-500 mb-6">{error}</p>
                         <a href="/" className="inline-block bg-brand-500 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-brand-600 transition">Back to Home</a>
@@ -656,11 +656,7 @@
                     <main className="max-w-5xl mx-auto px-4 py-6">
                         {filteredProducts.length === 0 ? (
                             <div className="text-center py-16">
-                                <div className="flex justify-center mb-4">{search || activeCategory !== 'All' ? (
-                                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                ) : (
-                                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.27 6.96 8.73 5.05 8.73-5.05"/><path d="M12 22.08V12"/></svg>
-                                )}</div>
+                                <div className="text-5xl mb-4">{search || activeCategory !== 'All' ? '🔍' : '📦'}</div>
                                 <p className="text-gray-500 text-lg">{search ? 'No products match your search' : 'No products available yet'}</p>
                                 <p className="text-gray-400 text-sm mt-1">{search ? 'Try a different keyword' : 'Check back soon!'}</p>
                                 {(search || activeCategory !== 'All') && (
@@ -799,13 +795,7 @@
                                                 <label key={m.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${formData.delivery_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
                                                     <input type="radio" name="delivery" value={m.value} checked={formData.delivery_method === m.value}
                                                         onChange={e => setFormData({...formData, delivery_method: e.target.value})} className="hidden"/>
-                                                    <span className="w-5 flex-shrink-0 flex justify-center">{m.value === 'pickup' ? (
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 20v-6h6v6"/></svg>
-                                                    ) : m.value === 'self_delivery' ? (
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17H3v-4l2-5h11l3 5v4h-2"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/><path d="M9 17h6"/></svg>
-                                                    ) : (
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.27 6.96 8.73 5.05 8.73-5.05"/><path d="M12 22.08V12"/></svg>
-                                                    )}</span>
+                                                    <span className="text-lg">{m.icon}</span>
                                                     <div className="flex-1">
                                                         <span className="text-sm font-semibold text-gray-800">{m.label}</span>
                                                         <span className="text-xs text-gray-500 ml-1.5">{m.desc}</span>
@@ -846,13 +836,7 @@
                                                 <label key={m.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${formData.payment_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
                                                     <input type="radio" name="payment" value={m.value} checked={formData.payment_method === m.value}
                                                         onChange={e => setFormData({...formData, payment_method: e.target.value})} className="hidden"/>
-                                                    <span className="w-5 flex-shrink-0 flex justify-center">{m.value === 'eft' ? (
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><path d="M4 21V10l8-5 8 5v11"/><line x1="9" y1="21" x2="9" y2="13"/><line x1="15" y1="21" x2="15" y2="13"/></svg>
-                                                    ) : m.value === 'mobile_money' ? (
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                                                    ) : (
-                                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg>
-                                                    )}</span>
+                                                    <span>{m.icon}</span>
                                                     <span className="text-sm font-medium text-gray-700">{m.label}</span>
                                                 </label>
                                             ))}
@@ -1617,7 +1601,7 @@
                                 <div className="slide-up">
                                     {orders.length === 0 ? (
                                         <div className="text-center py-8">
-                                            <div className="flex justify-center mb-3"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.27 6.96 8.73 5.05 8.73-5.05"/><path d="M12 22.08V12"/></svg></div>
+                                            <div className="text-4xl mb-3">📦</div>
                                             <p className="text-gray-500">No orders found for this number.</p>
                                         </div>
                                     ) : (
@@ -1701,13 +1685,7 @@
             const [refreshing, setRefreshing] = useState(false);
             const [currentOrder, setCurrentOrder] = useState(order);
             const statusTimeline = ['new', 'confirmed', 'preparing', 'dispatched', 'delivered'];
-            const statusIcons = {
-                new: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>),
-                confirmed: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>),
-                preparing: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>),
-                dispatched: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>),
-                delivered: (<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 16l2 2 4-4"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>),
-            };
+            const statusIcons = { new: '📋', confirmed: '✅', preparing: '👨‍🍳', dispatched: '🚚', delivered: '📦' };
             const statusDescriptions = { new: 'Your order has been received', confirmed: 'The seller has confirmed your order', preparing: 'Your order is being prepared', dispatched: 'Your order is on its way', delivered: 'Your order has been delivered' };
             const getStatusIndex = (s) => statusTimeline.indexOf(s);
             const currentIdx = getStatusIndex(currentOrder.status);
@@ -1733,9 +1711,7 @@
                         <div className="flex-1 overflow-y-auto modal-scroll p-5 space-y-5">
                             {/* Status header */}
                             <div className="text-center">
-                                <div className="flex justify-center mb-2" style={{ color: window.getStatusColor(currentOrder.status) }}>{currentOrder.status === 'cancelled' ? (
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                                ) : (statusIcons[currentOrder.status] || statusIcons.new)}</div>
+                                <div className="text-4xl mb-2">{currentOrder.status === 'cancelled' ? '❌' : (statusIcons[currentOrder.status] || '📋')}</div>
                                 <h3 className="text-xl font-bold" style={{ color: window.getStatusColor(currentOrder.status) }}>
                                     {window.getStatusLabel(currentOrder.status)}
                                 </h3>
@@ -1872,9 +1848,9 @@
                             <div>
                                 <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Payment Methods</h4>
                                 <div className="flex flex-wrap gap-2">
-                                    <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><path d="M4 21V10l8-5 8 5v11"/><line x1="9" y1="21" x2="9" y2="13"/><line x1="15" y1="21" x2="15" y2="13"/></svg>EFT</span>
-                                    <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>Mobile Money</span>
-                                    <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg>Cash</span>
+                                    <span className="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg">🏦 EFT</span>
+                                    <span className="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg">📱 Mobile Money</span>
+                                    <span className="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg">💵 Cash</span>
                                 </div>
                             </div>
 
