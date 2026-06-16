@@ -764,7 +764,7 @@
         // ============================================================================
 
         const DashboardScreen = ({ seller, onNavigate }) => {
-            const isNewSeller = !window.localStorage.getItem('ys_welcomed_' + seller.id);
+            const [isNewSeller] = useState(() => !window.localStorage.getItem('ys_welcomed_' + seller.id));
             useEffect(() => { if (seller && seller.id) window.localStorage.setItem('ys_welcomed_' + seller.id, '1'); }, [seller && seller.id]);
             const needsPickupAddress = (seller.delivery_methods || ['pickup']).includes('pickup') && !(seller.pickup_address && String(seller.pickup_address).trim());
             const [loading, setLoading] = useState(true);
