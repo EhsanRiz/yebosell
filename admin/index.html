@@ -1241,7 +1241,7 @@
             const loadAllData = async () => {
                 setLoading(true);
                 const [sellersRes, ordersRes, feesRes, settlementsRes, configRes] = await Promise.all([
-                    supabase.from('sellers').select('*').order('created_at', { ascending: false }),
+                    supabase.from('sellers').select('id, full_name, phone, business_name, location, preferred_language, is_active, created_at, updated_at, slug, business_description, banner_url, logo_url, business_hours, delivery_areas, social_links, address, seller_phone, is_admin, seller_status, delivery_methods, delivery_fee, delivery_fee_type, pickup_address, delivery_notes, is_demo').order('created_at', { ascending: false }),
                     supabase.from('orders').select('id, order_number, seller_id, customer_name, customer_phone, total, status, payment_status, delivery_method, payment_method, discount_code, discount_amount, created_at').order('created_at', { ascending: false }),
                     supabase.from('platform_fees').select('*').order('created_at', { ascending: false }),
                     supabase.from('seller_settlements').select('*').order('created_at', { ascending: false }),

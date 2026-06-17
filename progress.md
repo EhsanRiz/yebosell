@@ -11,6 +11,8 @@
 
 The product is **functionally complete and end-to-end tested** for a **Lesotho-first launch**. Remaining work is launch hygiene + optional deeper testing, not new features.
 
+> ⚠️ **2026-06-17 — critical RLS gap found & fixed (Stage 3c).** Stage 3b did **not** cover everything: 10 tables (`sellers`, `platform_config`, `products`, `discount_codes`, `customers`, `deliveries`, `product_reviews`, `buyer_wishlists`, `seller_settlements`, `webhook_message_log`) still had `USING (true)` policies **and full DML granted to `anon`**. Verified live: with only the public anon key, anyone could update platform fees, overwrite any seller's row (incl. bank_details), read every seller's contact details, and forge settlements/discounts. **Migration `20260617_stage3c_rls_close_remaining_tables.sql` closes all of it** (writes → owner/admin; sensitive seller columns hidden via column grants; checkout's stock/discount writes moved server-side into `create_storefront_order`). **Deploy order matters: ship the frontend (shop+admin column-select changes) to `main` BEFORE applying the migration**, or the live storefront breaks. After applying, re-run Supabase advisors to confirm the warnings clear. Existing sellers without `auth_user_id` are auto-backfilled by phone match (links Ehsan + MyShop); others self-link on their next OTP login.
+
 **Do before onboarding real sellers:**
 1. **Clean test/demo data** — decide whether to wipe the seed orders/sellers for clean launch metrics (the admin GMV currently reflects test data). Keep Naledi/Lineo as demo storefronts if desired.
 2. **Enable leaked-password protection** — Supabase → Auth → Settings (relevant now that the admin uses a password).
@@ -47,7 +49,7 @@ The dormant `whatsapp-notify` / `whatsapp-webhook` edge functions remain deploye
 - **Sellers** — Supabase phone-OTP session (BulkSMS) + bcrypt PIN device-unlock (`seller_secrets`). Register/forgot-PIN via OTP.
 - **Admin** — a *pure admin* (not a seller). Identity in `public.admins`; `is_platform_admin()` checks that table. Admin logs in with **phone + password** (`signInWithPassword`); OTP only for set/forgot password. MyShop was retired.
 
-**Security (Stage 3b):** full RLS lockdown. Orders/order_items/payments/platform_fees/notification_log/login-events/admin tables are owner + `is_platform_admin()` only; secrets/OTP tables are deny-all (reached only via SECURITY DEFINER RPCs). Verified: anon clients read nothing sensitive; public checkout/tracking still work.
+**Security (Stage 3b + 3c):** RLS lockdown. Orders/order_items/payments/platform_fees/notification_log/login-events/admin tables are owner + `is_platform_admin()` only; secrets/OTP tables are deny-all (reached only via SECURITY DEFINER RPCs). **Stage 3c (2026-06-17)** then closed the remaining storefront/seller tables that Stage 3b had left wide open — see the Pick-Up-Here note. Net: anon can only read storefront-public data (active products, public seller columns, active discount codes, visible reviews) and write nothing directly; sellers write their own rows (`owns_seller`); admin via `is_platform_admin()`.
 
 **Admin user-management:** seller drill-down (orders, GMV, products, fees, last login, login activity), reset PIN, suspend/deactivate/reactivate, Activity tab (login audit + admin-action audit), seller CSV export. All writes go through guarded RPCs and are logged to `admin_actions`.
 
@@ -59,7 +61,8 @@ The dormant `whatsapp-notify` / `whatsapp-webhook` edge functions remain deploye
 
 - **WhatsApp-free tracking** — `track_token` + `get_tracked_order` RPC, buyer PWA (manifest/service worker/icons), click-to-chat buyer templates (EN+Sesotho), phone-sync + "My Orders".
 - **Hardened seller auth** — bcrypt PIN in `seller_secrets`, OTP register/login/forgot-PIN RPCs, rate limiting, optional email; real Supabase phone-OTP sessions + PIN unlock.
-- **Stage 3b RLS lockdown** — closed all sensitive tables; routed public flows through SECURITY DEFINER RPCs; verified with a true anon client.
+- **Stage 3b RLS lockdown** — closed orders/payments/fees/etc.; routed public flows through SECURITY DEFINER RPCs; verified with a true anon client. *(Did not cover all tables — see Stage 3c.)*
+- **Stage 3c RLS lockdown (2026-06-17)** — closed the 10 tables Stage 3b missed (sellers/platform_config/products/discount_codes/customers/deliveries/product_reviews/buyer_wishlists/seller_settlements/webhook_message_log), each of which still allowed anon full DML. Writes scoped to owner/admin; sensitive seller columns (bank_details/email/auth_user_id) hidden via column-level grants; checkout stock + discount-usage writes moved server-side into `create_storefront_order`. Validated against prod in rolled-back transactions (anon blocked; owner/admin allowed; RPC decrements plain + variant stock correctly).
 - **Pure-admin model** — `admins` table, `is_platform_admin()` repointed, `admin_session` RPC, MyShop retired, stale +27 admin row cleared.
 - **Admin phone+password login** — OTP only for set/forgot (saves BulkSMS credits).
 - **Admin user-management UI** — reset PIN, suspend/deactivate, drill-down, Activity audit, CSV; fixed Recent-Orders seller-name column; fixed fee settlement to record admin id.

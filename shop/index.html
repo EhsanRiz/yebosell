@@ -206,7 +206,7 @@
                     if (!slug) { setError('Store not found. Please use a valid seller link.'); setLoading(false); return; }
                     try {
                         const { data: sellerData, error: sellerError } = await supabase
-                            .from('sellers').select('*').eq('slug', slug).single();
+                            .from('sellers').select('id, full_name, phone, business_name, location, preferred_language, is_active, created_at, updated_at, slug, business_description, banner_url, logo_url, business_hours, delivery_areas, social_links, address, seller_phone, is_admin, seller_status, delivery_methods, delivery_fee, delivery_fee_type, pickup_address, delivery_notes, is_demo').eq('slug', slug).single();
                         if (sellerError || !sellerData) { setError("This store doesn't exist. Please check the link."); setLoading(false); return; }
                         if (sellerData.seller_status === 'suspended') { setError("This store is temporarily unavailable. Please check back later."); setLoading(false); return; }
                         setSeller(sellerData);
@@ -383,7 +383,10 @@
                         return {
                             product_id: i.id,
                             product_name: variantLabel ? `${i.name} (${variantLabel})` : i.name,
-                            quantity: i.quantity, unit_price: i.price
+                            quantity: i.quantity, unit_price: i.price,
+                            // Variant selection so the RPC can decrement the right variant's stock.
+                            variant_color: i.selectedColor || null,
+                            variant_size: i.selectedSize || null
                         };
                     });
                     const { data: result, error: orderError } = await supabase.rpc('create_storefront_order', {
@@ -404,34 +407,9 @@
                     const orderNumber = result.order_number;
                     const trackToken = result.track_token;
 
-                    // Reduce inventory
-                    for (const item of cart) {
-                        const hasVariant = item.selectedColor || item.selectedSize;
-                        if (hasVariant && item.variants) {
-                            const { data: prod } = await supabase.from('products').select('variants').eq('id', item.id).single();
-                            if (prod && Array.isArray(prod.variants)) {
-                                const updatedVariants = prod.variants.map(v => {
-                                    if (v.color === item.selectedColor && v.size === item.selectedSize) {
-                                        return { ...v, stock: Math.max(0, (parseInt(v.stock) || 0) - item.quantity) };
-                                    }
-                                    return v;
-                                });
-                                await supabase.from('products').update({ variants: updatedVariants }).eq('id', item.id);
-                            }
-                        } else if (item.stock !== null && item.stock !== undefined) {
-                            const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
-                            if (prod && prod.stock !== null) {
-                                await supabase.from('products').update({ stock: Math.max(0, prod.stock - item.quantity) }).eq('id', item.id);
-                            }
-                        }
-                    }
-
-                    // Increment discount code usage
-                    if (discountApplied) {
-                        await supabase.from('discount_codes').update({ used_count: discountApplied.used_count + 1 }).eq('id', discountApplied.id);
-                    }
-
-                    // (Order + items + platform fee are created atomically by the RPC above.)
+                    // Order + items + platform fee + inventory decrement + discount usage are all
+                    // handled atomically, server-side, by create_storefront_order (SECURITY DEFINER).
+                    // The storefront no longer writes to products/discount_codes directly.
 
                     // Tokenized tracking link (source of truth; no WhatsApp API needed)
                     const trackUrl = `${SITE_URL}/track/?t=${trackToken}`;
