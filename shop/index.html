@@ -571,7 +571,7 @@
                                     {/* Action buttons */}
                                     <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
                                         {seller?.phone && (
-                                            <a href={`https://wa.me/${seller.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener"
+                                            <a href={`https://wa.me/${window.waNumber(seller.phone)}`} target="_blank" rel="noopener"
                                                 className="glass text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-white/20 transition">
                                                 <WhatsAppIcon size={14} /> Chat with Us
                                             </a>
@@ -977,7 +977,7 @@
                                             <p>Your order will be delivered to the address you provided.</p>
                                         </div>
                                     )}
-                                    <a href={`https://wa.me/${(orderData.seller_phone || '').replace(/[^0-9]/g, '')}?text=Hi, I just placed order %23${orderData.order_number} for ${formatCurrency(orderData.total)} on your store.`}
+                                    <a href={`https://wa.me/${window.waNumber(orderData.seller_phone)}?text=Hi, I just placed order %23${orderData.order_number} for ${formatCurrency(orderData.total)} on your store.`}
                                         target="_blank" rel="noopener"
                                         className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
                                         <WhatsAppIcon size={18} />
@@ -1769,7 +1769,7 @@
                                 {refreshing ? 'Refreshing...' : 'Refresh Status'}
                             </button>
                             {seller?.phone && (
-                                <a href={`https://wa.me/${seller.phone.replace(/[^0-9]/g, '')}?text=Hi, I'd like an update on my order ${currentOrder.order_number}`}
+                                <a href={`https://wa.me/${window.waNumber(seller.phone)}?text=Hi, I'd like an update on my order ${currentOrder.order_number}`}
                                     target="_blank" rel="noopener"
                                     className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
                                     <WhatsAppIcon size={18} /> Ask About This Order
@@ -1870,7 +1870,7 @@
 
                             {/* WhatsApp chat */}
                             {seller?.phone && (
-                                <a href={`https://wa.me/${seller.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener"
+                                <a href={`https://wa.me/${window.waNumber(seller.phone)}`} target="_blank" rel="noopener"
                                     className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md">
                                     <WhatsAppIcon size={18} /> Chat on WhatsApp
                                 </a>
