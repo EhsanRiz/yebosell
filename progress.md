@@ -1,187 +1,86 @@
 # YeboSell — Progress Log
-**Date:** 26 April 2026 (updated late-session)
+**Updated:** 16 June 2026
 **Live site:** https://yebosell.co.za
-**GitHub:** https://github.com/EhsanRiz/yebosell (main, latest `3bfeb9b`)
+**GitHub:** https://github.com/EhsanRiz/yebosell (main)
 **Supabase project:** `nizrqwvfuxbuhertypva`
-**Cloudflare Worker:** `yebosell`
+**Cloudflare Worker:** `yebosell` (auto-deploys from GitHub `main` via Cloudflare Git integration)
 
 ---
 
 ## 🎯 PICK UP HERE (start of next session)
 
-You're mid-flight on **WhatsApp BSP setup via 360Dialog**. The remaining steps before you can call the WhatsApp Cloud API from YeboSell:
+The product is **functionally complete and end-to-end tested** for a **Lesotho-first launch**. Remaining work is launch hygiene + optional deeper testing, not new features.
 
-### Immediate next action
-**Finish deploying the InnovaEarth website**, because Meta's BSP / WABA verification needs a public, branded site that ties to InnovaEarth (Pty) Ltd. We built the site this session and pushed it to GitHub, but Cloudflare Pages needs to be wired up.
+**Do before onboarding real sellers:**
+1. **Clean test/demo data** — decide whether to wipe the seed orders/sellers for clean launch metrics (the admin GMV currently reflects test data). Keep Naledi/Lineo as demo storefronts if desired.
+2. **Enable leaked-password protection** — Supabase → Auth → Settings (relevant now that the admin uses a password).
+3. **Confirm platform fee values** — currently 5% per order, seller auto-suspends at M500 outstanding.
+4. **Rotate the GitHub PAT** that was used for pushes this cycle.
 
-**Steps to resume:**
-1. **Cloudflare Dashboard → Workers & Pages → Create application → Pages → Connect to Git → `EhsanRiz/innovaearth`**
-   - Build settings: leave all blank (no build command, no output dir)
-   - Production branch: `main`
-   - Click **Save and Deploy** — first deploy in ~60s
-2. **Custom domains → Add `innovaearth.com`** → Cloudflare auto-creates the CNAME
-3. Smoke test the live site at https://innovaearth.com (8 pages)
-4. **Then proceed to 360Dialog signup** at https://hub.360dialog.com/signup
-   - Plan: **Regular ($59/month + Meta wholesale)** — includes BSP support layer, 80 msg/sec, 24/7 support
-   - Use **InnovaEarth (Pty) Ltd** as the registered entity
-   - Use the **fresh SA SIM** that's been confirmed never-used-on-WhatsApp
-   - You'll need: CIPC registration cert, business proof of address, director ID
-5. Once 360Dialog is live: WhatsApp Cloud API number → submit message templates for Meta approval (order confirmation, status updates, delivery notifications, OTP)
-6. Update Supabase Edge Functions (`whatsapp-notify`, `whatsapp-webhook`) to use 360Dialog API instead of direct Meta Graph API
+**Optional (untested corners):** seller Settings (pickup address/bank/bio), Discounts (create+apply), Payments tab, Templates, Forgot-PIN, buyer "My Orders" lookup, admin Fees settlement.
 
-### Why 360Dialog over Infobip
-At YeboSell's current volume (~1.5k msgs/mo), Infobip would be ~$45/mo cheaper. We chose 360Dialog anyway because:
-- Previous WABA was permanently banned — account stability is the #1 risk now, and 360Dialog has the closest active Meta relationship
-- Faster template approval queue (WhatsApp-only specialist)
-- Embedded Signup gets you live in under an hour vs Infobip's sales-led onboarding
-- BSP can be switched later without losing the WABA (the WABA stays with Meta; only routing changes)
+See `YeboSell_Launch_Readiness.md` and `YeboSell_E2E_Findings.md` (kept in the Cowork outputs folder, not in the repo) for detail.
 
 ---
 
-## InnovaEarth (parent / principal entity) — current status
+## ⚠️ MAJOR PIVOT — WhatsApp-FREE model (supersedes all BSP/360Dialog plans)
 
-InnovaEarth (Pty) Ltd is the registered SA company that **owns** YeboSell. To run WhatsApp via 360Dialog under the InnovaEarth entity, we built out InnovaEarth's public infrastructure this session.
+The previous direction (WhatsApp Cloud API via a BSP — 360Dialog/Infobip — under the InnovaEarth entity) is **abandoned**. The prior WABA was permanently banned and re-registration was high-risk. YeboSell now needs **no WhatsApp Business API at all**:
 
-| Item | Status | Notes |
-|------|--------|-------|
-| Domain `innovaearth.com` | ✅ Active on Cloudflare | DNS managed, 2 nameservers swapped at registrar |
-| Google Workspace email | ✅ Live | `hello@innovaearth.com` sending and receiving |
-| DKIM authentication | ⚠️ Verify | Confirm in Google Admin Console → Apps → Gmail → Authenticate email → status should be "Authenticated" |
-| DMARC TXT record | ⚠️ Add manually | Cloudflare DNS → TXT, name `_dmarc`, content `v=DMARC1; p=none; rua=mailto:hello@innovaearth.com` |
-| InnovaEarth website (8 pages) | ✅ Built + pushed | Repo: github.com/EhsanRiz/innovaearth, latest commit `866642a` |
-| Cloudflare Pages deployment | ⏳ Pending | Connect repo to Pages, bind `innovaearth.com` |
+- **Buyer notifications = click-to-chat.** The seller taps "Message" and their own WhatsApp opens with a pre-filled status message (EN + Sesotho templates). No API, no per-message cost, no WABA.
+- **Order tracking = tokenized link + buyer PWA.** Each order gets a `track_token`; buyers open `/track/?t=…`, an installable PWA, to follow status. Also "My Orders" lookup by phone.
+- **Seller auth OTP = BulkSMS** (not WhatsApp), via a Supabase Auth Send-SMS hook.
 
-**InnovaEarth repo location (local):** `/Users/ehsanrizvi/Documents/Claude/Projects/InnovaEarth/`
-**InnovaEarth Cloudflare account:** Same as YeboSell — `3ed4a36f8edbaa255c5d1bf30fd6169c`
+The dormant `whatsapp-notify` / `whatsapp-webhook` edge functions remain deployed but neutralized — safe to delete.
 
 ---
 
-## SESSION WORK (26 April 2026 — late session, after rebrand)
+## CURRENT ARCHITECTURE
 
-### WhatsApp BSP analysis & decision
-- Compared 360Dialog ($59/mo) vs Infobip (~$15-20/mo) vs Meta Cloud API direct (~$13/mo) at YeboSell's volume
-- Decision: **360Dialog Regular plan** for account stability + faster template approvals after the prior WABA ban
-- Confirmed prerequisites: SA SIM activated, number never on WhatsApp, InnovaEarth docs ready
+**Frontend:** single-file HTML pages (`index.html` landing, `dashboard/`, `shop/`, `admin/`, `track/`, `privacy/`, `terms/`). React 18 + in-browser Babel for the app pages; shared helpers on `window.*` in `assets/config.js`.
 
-### InnovaEarth domain + email
-- Added `innovaearth.com` to Cloudflare via "Connect a domain" flow
-- Set up Google Workspace via OAuth-managed DNS (verification TXT + 5 MX records auto-written by Google into Cloudflare)
-- `hello@innovaearth.com` confirmed sending and receiving
+**CDN deps are PINNED** (a v8 Babel auto-update silently blanked every React page on 2026-06-16): React 18, supabase-js 2, **`@babel/standalone@7`**, **Tailwind `cdn.tailwindcss.com/3.4.16`**. Do not unpin. If a React page goes blank, check the Babel CDN version first.
 
-### InnovaEarth website built (8 pages)
-- Complete site at `/Users/ehsanrizvi/Documents/Claude/Projects/InnovaEarth/`, pushed to github.com/EhsanRiz/innovaearth
-- Stack: pure static HTML + CSS + tiny vanilla JS, no build step, deploys to Cloudflare Pages
-- Pages: Home, About, Services, Solutions, AI & Innovation, Who We Serve, Insights, Contact
-- Brand: deep navy `#163A5C` + teal `#3FBFB4`, Fraunces serif headings + Inter body, custom inline-SVG globe motif on hero
-- Logo cropped from 1000×1000 → 603×413 to remove whitespace; CSS heights bumped (header 56-64px, footer 72px)
-- Contact form uses `mailto:` to `hello@innovaearth.com` (swap to a real backend later)
+**Backend:** Supabase Postgres. Public flows run through `SECURITY DEFINER` RPCs (checkout `create_storefront_order`, tracking `get_tracked_order`, seller auth `seller_login`/`seller_register`/`seller_reset_pin`, admin `admin_*`). Migrations recorded in `supabase/migrations/`.
 
-### Strategic deliverable produced
-- Full website strategy & copy document (brand strategy, sitemap, navigation, messaging framework, page-by-page copy, CTA set, SEO metadata, design direction, component library, future expansion). Lives in this conversation; can be saved as a markdown file in the InnovaEarth folder if needed.
+**Auth & roles:**
+- **Sellers** — Supabase phone-OTP session (BulkSMS) + bcrypt PIN device-unlock (`seller_secrets`). Register/forgot-PIN via OTP.
+- **Admin** — a *pure admin* (not a seller). Identity in `public.admins`; `is_platform_admin()` checks that table. Admin logs in with **phone + password** (`signInWithPassword`); OTP only for set/forgot password. MyShop was retired.
+
+**Security (Stage 3b):** full RLS lockdown. Orders/order_items/payments/platform_fees/notification_log/login-events/admin tables are owner + `is_platform_admin()` only; secrets/OTP tables are deny-all (reached only via SECURITY DEFINER RPCs). Verified: anon clients read nothing sensitive; public checkout/tracking still work.
+
+**Admin user-management:** seller drill-down (orders, GMV, products, fees, last login, login activity), reset PIN, suspend/deactivate/reactivate, Activity tab (login audit + admin-action audit), seller CSV export. All writes go through guarded RPCs and are logged to `admin_actions`.
+
+**Currency:** Maloti (**M**) app-wide (`formatCurrency`); landing page is geo-aware (Maloti for Lesotho, ZAR for SA visitors).
 
 ---
 
-## EARLIER SESSION WORK (26 April 2026 — rebrand)
+## SESSION WORK (June 2026)
 
-### Rebrand: Khotso Connect → YeboSell
-- 9 files updated: `wrangler.toml`, `assets/config.js`, `index.html`, `dashboard/`, `shop/`, `admin/`, `track/`, `privacy/`, `terms/`
-- New brand: **YeboSell** — "Yebo" green + "Sell" gold split-color wordmark
-- Domain: `khotsoconnect.com` → `yebosell.co.za` everywhere (SITE_URL fallback, OG meta, contact links)
-- `BRAND_NAME = 'YeboSell'` in `assets/config.js`
-- Privacy & Terms attribute YeboSell as "a product of InnovaEarth (Pty) Ltd, operated by 4D Climate Solutions (Lesotho)"
-- Footer credit blocks reflect "A product of InnovaEarth · Developed by 4D Climate Solutions"
-- WhatsApp order-history signature → "_Sent from YeboSell_"
-- New CSS class `.brand-green` / `.kc-green` for the green half of the wordmark
-
-### Infrastructure
-- GitHub repo renamed: `EhsanRiz/whatsapp-seller-os` → `EhsanRiz/yebosell` (old URL auto-redirects)
-- Cloudflare Worker renamed: `whatsapp-seller-os` → `yebosell`
-- `wrangler.toml` `name` field synced to `yebosell` (resolves Cloudflare's mismatch warning)
-- Cloudflare Git binding reconnected to the renamed repo
-- `.gitignore` now excludes `.claude/` to keep per-user Claude Code settings out of the repo
-
-### OG image regenerated
-- New `assets/og-image.png` (1200×630): green gradient, "Yebo" white + "Sell" gold wordmark, tagline, InnovaEarth × 4D attribution
-- Generator script committed at `scripts/og-image.py` for future tweaks
-- Note: WhatsApp/Facebook cache OG images — use [FB Sharing Debugger](https://developers.facebook.com/tools/debug/) → "Scrape Again" to refresh
-
-### Landing page footer fixes
-- "A product of 4D Climate Solutions" → "Developed by 4D Climate Solutions" (4D is the developer; InnovaEarth is the principal)
-- Removed incorrect link from "InnovaEarth" (was pointing at 4dcs.co.za)
-- Wrapped Yebo|Sell spans in a parent span in mobile drawer + footer so the `.logo` flex `gap` stops separating them
-
-### Commits this session (in order)
-```
-3bfeb9b Add progress.md to repo
-cf7fa91 Regenerate OG image for YeboSell + landing footer fixes
-6c4f417 Rename worker in wrangler.toml: whatsapp-seller-os → yebosell
-ccf8a49 Rebrand: Khotso Connect → YeboSell
-```
-
----
-
-## PREVIOUS SESSION WORK (12 April 2026 — Khotso Connect era, now superseded)
-
-### Geo-based localization
-- Cloudflare `/cdn-cgi/trace` detects visitor country
-- Lesotho default: Maloti (M), +266 phone, Lesotho flag SVG
-- South Africa: ZAR (R), +27 phone, SA flag SVG
-- All currency references wrapped in `.geo-currency` class
-
-### Demo stores (browse-only)
-- `is_demo` boolean on `sellers` table
-- 3 demo sellers seeded: Naledi's Boutique (`naledi-boutique`), Tech Zone Jozi (`tech-zone-jozi`), Lineo's Crafts (`lineo-crafts`)
-- 6 products each, with photos in `assets/demo-products/`
-- `addToCart()` returns early if `isDemo`; cart stays empty; "Open your own free store →" CTA replaces Add to Cart
-
-### Landing page polish
-- Mobile sidebar drawer, login overlap fix, bottom nav scroll
-- Realistic phone mockup, CSS dashboard mockup, testimonials, FAQ
-- Open Graph + Twitter Card meta tags
-- Featured stores section linking to demo stores
-- Mobile demo slideshow nav (prev/next + dot indicators + swipe)
-- Track Order in landing nav
-
-### Other earlier features
-- Admin panel + platform fees + seller status gate
-- Delivery management system (delivery_method, delivery_status, addresses, courier/pickup/taxi/bus)
-- Clickable detail panels in admin
-- Discount codes management, low stock alerts, checkout discounts
-- Order tracking timeline matched to seller dashboard statuses
-- Repeat order, buy again, track from My Orders
-- Send Order History to WhatsApp button
+- **WhatsApp-free tracking** — `track_token` + `get_tracked_order` RPC, buyer PWA (manifest/service worker/icons), click-to-chat buyer templates (EN+Sesotho), phone-sync + "My Orders".
+- **Hardened seller auth** — bcrypt PIN in `seller_secrets`, OTP register/login/forgot-PIN RPCs, rate limiting, optional email; real Supabase phone-OTP sessions + PIN unlock.
+- **Stage 3b RLS lockdown** — closed all sensitive tables; routed public flows through SECURITY DEFINER RPCs; verified with a true anon client.
+- **Pure-admin model** — `admins` table, `is_platform_admin()` repointed, `admin_session` RPC, MyShop retired, stale +27 admin row cleared.
+- **Admin phone+password login** — OTP only for set/forgot (saves BulkSMS credits).
+- **Admin user-management UI** — reset PIN, suspend/deactivate, drill-down, Activity audit, CSV; fixed Recent-Orders seller-name column; fixed fee settlement to record admin id.
+- **Brand-tight redesign** — replaced emoji-as-icons with green/gold Lucide line icons (landing feature grid + demo steps, shop checkout/empty-states/status/badges); fixed inaccurate "automatic WhatsApp" copy → "Buyer Notifications".
+- **CDN pinning** — Babel→@7, Tailwind→3.4.16 (fixed a site-wide blank-page outage).
+- **Currency → Maloti (M)** across the app.
+- **Critical bug fix** — notify-buyer WhatsApp link now uses the full international number via `window.waNumber()` (was sending local 8-digit with no country code).
+- **First-login greeting** ("Welcome to YeboSell" vs "Welcome back") + **storefront setup nudge** (prompt for pickup address).
+- **End-to-end tested** (buyer order→tracking, seller register→product→order→status→notify, admin actions→audit) — all core flows pass.
 
 ---
 
 ## OPEN FOLLOW-UPS
 
-### Immediate / next (in order)
-1. **Deploy InnovaEarth site to Cloudflare Pages** + bind `innovaearth.com` custom domain ← *START HERE*
-2. **Verify InnovaEarth email deliverability** — confirm DKIM is "Authenticated" in Google Admin Console; add the DMARC TXT record to Cloudflare DNS
-3. **360Dialog signup** at hub.360dialog.com using InnovaEarth (Pty) Ltd, the fresh SA SIM, and InnovaEarth registration docs
-4. **Submit WhatsApp message templates** through 360Dialog for Meta approval (order confirmation, status updates, delivery notifications, OTP)
-5. **Update Supabase Edge Functions** (`whatsapp-notify`, `whatsapp-webhook`) to call the 360Dialog API instead of Meta Graph API directly
-6. **End-to-end test:** place a test order on yebosell.co.za, verify WhatsApp confirmation reaches the buyer
+**Launch hygiene (do first):** clean test/demo data · enable leaked-password protection · confirm fee values · rotate GitHub PAT.
 
-### Lower priority
-7. Style the raw URL in How It Works as a browser-bar mockup
-8. Smoke test live yebosell.co.za across all pages post-deploy
-9. Register YeboSell / InnovaEarth as a tax/VAT entity if applicable
-10. Consider SMS fallback for order notifications (if needed later)
-11. Transition demo stores to real featured stores once real sellers sign up
-12. Rename internal CSS prefix `kc-` to `ys-` (cosmetic; not user-visible)
-13. Swap InnovaEarth contact form `mailto:` backend for a real endpoint (Cloudflare Worker / Formspree) once inquiry volume justifies it
+**Hardening / cleanup (low priority):** delete dormant `whatsapp-notify`/`whatsapp-webhook` edge functions · `REVOKE EXECUTE` on `admin_*` RPCs from `anon` (defense-in-depth; they already self-guard) · normalize buyer phone to E.164 on store in `create_storefront_order` · pin `search_path` on remaining non-definer functions.
 
-### Done
-- ✅ Brand identity finalized: YeboSell on yebosell.co.za
-- ✅ Repo renamed and Cloudflare reconnected
-- ✅ Worker renamed and wrangler.toml synced
-- ✅ OG image regenerated with new branding
-- ✅ Privacy/Terms attribution updated to InnovaEarth × 4D Climate Solutions
-- ✅ progress.md tracked in repo and updated each session
-- ✅ BSP decision made (360Dialog Regular plan)
-- ✅ InnovaEarth domain on Cloudflare + Google Workspace email live
-- ✅ InnovaEarth full website built and pushed to GitHub
+**Known minor (cosmetic):** admin action buttons use native `confirm()` dialogs · repo root `.md` files (this file, HANDOFF, SPECs) are web-served at yebosell.co.za/… — move out of web root if that matters.
+
+**SA expansion (parked):** SA (+27) SMS OTP doesn't deliver (Sender-ID/WASPA rules). Don't onboard +27 sellers until resolved. Switch `formatCurrency` back to geo-aware or "R" when launching SA.
 
 ---
 
@@ -190,8 +89,9 @@ ccf8a49 Rebrand: Khotso Connect → YeboSell
 | What | Where |
 |------|-------|
 | YeboSell product code (this repo) | https://github.com/EhsanRiz/yebosell |
-| InnovaEarth website code | https://github.com/EhsanRiz/innovaearth |
-| Local YeboSell main worktree | `/Users/ehsanrizvi/Documents/Claude/Projects/WhatsApp Seller OS/` |
-| Local InnovaEarth folder | `/Users/ehsanrizvi/Documents/Claude/Projects/InnovaEarth/` |
-| InnovaEarth source materials (PDF, logo, contracts) | `/Users/ehsanrizvi/Library/CloudStorage/OneDrive-4DClimateSolutions/Projects/InnovaEarth/` |
-| YeboSell HANDOFF.md (local-only, contains GitHub PAT) | `/Users/ehsanrizvi/Documents/Claude/Projects/WhatsApp Seller OS/HANDOFF.md` |
+| Local YeboSell folder | `/Users/ehsanrizvi/Documents/Claude/Projects/YeboSell/` |
+| InnovaEarth website (parent entity site) | https://github.com/EhsanRiz/innovaearth |
+| Launch-readiness report | Cowork outputs: `YeboSell_Launch_Readiness.md` |
+| E2E test findings | Cowork outputs: `YeboSell_E2E_Findings.md` |
+
+> Note: the WhatsApp BSP / 360Dialog / InnovaEarth-WABA workstream from the April log is **superseded** by the WhatsApp-free model above.
