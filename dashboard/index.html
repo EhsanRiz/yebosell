@@ -337,7 +337,16 @@
                         const { data: res, error: rpcErr } = await supabase.rpc('seller_login', { p_phone: cleanPhone, p_pin: pin });
                         if (rpcErr) throw new Error('Something went wrong. Please try again.');
                         if (!res || res.error) throw new Error((res && res.message) || 'Phone or PIN incorrect');
+                        // A correct PIN unlocks the device, but secure actions (products, photos,
+                        // orders) need an active Supabase session. If this device has none, verify
+                        // once with an SMS code to activate it — otherwise writes fail under RLS.
+                        const { data: sd } = await supabase.auth.getSession();
                         localStorage.setItem('current_seller', JSON.stringify(res.seller));
+                        if (!sd || !sd.session) {
+                            setInfo('One quick step: verify this device with an SMS code to finish signing in.');
+                            setMode('otp'); setStep(1);
+                            return;
+                        }
                         onLoginSuccess(res.seller);
                     } catch (err) { setError(err.message); } finally { setLoading(false); }
                     return;
@@ -4239,12 +4248,16 @@
                     let session = null;
                     try { const { data } = await supabase.auth.getSession(); session = data ? data.session : null; } catch (e) {}
                     const stored = localStorage.getItem('current_seller');
-                    if (stored) {
+                    if (stored && session) {
                         try {
                             setCurrentUser(JSON.parse(stored));
                             const unlocked = sessionStorage.getItem('yebosell_unlocked') === '1';
-                            if (session && !unlocked) setLocked(true);
+                            if (!unlocked) setLocked(true);
                         } catch (e) { console.error('Parse error:', e); }
+                    } else if (stored && !session) {
+                        // Session expired/absent — don't enter a write-disabled dashboard.
+                        // Require a fresh sign-in so RLS-protected actions keep working.
+                        localStorage.removeItem('current_seller');
                     }
                     setBooting(false);
                 })();
