@@ -40,13 +40,26 @@ for i, cx in enumerate((bx + 45, bx + 70, bx + 95)):
 img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
 draw = ImageDraw.Draw(img)
 
-# Fonts
-ARIAL_BOLD = '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
-ARIAL = '/System/Library/Fonts/Supplemental/Arial.ttf'
-title_font = ImageFont.truetype(ARIAL_BOLD, 180)
-sub_font = ImageFont.truetype(ARIAL_BOLD, 38)
-tag_font = ImageFont.truetype(ARIAL, 30)
-attr_font = ImageFont.truetype(ARIAL, 22)
+# Fonts — first existing path wins, so this runs on macOS or Linux.
+def load_font(size, bold):
+    candidates = (
+        ['/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+         '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+         '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf']
+        if bold else
+        ['/System/Library/Fonts/Supplemental/Arial.ttf',
+         '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+         '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf']
+    )
+    for path in candidates:
+        if Path(path).exists():
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+title_font = load_font(180, bold=True)
+sub_font = load_font(38, bold=True)
+tag_font = load_font(30, bold=False)
+attr_font = load_font(22, bold=False)
 
 def text_w(s, font):
     return draw.textlength(s, font=font)
@@ -62,7 +75,7 @@ draw.text((start_x, title_y), yebo, fill=WHITE, font=title_font)
 draw.text((start_x + yw, title_y), sell, fill=GOLD, font=title_font)
 
 # Subtitle
-sub = 'WhatsApp-Powered Commerce for Southern Africa'
+sub = 'Build your own online store — for social sellers'
 draw.text(((W - text_w(sub, sub_font)) // 2, 430),
           sub, fill=WHITE, font=sub_font)
 
