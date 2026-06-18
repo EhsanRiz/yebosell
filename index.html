@@ -1353,17 +1353,12 @@
         })();
 
         // ===== GEO-BASED LOCALIZATION =====
-        // Default: Lesotho (Maloti M, +266). SA visitors get ZAR (R, +27).
+        // Default: Lesotho (Maloti M, +266). Currency stays Maloti for ALL visitors
+        // (Lesotho-first launch). SA visitors still get a localised phone/flag.
         (function() {
             function applyGeo(country) {
                 if (country !== 'ZA') return; // Default HTML is already Lesotho
-                // Swap currency: M → R
-                document.querySelectorAll('.geo-currency').forEach(function(el) {
-                    el.textContent = el.textContent.replace(/^M/, 'R').replace(/([\s])M/, '$1R');
-                });
-                document.querySelectorAll('.geo-currency-spaced').forEach(function(el) {
-                    el.textContent = el.textContent.replace(/^M /, 'R ');
-                });
+                // Currency is NOT swapped — Maloti (M) is shown everywhere.
                 // Swap phone: +266 → +27
                 document.querySelectorAll('.geo-phone').forEach(function(el) {
                     el.textContent = el.textContent.replace('+266 5800 1234', '+27 82 555 0199');
@@ -1372,13 +1367,7 @@
                 document.querySelectorAll('.geo-flag').forEach(function(el) {
                     el.innerHTML = '<svg width="28" height="20" viewBox="0 0 28 20" style="border-radius:2px;"><rect width="28" height="7" fill="#DE3831"/><rect y="13" width="28" height="7" fill="#002395"/><rect y="6" width="28" height="8" fill="white"/><polygon points="0,0 10,10 0,20" fill="#007A4D"/><polygon points="0,1 9,10 0,19" fill="#FFB612"/><polygon points="0,2.5 7.5,10 0,17.5" fill="#000"/><rect y="9" width="28" height="2" fill="#007A4D"/></svg>';
                 });
-                // Swap pricing card text
-                document.querySelectorAll('.geo-pricing-title').forEach(function(el) {
-                    el.textContent = 'ZAR pricing';
-                });
-                document.querySelectorAll('.geo-pricing-desc').forEach(function(el) {
-                    el.textContent = 'Rands, no conversion fees, local bank support';
-                });
+                // Pricing card text stays "Local pricing" / "Maloti & Rands" for all visitors.
             }
             // Use Cloudflare's built-in geo endpoint
             fetch('/cdn-cgi/trace')

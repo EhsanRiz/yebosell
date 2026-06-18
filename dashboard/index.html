@@ -4142,7 +4142,7 @@
                                                     <span className="font-semibold text-brand-600">
                                                         {dc.type === 'percentage' ? `${dc.value}% off` : `M${parseFloat(dc.value).toFixed(2)} off`}
                                                     </span>
-                                                    {dc.min_order > 0 && <span>Min order: R{parseFloat(dc.min_order).toFixed(2)}</span>}
+                                                    {dc.min_order > 0 && <span>Min order: M{parseFloat(dc.min_order).toFixed(2)}</span>}
                                                     {dc.max_uses && <span>Uses: {dc.used_count}/{dc.max_uses}</span>}
                                                     {!dc.max_uses && <span>Uses: {dc.used_count} (unlimited)</span>}
                                                     {dc.expires_at && (
