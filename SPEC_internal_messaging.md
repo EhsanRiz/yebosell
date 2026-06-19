@@ -9,6 +9,14 @@
 
 Add an **order-scoped messaging layer** inside YeboSell so buyers, sellers, and (for disputes) admins can communicate **without** relying on the seller's personal WhatsApp — while keeping WhatsApp click-to-chat as a **notification/nudge fallback**, not removing it.
 
+**Scope = order-only.** Every thread belongs to exactly one order (anchored by its `track_token`). There is **no** pre-order / general "store inbox" — pre-purchase questions stay on the storefront's existing WhatsApp "Chat with Us". This keeps the identity model simple (token-scoped) and the thread context tight.
+
+**Two message types in one timeline:**
+- **Chat** — free-text buyer ↔ seller ↔ admin.
+- **Automatic status updates** — when the seller advances the order (confirmed → preparing → shipped → delivered, etc.), the system **auto-posts a status message into the same thread** and pushes it to the buyer (see §3a). So the thread doubles as a live order timeline; status changes and conversation live together.
+
+Both sides get a **bell icon with an unread count** (see §7a).
+
 **This is a hybrid, not a replacement.** The internal thread is the *system of record* (persisted, order-scoped, admin-visible). WhatsApp/SMS remain the *delivery guarantee* layer for buyers who haven't installed the PWA.
 
 ### Why (where it clearly wins)
@@ -42,8 +50,10 @@ create table public.order_messages (
   id            uuid primary key default gen_random_uuid(),
   order_id      uuid not null references public.orders(id) on delete cascade,
   seller_id     uuid not null references public.sellers(id) on delete cascade, -- denormalised for RLS/index speed
-  sender        text not null check (sender in ('buyer','seller','admin')),
+  sender        text not null check (sender in ('buyer','seller','admin','system')),
+  kind          text not null default 'message' check (kind in ('message','status')),
   body          text not null check (length(btrim(body)) between 1 and 2000),
+  meta          jsonb,            -- kind='status' -> {"status":"shipped"}; nullable otherwise
   created_at    timestamptz not null default now(),
   read_by_buyer_at  timestamptz,
   read_by_seller_at timestamptz
@@ -54,7 +64,32 @@ create index on public.order_messages (seller_id, created_at desc);
 alter table public.order_messages enable row level security;
 ```
 
-Unread counts are derived: buyer-unread = messages where `sender <> 'buyer'` and `read_by_buyer_at is null`; seller-unread symmetric.
+- `kind='status'` / `sender='system'` rows are the **auto order updates** (§3a); the UI renders them as a centred status pill in the timeline, chat rows as bubbles.
+- Unread counts are derived: **buyer-unread** = rows where `sender <> 'buyer'` and `read_by_buyer_at is null` (this includes system status updates — exactly what the buyer's bell should surface); **seller-unread** = rows where `sender = 'buyer'` and `read_by_seller_at is null` (the seller doesn't need to be "notified" of their own status changes).
+
+## 3a. Automatic order-status updates → thread messages
+
+When an order's `status` (or `delivery_status`) changes, the system **auto-inserts a `kind='status'`, `sender='system'` row** into that order's thread. This makes the thread a single source of truth for "what's happened to my order" and gives us one place to drive notifications.
+
+**Mechanism — a DB trigger (single source of truth, can't be bypassed):**
+```sql
+create function public.tg_order_status_message() returns trigger language plpgsql security definer as $$
+begin
+  if tg_op = 'UPDATE' and new.status is distinct from old.status then
+    insert into public.order_messages (order_id, seller_id, sender, kind, body, meta)
+    values (new.id, new.seller_id, 'system', 'status',
+            'Order status: ' || public.status_label(new.status),   -- reuse getStatusLabel-equivalent
+            jsonb_build_object('status', new.status));
+  end if;
+  -- (optional) mirror delivery_status transitions the same way
+  return new;
+end $$;
+create trigger order_status_message after update on public.orders
+  for each row execute function public.tg_order_status_message();
+```
+- **Localisation:** the body can be built from the buyer's language (`order` / `seller.preferred_language`) reusing the existing EN/Sesotho status labels (`getStatusLabel` / `BUYER_TEMPLATES`).
+- **Why a trigger, not app code:** status can change from the dashboard *or* an admin action *or* a future automation — the trigger guarantees the thread + bell + notification fire **every** time, with no duplicated logic.
+- Each status insert is also what triggers the buyer notification path (§6): broadcast ping → web push if installed → WhatsApp/SMS nudge for the important milestones (paid, shipped, ready_for_pickup, delivered). This **replaces today's manual "tap to notify"** for status changes with an automatic push, while the manual WhatsApp template send stays available as a fallback.
 
 ---
 
@@ -123,6 +158,16 @@ Ranked by reliability; implement in this order:
 
 ---
 
+## 7a. Bell icon + unread badge (both sides)
+
+A **notification bell** with a live unread count, on both surfaces:
+
+- **Buyer (`/track`):** bell shows **buyer-unread** (seller/admin replies **+ system status updates** not yet read). Tapping opens the thread / notification list and marks read (`mark_thread_read_buyer`). For a buyer with multiple saved orders ("My Orders"), the bell aggregates unread **across all their order tokens** stored on-device, so one badge covers everything.
+- **Seller (dashboard):** bell in the header shows **seller-unread** (buyer messages across all their orders). Tapping opens the per-order threads; opening a thread marks it read. The existing Orders nav can also carry a small unread dot.
+- **Admin (dash):** optional bell for threads escalated/flagged for mediation (not every message — admins shouldn't be paged on normal chat).
+
+**Live updates:** the badge count is driven by the same Realtime channels as the threads (§5) — seller/admin via Postgres-changes, buyer via the `order:<token>` broadcast (or poll). Count = `count(*)` of the unread predicate in §3; cheap with the `(order_id, created_at)` / `(seller_id, …)` indexes.
+
 ## 8. Moderation, privacy, retention
 - **Moderation:** rate-limit posts (per token / per seller); `is_hidden` flag + admin hide; "report" action → admin queue.
 - **Privacy/POPIA:** message content is personal data — RLS-locked to participants + admin; document retention (e.g., purge threads N months after order completion); include in privacy policy. No new PII beyond name/phone already stored on the order.
@@ -132,13 +177,13 @@ Ranked by reliability; implement in this order:
 
 ## 9. Phased rollout
 - **Phase 0 — Spec sign-off** (this doc): confirm hybrid positioning + notification strategy.
-- **Phase 1 — MVP:** `order_messages` table + RLS + buyer RPCs; thread UI on `/track` and seller order detail; seller realtime (Postgres changes) + buyer broadcast-or-poll; unread badges. **No push yet** — WhatsApp nudge covers buyer alerts. Test on the HelpSell test seller.
+- **Phase 1 — MVP:** `order_messages` table + RLS + buyer RPCs; **auto status-update trigger (§3a)**; thread UI on `/track` and seller order detail; **bell + unread badge on both sides (§7a)**; seller realtime (Postgres changes) + buyer broadcast-or-poll. **No push yet** — WhatsApp nudge covers buyer alerts. Test on the HelpSell test seller. *(Auto status updates + the bell are the highest-value, lowest-cost win and ship in this phase.)*
 - **Phase 2 — Web Push:** PWA push subscription + Edge Function sender; buyer + seller push.
 - **Phase 3 — Admin dispute console:** thread viewer, post-as-admin, hide/report, basic SLA view.
 - **Phase 4 — polish:** attachments (reuse `product-photos`-style bucket with strict RLS), typing/read receipts, canned replies.
 
 ## 10. Open questions
-1. Do we let buyers **start** a thread pre-order (product question), or only **after** an order exists (token-scoped)? Pre-order chat needs a different identity anchor (no order/token yet) — likely a Phase 4+ "store inbox" with its own design.
+1. ~~Pre-order vs order-only chat~~ → **RESOLVED: order-only.** Pre-purchase questions stay on the storefront's WhatsApp "Chat with Us". A general "store inbox" is explicitly out of scope.
 2. Push infra: self-host VAPID via Edge Function, or use a provider? (Cost vs. control.)
 3. Retention window + whether admins can read *all* threads by default or only on dispute escalation (privacy trade-off).
 4. Is reducing WhatsApp dependence a real goal, or is WhatsApp permanently the buyer-notification backbone? (Affects how much to invest in push.)
