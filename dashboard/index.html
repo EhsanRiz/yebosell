@@ -45,8 +45,8 @@
         /* Sidebar styles */
         .sidebar-link { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #64748b; transition: all 0.15s; }
         .sidebar-link:hover { background: #f1f5f9; color: #1e293b; }
-        .sidebar-link.active { background: #f0fdf4; color: #25D366; font-weight: 600; }
-        .sidebar-link.active svg { color: #25D366; }
+        .sidebar-link.active { background: #f0fdf4; color: #15803d; font-weight: 600; box-shadow: inset 3px 0 0 #15803d; }
+        .sidebar-link.active svg { color: #15803d; }
 
         /* Stat card accent */
         .stat-card { position: relative; overflow: hidden; }
@@ -2069,6 +2069,13 @@
                             {filteredProducts.map(product => {
                                 const photos = Array.isArray(product.photos) ? product.photos : (product.photo_url ? [product.photo_url] : []);
                                 const coverPhoto = photos[0];
+                                // Show variant-aware pricing so the card matches what buyers are actually
+                                // charged (a base price is only a fallback when a variant has no price).
+                                const pvars = Array.isArray(product.variants) ? product.variants.filter(v => v.color || v.size) : [];
+                                const pvPrices = pvars.map(v => parseFloat(v.price) || product.price);
+                                const pMin = pvPrices.length ? Math.min(...pvPrices) : product.price;
+                                const pMax = pvPrices.length ? Math.max(...pvPrices) : product.price;
+                                const priceLabel = pvars.length ? (pMin !== pMax ? `From ${formatCurrency(pMin)}` : formatCurrency(pMin)) : formatCurrency(product.price);
                                 return (
                                     <div key={product.id} className="card card-shadow overflow-hidden group">
                                         <div className="relative">
@@ -2104,7 +2111,7 @@
                                         </div>
                                         <div className="p-4">
                                             <h4 className="font-semibold text-sm text-gray-900 mb-1 truncate">{product.name}</h4>
-                                            <p className="text-green-600 font-bold text-lg mb-3">{formatCurrency(product.price)}</p>
+                                            <p className="text-green-600 font-bold text-lg mb-3">{priceLabel}</p>
                                             <div className="flex flex-wrap gap-1 mb-3">
                                                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${product.active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                                                     {product.active ? 'Active' : 'Inactive'}
