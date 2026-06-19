@@ -15,7 +15,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=8"></script>
+    <script src="/assets/config.js?v=9"></script>
 
     <script>
         tailwind.config = {
@@ -372,10 +372,10 @@
             const submitOrder = async (e) => {
                 e.preventDefault();
                 if (submittingOrder) return; // Prevent double-click
-                if (!formData.name || !formData.phone) { alert('Please fill in name and phone number'); return; }
-                if (!formData.delivery_method) { alert('Please select a delivery method'); return; }
-                if ((formData.delivery_method === 'self_delivery' || formData.delivery_method === 'courier') && !formData.delivery_address.trim()) { alert('Please enter a delivery address'); return; }
-                if (cart.length === 0) { alert('Cart is empty'); return; }
+                if (!formData.name || !formData.phone) { window.toast('Please fill in name and phone number'); return; }
+                if (!formData.delivery_method) { window.toast('Please select a delivery method'); return; }
+                if ((formData.delivery_method === 'self_delivery' || formData.delivery_method === 'courier') && !formData.delivery_address.trim()) { window.toast('Please enter a delivery address'); return; }
+                if (cart.length === 0) { window.toast('Cart is empty'); return; }
                 setSubmittingOrder(true);
                 try {
                     const orderItems = cart.map(i => {
@@ -403,7 +403,7 @@
                         p_discount_amount: discountAmount,
                         p_items: orderItems
                     });
-                    if (orderError || !result || result.error) { alert('Failed to create order. Please try again.'); setSubmittingOrder(false); return; }
+                    if (orderError || !result || result.error) { window.toast('Failed to create order. Please try again.'); setSubmittingOrder(false); return; }
                     const orderNumber = result.order_number;
                     const trackToken = result.track_token;
 
@@ -425,10 +425,10 @@
                     try { localStorage.setItem(`buyer_${getSellerSlug()}`, JSON.stringify({ name: formData.name, phone: formData.phone })); } catch(e) {}
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
                     setSubmittingOrder(false); setDiscountApplied(null); setDiscountCode(''); setDiscountError('');
-                } catch (err) { setSubmittingOrder(false); alert('An error occurred. Please try again.'); }
+                } catch (err) { setSubmittingOrder(false); window.toast('An error occurred. Please try again.'); }
             };
 
-            const handleCheckout = () => { if (cart.length === 0) { alert('Your cart is empty'); return; } setShowCheckout(true); setShowCart(false); };
+            const handleCheckout = () => { if (cart.length === 0) { window.toast('Your cart is empty'); return; } setShowCheckout(true); setShowCart(false); };
             const continueShopping = () => {
                 setShowConfirmation(false);
                 // Keep name/phone pre-filled from saved buyer info
@@ -1172,9 +1172,9 @@
             };
 
             const handleAdd = () => {
-                if (hasVariants && colors.length > 0 && !selectedColor) { alert('Please select a color'); return; }
-                if (hasVariants && sizes.length > 0 && !selectedSize) { alert('Please select a size'); return; }
-                if (!canAdd) { alert(isOutOfStock ? 'This item is out of stock' : 'Not enough stock available'); return; }
+                if (hasVariants && colors.length > 0 && !selectedColor) { window.toast('Please select a color'); return; }
+                if (hasVariants && sizes.length > 0 && !selectedSize) { window.toast('Please select a size'); return; }
+                if (!canAdd) { window.toast(isOutOfStock ? 'This item is out of stock' : 'Not enough stock available'); return; }
                 for (let n = 0; n < qty; n++) {
                     onAddToCart({
                         ...product,
@@ -1190,8 +1190,8 @@
             };
 
             const submitReview = async () => {
-                if (!reviewName.trim()) { alert('Please enter your name'); return; }
-                if (!reviewText.trim()) { alert('Please write a review'); return; }
+                if (!reviewName.trim()) { window.toast('Please enter your name'); return; }
+                if (!reviewText.trim()) { window.toast('Please write a review'); return; }
                 setSubmittingReview(true);
                 try {
                     const { data, error } = await supabase.from('product_reviews').insert([{
@@ -1208,7 +1208,7 @@
                     setReviewText('');
                     setReviewRating(5);
                 } catch (err) {
-                    alert('Failed to submit review. Please try again.');
+                    window.toast('Failed to submit review. Please try again.');
                 }
                 setSubmittingReview(false);
             };
@@ -1540,7 +1540,7 @@
                     setHistorySent(true);
                     setTimeout(() => setHistorySent(false), 5000);
                 } catch (err) {
-                    alert('Failed to send order history. Please try again.');
+                    window.toast('Failed to send order history. Please try again.');
                 }
                 setSendingHistory(false);
             };

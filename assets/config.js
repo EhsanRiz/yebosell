@@ -159,3 +159,79 @@ window.formatLocalPhone = (raw) => {
     const m = d.match(/^(\d{0,4})(\d{0,4})$/);
     return [m[1], m[2]].filter(Boolean).join(' ');
 };
+
+// ============================================================================
+// BRANDED UI: toasts + confirm dialog (shared by all app pages).
+// Written in plain JS (React.createElement) so config.js stays node --check-able
+// and no per-page JSX is needed. Replaces native alert()/confirm().
+//   window.toast(message, 'success'|'error'|'info')
+//   await window.confirmDialog({ message, title?, confirmLabel?, cancelLabel?, danger? })
+// ============================================================================
+(function () {
+    if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') return;
+    const h = React.createElement;
+    let pushToast = null, openConfirm = null;
+    const BRAND = { success: '#15803d', error: '#dc2626', info: '#a16207' };
+
+    function ToastHost() {
+        const [items, setItems] = React.useState([]);
+        React.useEffect(function () {
+            pushToast = function (msg, type) {
+                const id = Date.now() + '-' + Math.random();
+                setItems(function (prev) { return prev.concat([{ id: id, msg: msg, type: type || 'info' }]); });
+                setTimeout(function () {
+                    setItems(function (prev) { return prev.filter(function (t) { return t.id !== id; }); });
+                }, 3800);
+            };
+        }, []);
+        return h('div', { style: { position: 'fixed', top: 16, left: 0, right: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none', padding: '0 12px' } },
+            items.map(function (t) {
+                const c = BRAND[t.type] || BRAND.info;
+                const glyph = t.type === 'success' ? '✓' : t.type === 'error' ? '×' : 'i';
+                return h('div', { key: t.id, className: 'slide-up', style: { pointerEvents: 'auto', maxWidth: 440, width: '100%', background: '#fff', color: '#111827', borderLeft: '4px solid ' + c, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', borderRadius: 12, padding: '12px 16px', fontSize: 14, fontWeight: 500, fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 11 } },
+                    h('span', { style: { flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: c, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, lineHeight: 1 } }, glyph),
+                    h('span', { style: { flex: 1 } }, t.msg)
+                );
+            })
+        );
+    }
+
+    function ConfirmHost() {
+        const [state, setState] = React.useState(null);
+        React.useEffect(function () {
+            openConfirm = function (opts) {
+                return new Promise(function (resolve) {
+                    setState(Object.assign({ title: '', message: '', confirmLabel: 'Confirm', cancelLabel: 'Cancel', danger: false }, opts, { resolve: resolve }));
+                });
+            };
+        }, []);
+        if (!state) return null;
+        const close = function (val) { var r = state.resolve; setState(null); if (r) r(val); };
+        return h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }, onClick: function () { close(false); } },
+            h('div', { className: 'modal-enter', onClick: function (e) { e.stopPropagation(); }, style: { background: '#fff', borderRadius: 16, maxWidth: 380, width: '100%', padding: 24, fontFamily: 'Inter, sans-serif', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' } },
+                state.title ? h('h3', { style: { fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 } }, state.title) : null,
+                h('p', { style: { fontSize: 14.5, color: '#4b5563', lineHeight: 1.5, marginBottom: 22 } }, state.message),
+                h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
+                    h('button', { onClick: function () { close(false); }, style: { padding: '10px 18px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 14, cursor: 'pointer' } }, state.cancelLabel),
+                    h('button', { onClick: function () { close(true); }, style: { padding: '10px 18px', borderRadius: 10, border: 'none', background: state.danger ? '#dc2626' : '#15803d', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' } }, state.confirmLabel)
+                )
+            )
+        );
+    }
+
+    function mount() {
+        if (document.getElementById('__yebo_ui_host')) return;
+        const el = document.createElement('div');
+        el.id = '__yebo_ui_host';
+        document.body.appendChild(el);
+        ReactDOM.createRoot(el).render(h(React.Fragment, null, h(ToastHost, null), h(ConfirmHost, null)));
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+
+    window.toast = function (msg, type) { if (pushToast) pushToast(msg, type); else alert(msg); };
+    window.confirmDialog = function (opts) {
+        if (typeof opts === 'string') opts = { message: opts };
+        if (openConfirm) return openConfirm(opts);
+        return Promise.resolve(window.confirm((opts && opts.message) || 'Are you sure?'));
+    };
+})();
