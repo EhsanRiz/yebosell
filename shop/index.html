@@ -1105,7 +1105,7 @@
                             {hasVariants && minPrice !== maxPrice ? (
                                 <span className={`text-sm font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>From {formatCurrency(minPrice)}</span>
                             ) : (
-                                <span className={`text-lg font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>{formatCurrency(product.price)}</span>
+                                <span className={`text-lg font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>{formatCurrency(hasVariants ? minPrice : product.price)}</span>
                             )}
                             <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${isOOS ? 'text-gray-400 bg-gray-100' : 'text-brand-500 bg-brand-50 group-hover:bg-brand-500 group-hover:text-white'}`}>{isOOS ? 'Sold Out' : 'View'}</span>
                         </div>
