@@ -188,7 +188,7 @@ window.formatLocalPhone = (raw) => {
             items.map(function (t) {
                 const c = BRAND[t.type] || BRAND.info;
                 const glyph = t.type === 'success' ? '✓' : t.type === 'error' ? '×' : 'i';
-                return h('div', { key: t.id, className: 'slide-up', style: { pointerEvents: 'auto', maxWidth: 440, width: '100%', background: '#fff', color: '#111827', borderLeft: '4px solid ' + c, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', borderRadius: 12, padding: '12px 16px', fontSize: 14, fontWeight: 500, fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 11 } },
+                return h('div', { key: t.id, className: 'slide-up', style: { pointerEvents: 'auto', maxWidth: 440, width: '100%', background: '#fff', color: '#111827', borderLeft: '4px solid ' + c, boxShadow: '0 10px 30px rgba(0,0,0,0.14)', borderRadius: 12, padding: '12px 16px', fontSize: 14, fontWeight: 500, fontFamily: 'Plus Jakarta Sans, sans-serif', display: 'flex', alignItems: 'center', gap: 11 } },
                     h('span', { style: { flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: c, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, lineHeight: 1 } }, glyph),
                     h('span', { style: { flex: 1 } }, t.msg)
                 );
@@ -208,7 +208,7 @@ window.formatLocalPhone = (raw) => {
         if (!state) return null;
         const close = function (val) { var r = state.resolve; setState(null); if (r) r(val); };
         return h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }, onClick: function () { close(false); } },
-            h('div', { className: 'modal-enter', onClick: function (e) { e.stopPropagation(); }, style: { background: '#fff', borderRadius: 16, maxWidth: 380, width: '100%', padding: 24, fontFamily: 'Inter, sans-serif', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' } },
+            h('div', { className: 'modal-enter', onClick: function (e) { e.stopPropagation(); }, style: { background: '#fff', borderRadius: 16, maxWidth: 380, width: '100%', padding: 24, fontFamily: 'Plus Jakarta Sans, sans-serif', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' } },
                 state.title ? h('h3', { style: { fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 } }, state.title) : null,
                 h('p', { style: { fontSize: 14.5, color: '#4b5563', lineHeight: 1.5, marginBottom: 22 } }, state.message),
                 h('div', { style: { display: 'flex', gap: 10, justifyContent: 'flex-end' } },
