@@ -920,7 +920,7 @@
             const storefrontUrl = `${SITE_URL}/shop/?s=${seller.slug}`;
             const copyStorefrontUrl = () => {
                 navigator.clipboard.writeText(storefrontUrl);
-                alert('Storefront link copied!');
+                window.toast('Storefront link copied!', 'success');
             };
 
             // Mini bar chart component
@@ -1385,9 +1385,9 @@
 
             const uploadFile = async (file) => {
                 if (!file) return;
-                if (formData.photos.length >= MAX_PHOTOS) { alert(`Maximum ${MAX_PHOTOS} photos per product`); return; }
-                if (file.size > 5 * 1024 * 1024) { alert('Photo must be smaller than 5MB'); return; }
-                if (!file.type.startsWith('image/')) { alert('Please select an image file'); return; }
+                if (formData.photos.length >= MAX_PHOTOS) { window.toast(`Maximum ${MAX_PHOTOS} photos per product`); return; }
+                if (file.size > 5 * 1024 * 1024) { window.toast('Photo must be smaller than 5MB'); return; }
+                if (!file.type.startsWith('image/')) { window.toast('Please select an image file'); return; }
 
                 setUploading(true);
                 try {
@@ -1398,7 +1398,7 @@
                     const { data } = supabase.storage.from('product-photos').getPublicUrl(path);
                     setFormData(prev => ({ ...prev, photos: [...prev.photos, data.publicUrl] }));
                 } catch (err) {
-                    alert('Upload failed: ' + err.message);
+                    window.toast('Upload failed: ' + err.message);
                 } finally {
                     setUploading(false);
                 }
@@ -1425,10 +1425,10 @@
             const handlePasteUrl = () => {
                 const url = prompt('Paste image URL:');
                 if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-                    if (formData.photos.length >= MAX_PHOTOS) { alert(`Maximum ${MAX_PHOTOS} photos`); return; }
+                    if (formData.photos.length >= MAX_PHOTOS) { window.toast(`Maximum ${MAX_PHOTOS} photos`); return; }
                     setFormData(prev => ({ ...prev, photos: [...prev.photos, url] }));
                 } else if (url) {
-                    alert('Please enter a valid URL starting with http:// or https://');
+                    window.toast('Please enter a valid URL starting with http:// or https://');
                 }
             };
 
@@ -1531,7 +1531,7 @@
 
             const saveProduct = async () => {
                 if (!formData.name || !formData.price) {
-                    alert('Please fill in name and price');
+                    window.toast('Please fill in name and price');
                     return;
                 }
 
@@ -1569,12 +1569,12 @@
                     resetForm();
                     loadProducts();
                 } catch (err) {
-                    alert('Save failed: ' + err.message);
+                    window.toast('Save failed: ' + err.message);
                 }
             };
 
             const deleteProduct = async (id) => {
-                if (!window.confirm('Delete this product?')) return;
+                if (!(await window.confirmDialog({ title: 'Delete this product?', message: 'This can’t be undone. It will be removed from your storefront.', confirmLabel: 'Delete', danger: true }))) return;
                 try {
                     const { error } = await supabase
                         .from('products')
@@ -1583,7 +1583,7 @@
                     if (error) throw error;
                     loadProducts();
                 } catch (err) {
-                    alert('Delete failed: ' + err.message);
+                    window.toast('Delete failed: ' + err.message);
                 }
             };
 
@@ -1596,14 +1596,14 @@
                     if (error) throw error;
                     loadProducts();
                 } catch (err) {
-                    alert('Update failed: ' + err.message);
+                    window.toast('Update failed: ' + err.message);
                 }
             };
 
             const postCatalogToWhatsApp = () => {
                 const activeProducts = products.filter(p => p.active);
                 if (activeProducts.length === 0) {
-                    alert('No active products to share');
+                    window.toast('No active products to share');
                     return;
                 }
 
@@ -2198,7 +2198,7 @@
 
             const createManualOrder = async () => {
                 if (!formData.customer_name || !formData.customer_phone || !formData.total) {
-                    alert('Please fill in required fields');
+                    window.toast('Please fill in required fields');
                     return;
                 }
 
@@ -2241,7 +2241,7 @@
                     });
                     loadOrders();
                 } catch (err) {
-                    alert('Create order failed: ' + err.message);
+                    window.toast('Create order failed: ' + err.message);
                 }
             };
 
@@ -2274,7 +2274,7 @@
                             pickup: seller.pickup_address, statusLabel: getStatusLabel(value)
                         };
                         const auto = (() => { try { return localStorage.getItem('yebosell_autonotify') === '1'; } catch (e) { return false; } })();
-                        const go = auto || window.confirm('Notify the buyer on WhatsApp about this update?');
+                        const go = auto || (await window.confirmDialog({ message: 'Notify the buyer on WhatsApp about this update?', confirmLabel: 'Notify' }));
                         if (go && order.customer_phone && notifyBuyer(order.customer_phone, milestone, ctx)) {
                             try { supabase.from('notification_log').insert({ order_id: orderId, order_number: order.order_number, status_sent: value, customer_phone: order.customer_phone, success: true }); } catch (e) {}
                         }
@@ -2282,7 +2282,7 @@
 
                     loadOrders();
                 } catch (err) {
-                    alert('Update failed: ' + err.message);
+                    window.toast('Update failed: ' + err.message);
                 }
             };
 
@@ -2792,7 +2792,7 @@
 
                     setFormData(prev => ({ ...prev, screenshot_url: data.publicUrl }));
                 } catch (err) {
-                    alert('Upload failed: ' + err.message);
+                    window.toast('Upload failed: ' + err.message);
                 } finally {
                     setUploading(false);
                 }
@@ -2800,7 +2800,7 @@
 
             const submitPayment = async () => {
                 if (!formData.order_id || !formData.amount) {
-                    alert('Please fill in required fields');
+                    window.toast('Please fill in required fields');
                     return;
                 }
 
@@ -2827,7 +2827,7 @@
                     });
                     loadPayments();
                 } catch (err) {
-                    alert('Submit failed: ' + err.message);
+                    window.toast('Submit failed: ' + err.message);
                 }
             };
 
@@ -2873,7 +2873,7 @@
                                         statusLabel: 'Payment received'
                                     };
                                     const auto = (() => { try { return localStorage.getItem('yebosell_autonotify') === '1'; } catch (e) { return false; } })();
-                                    const go = auto || window.confirm('Send the buyer a payment confirmation on WhatsApp?');
+                                    const go = auto || (await window.confirmDialog({ message: 'Send the buyer a payment confirmation on WhatsApp?', confirmLabel: 'Send' }));
                                     if (go && notifyBuyer(customerPhone, 'payment_received', ctx)) {
                                         try { supabase.from('notification_log').insert({ order_id: payment.order_id, order_number: orderNumber, status_sent: 'payment_received', customer_phone: customerPhone, success: true }); } catch (e) {}
                                     }
@@ -2885,7 +2885,7 @@
                     loadPayments();
                     loadOrders();
                 } catch (err) {
-                    alert('Update failed: ' + err.message);
+                    window.toast('Update failed: ' + err.message);
                 }
             };
 
@@ -3410,7 +3410,7 @@
 
             const copyToClipboard = (text) => {
                 navigator.clipboard.writeText(text);
-                alert('Copied to clipboard!');
+                window.toast('Copied to clipboard!', 'success');
             };
 
             const sendViaWhatsApp = (message) => {
@@ -3973,7 +3973,7 @@
             };
 
             const deleteCode = async (dc) => {
-                if (!confirm(`Delete discount code "${dc.code}"?`)) return;
+                if (!(await window.confirmDialog({ title: 'Delete discount code?', message: `Delete “${dc.code}”? This can’t be undone.`, confirmLabel: 'Delete', danger: true }))) return;
                 await supabase.from('discount_codes').delete().eq('id', dc.id);
                 loadCodes();
             };
@@ -4270,7 +4270,7 @@
             };
 
             const logout = async () => {
-                if (window.confirm('Sign out? You’ll need an SMS code to sign in again on this device. To just step away, use “Lock” instead.')) {
+                if (await window.confirmDialog({ title: 'Sign out?', message: 'You’ll need an SMS code to sign in again on this device. To just step away, use “Lock” instead.', confirmLabel: 'Sign out', danger: true })) {
                     try { await supabase.auth.signOut(); } catch (e) {}
                     localStorage.removeItem('current_seller');
                     try { sessionStorage.removeItem('yebosell_unlocked'); } catch (e) {}

@@ -120,14 +120,14 @@
             const status = seller.seller_status || 'active';
 
             const setStatus = async (newStatus, confirmMsg) => {
-                if (confirmMsg && !window.confirm(confirmMsg)) return;
+                if (confirmMsg && !(await window.confirmDialog({ message: confirmMsg, confirmLabel: 'Confirm', danger: true }))) return;
                 setBusy(true); setMsg('');
                 const { data } = await supabase.rpc('admin_set_seller_status', { p_seller_id: seller.id, p_status: newStatus });
                 setBusy(false);
                 if (data && data.ok) { onRefresh(); } else { setMsg((data && data.message) || 'Action failed'); }
             };
             const resetPin = async () => {
-                if (!window.confirm("Clear this seller's PIN and unlock their account? They'll set a new PIN via “Forgot PIN” (one OTP).")) return;
+                if (!(await window.confirmDialog({ title: 'Reset PIN?', message: "Clear this seller's PIN and unlock their account? They'll set a new PIN via “Forgot PIN” (one OTP).", confirmLabel: 'Reset PIN', danger: true }))) return;
                 setBusy(true); setMsg('');
                 const { data } = await supabase.rpc('admin_reset_seller_pin', { p_seller_id: seller.id });
                 setBusy(false);
