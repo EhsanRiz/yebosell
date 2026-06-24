@@ -71,5 +71,17 @@ Deno.serve(async (req) => {
     return json({ error: "record", message: iErr.message }, 500);
   }
 
+  // Surface it to the seller: post a buyer message so their bell, order thread
+  // and unread badge all light up. sender='buyer' on purpose — that's what the
+  // seller's bell counts, and it avoids push-notifying the buyer about their
+  // own upload (the push trigger only fires for non-buyer messages).
+  try {
+    await admin.from("order_messages").insert({
+      order_id: order.id, seller_id: order.seller_id, sender: "buyer", kind: "message",
+      body: "📎 Uploaded proof of payment" + (typeof file_name === "string" ? ": " + file_name.slice(0, 120) : ""),
+      meta: { proof: true, proof_id: row.id, file_name: (typeof file_name === "string" ? file_name.slice(0, 200) : null) },
+    });
+  } catch (_) { /* non-fatal: the proof is saved regardless */ }
+
   return json({ ok: true, id: row.id });
 });
