@@ -88,6 +88,80 @@
 
         // Pull shared config from window (config.js attaches everything there)
         const supabase = window.supabaseClient;
+
+        // Auto-refresh helper: polls while the tab is visible, refreshes immediately
+        // when the seller returns to the tab/window, and (optionally) subscribes to
+        // realtime changes that drive the same refresh. Returns a ref holding the
+        // last-run epoch ms (for the freshness badge).
+        //   opts.realtime = { table, filter, onInsert? }
+        const useLiveRefresh = (loadFn, options) => {
+            const opts = options || {};
+            const intervalMs = opts.intervalMs || 60000;
+            const realtime = opts.realtime || null;
+            const fnRef = useRef(loadFn);
+            const lastRunRef = useRef(0);
+            const [, force] = useState(0); // re-render the freshness badge on each run
+
+            useEffect(() => { fnRef.current = loadFn; }); // always the freshest closure
+
+            useEffect(() => {
+                const run = (skipVisibility) => {
+                    if (!skipVisibility && document.visibilityState !== 'visible') return;
+                    lastRunRef.current = Date.now();
+                    force(n => n + 1);
+                    try { const r = fnRef.current && fnRef.current(); if (r && r.catch) r.catch(() => {}); }
+                    catch (e) {}
+                };
+                const id = setInterval(run, intervalMs);
+                const onWake = () => {
+                    if (document.visibilityState !== 'visible') return;
+                    if (Date.now() - lastRunRef.current < 3000) return; // de-dupe visibilitychange+focus
+                    run();
+                };
+                document.addEventListener('visibilitychange', onWake);
+                window.addEventListener('focus', onWake);
+
+                // Realtime accelerator (optional): refresh on any change; toast on INSERT.
+                // Fires even when hidden so the data/badge are correct on return.
+                let ch = null;
+                if (realtime && realtime.table) {
+                    ch = supabase.channel('live-' + realtime.table + '-' + (realtime.filter || 'all'))
+                        .on('postgres_changes',
+                            { event: '*', schema: 'public', table: realtime.table, filter: realtime.filter },
+                            (payload) => {
+                                if (payload.eventType === 'INSERT' && realtime.onInsert) {
+                                    try { realtime.onInsert(payload.new); } catch (e) {}
+                                }
+                                run(true);
+                            })
+                        .subscribe();
+                }
+                return () => {
+                    clearInterval(id);
+                    document.removeEventListener('visibilitychange', onWake);
+                    window.removeEventListener('focus', onWake);
+                    if (ch) { try { supabase.removeChannel(ch); } catch (e) {} }
+                };
+            }, [intervalMs, realtime && realtime.table, realtime && realtime.filter]);
+
+            return lastRunRef;
+        };
+
+        // Subtle "Updated just now / Xm ago" trust signal, fed by a useLiveRefresh ref.
+        const FreshnessBadge = ({ lastRef }) => {
+            const [, tick] = useState(0);
+            useEffect(() => { const id = setInterval(() => tick(n => n + 1), 30000); return () => clearInterval(id); }, []);
+            const ts = lastRef && lastRef.current;
+            const label = !ts ? 'Live'
+                : (Date.now() - ts < 60000 ? 'Updated just now'
+                   : 'Updated ' + Math.floor((Date.now() - ts) / 60000) + 'm ago');
+            return (
+                <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-500 inline-block" />
+                    {label}
+                </span>
+            );
+        };
         const SUPABASE_URL = window.SUPABASE_URL;
         const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
         const SITE_URL = window.SITE_URL;
@@ -887,6 +961,7 @@
             });
 
             useEffect(() => { loadDashboardData(); }, [seller.id]);
+            const lastRefresh = useLiveRefresh(() => loadDashboardData(), { realtime: { table: 'orders', filter: 'seller_id=eq.' + seller.id } });
 
             const loadDashboardData = async () => {
                 try {
@@ -1052,7 +1127,7 @@
 
             return (
                 <div>
-                    <PageHeader title={isNewSeller ? `Welcome to YeboSell, ${seller.full_name}!` : `Welcome back, ${seller.full_name}`} subtitle={seller.business_name} />
+                    <PageHeader title={isNewSeller ? `Welcome to YeboSell, ${seller.full_name}!` : `Welcome back, ${seller.full_name}`} subtitle={seller.business_name} actions={<FreshnessBadge lastRef={lastRefresh} />} />
 
                     {needsPickupAddress && (
                         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
@@ -1446,6 +1521,8 @@
             useEffect(() => {
                 loadProducts();
             }, [seller.id]);
+
+            useLiveRefresh(() => loadProducts());
 
             const loadProducts = async () => {
                 try {
@@ -2298,6 +2375,8 @@
                 loadOrders();
             }, [seller.id]);
 
+            useLiveRefresh(() => loadOrders(), { realtime: { table: 'orders', filter: 'seller_id=eq.' + seller.id, onInsert: () => window.toast('New order received', 'success') } });
+
             const loadOrders = async () => {
                 try {
                     const { data, error } = await supabase
@@ -2824,6 +2903,8 @@
                 loadPayments();
                 loadOrders();
             }, [seller.id]);
+
+            useLiveRefresh(() => { loadPayments(); loadOrders(); });
 
             const loadPayments = async () => {
                 try {
@@ -4054,6 +4135,7 @@
             const supabase = window.supabaseClient;
 
             useEffect(() => { loadCodes(); }, [seller.id]);
+            useLiveRefresh(() => loadCodes());
 
             const loadCodes = async () => {
                 setLoading(true);
@@ -4405,6 +4487,22 @@
                     }
                     setBooting(false);
                 })();
+            }, []);
+
+            // Session-liveness guard: if the session ends or a token refresh fails
+            // after a long idle (tab open for days), route back to a friendly sign-in
+            // instead of silently failing RLS reads in a write-disabled dashboard.
+            useEffect(() => {
+                const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+                    if (event === 'SIGNED_OUT' || (!session && (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED'))) {
+                        try { sessionStorage.removeItem('yebosell_unlocked'); } catch (e) {}
+                        try { localStorage.removeItem('current_seller'); } catch (e) {}
+                        setCurrentUser(null);
+                        setLocked(false);
+                        window.toast('Your session expired — please sign in again.', 'info');
+                    }
+                });
+                return () => { try { sub.subscription.unsubscribe(); } catch (e) {} };
             }, []);
 
             const onAuthed = (seller) => {
