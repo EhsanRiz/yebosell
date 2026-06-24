@@ -24,6 +24,9 @@
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             window.__yeboDeferredPrompt = e;
+            // This event only fires when the app is NOT installed, so clear any
+            // stale "installed" flag left over from a previous install/uninstall.
+            try { localStorage.removeItem('yebosell_installed'); } catch (e) {}
             window.dispatchEvent(new Event('yebo-can-install'));
         });
         window.addEventListener('appinstalled', () => {
