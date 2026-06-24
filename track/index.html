@@ -127,28 +127,39 @@
             return out;
         }
         // Ensure this device has a push subscription and that the server knows
-        // every order token it holds (so any order can notify it). Safe to call
-        // repeatedly / whenever the saved-order list changes.
+        // every order token it holds (so any order can notify it). Returns
+        // { ok:true } or { ok:false, step, detail } so failures are visible
+        // instead of being swallowed. Safe to call repeatedly.
         async function syncPushSubscription() {
+            if (!pushSupported()) return { ok: false, step: 'support', detail: 'Push not supported on this browser' };
+            if (Notification.permission !== 'granted') return { ok: false, step: 'permission', detail: 'Permission ' + Notification.permission };
+            let reg, sub;
             try {
-                if (!pushSupported() || Notification.permission !== 'granted') return false;
-                const reg = await navigator.serviceWorker.ready;
-                let sub = await reg.pushManager.getSubscription();
+                reg = await Promise.race([
+                    navigator.serviceWorker.ready,
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('service worker not ready (timeout)')), 8000))
+                ]);
+            } catch (e) { return { ok: false, step: 'sw-ready', detail: String(e && e.message || e) }; }
+            try {
+                sub = await reg.pushManager.getSubscription();
                 if (!sub) {
                     sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC) });
                 }
+            } catch (e) { return { ok: false, step: 'subscribe', detail: String(e && e.message || e) }; }
+            try {
                 const j = sub.toJSON();
                 const tokens = readMyOrders().map(o => o.token).filter(Boolean);
-                await supabase.rpc('register_push_subscription', { p_endpoint: sub.endpoint, p_keys: j.keys, p_tokens: tokens });
-                return true;
-            } catch (e) { return false; }
+                const { error } = await supabase.rpc('register_push_subscription', { p_endpoint: sub.endpoint, p_keys: j.keys, p_tokens: tokens });
+                if (error) return { ok: false, step: 'register-rpc', detail: error.message || JSON.stringify(error) };
+            } catch (e) { return { ok: false, step: 'register-rpc', detail: String(e && e.message || e) }; }
+            return { ok: true };
         }
         async function enablePush() {
-            if (!pushSupported()) return 'unsupported';
+            if (!pushSupported()) return { ok: false, step: 'support', detail: 'unsupported' };
             let perm = Notification.permission;
-            if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) { return 'error'; } }
-            if (perm !== 'granted') return perm;
-            return (await syncPushSubscription()) ? 'granted' : 'error';
+            if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) { return { ok: false, step: 'permission', detail: String(e && e.message || e) }; } }
+            if (perm !== 'granted') return { ok: false, step: 'permission', detail: perm };
+            return await syncPushSubscription();
         }
 
         // Small prompt to turn on push. Hidden when unsupported, denied, or already on.
@@ -159,10 +170,11 @@
             const turnOn = async () => {
                 setBusy(true);
                 const res = await enablePush();
-                setPerm(res === 'granted' ? 'granted' : (pushSupported() ? Notification.permission : 'unsupported'));
+                setPerm(res.ok ? 'granted' : (pushSupported() ? Notification.permission : 'unsupported'));
                 setBusy(false);
-                if (res === 'granted') window.toast('Notifications on — we’ll alert you when the seller replies.', 'success');
-                else if (res === 'denied') window.toast('Notifications blocked. Enable them in your browser settings.', 'error');
+                if (res.ok) window.toast('Notifications on — we’ll alert you when the seller replies.', 'success');
+                else if (res.step === 'permission' && res.detail === 'denied') window.toast('Notifications blocked. Enable them in your browser settings.', 'error');
+                else window.toast('Couldn’t enable notifications (' + res.step + '): ' + res.detail, 'error');
             };
             return (
                 <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 flex items-center gap-3">
