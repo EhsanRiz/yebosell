@@ -1,5 +1,5 @@
 # YeboSell — Progress Log
-**Updated:** 16 June 2026
+**Updated:** 24 June 2026
 **Live site:** https://yebosell.co.za
 **GitHub:** https://github.com/EhsanRiz/yebosell (main)
 **Supabase project:** `nizrqwvfuxbuhertypva`
@@ -10,6 +10,15 @@
 ## 🎯 PICK UP HERE (start of next session)
 
 The product is **functionally complete and end-to-end tested** for a **Lesotho-first launch**. Remaining work is launch hygiene + optional deeper testing, not new features.
+
+> ✅ **2026-06-24 — Stage 4: two-sided order messaging + realtime + Web Push (built, deployed, real-device tested).** Closed the loop on in-app buyer↔seller communication. The seller dashboard already had a conversation thread, but the buyer side was a dead end — the buyer couldn't see or reply to seller messages. Now shipped end-to-end:
+> - **Buyer chat on `/track`** — a "Messages" thread under the order timeline, via token-scoped SECURITY DEFINER RPCs (`get_order_thread` / `post_order_message` / `mark_thread_read_buyer`); anon buyers never touch the table directly.
+> - **Notification bells, both sides.** Dashboard bell fixed (dropdown no longer overflows off-screen in the left sidebar — added an `align` prop) and made **persistent**: counts are DB-derived (buyer msg unread until seller opens the thread / new order until it leaves `new` status / age-out after 4 days), so they survive refresh instead of clearing on open. New **buyer cross-order bell** aggregates unread across every saved order via `buyer_unread_summary(tokens[])`.
+> - **#1 Realtime (instant while app open).** Anon buyers can't hold Postgres-changes subscriptions, so a DB trigger broadcasts a content-free ping on the public topic `order-rt:<track_token>`; the buyer thread + bell subscribe and refetch instantly. Polling remains as fallback. **Verified live on a real Android device — message popped in with no refresh.**
+> - **#2 Web Push (reaches a closed/locked phone — the real WhatsApp substitute).** `push_subscriptions` + `register_push_subscription` RPC; `send-push` Edge Function (web-push + VAPID) fanned out by a `push_on_message` trigger via `pg_net`; service-worker `push`/`notificationclick` handlers; "Enable notifications" prompt; dead endpoints auto-pruned (404/410). **Verified end-to-end on real Android — push landed on the lock screen; server returned `{sent:1,pruned:1}`.** VAPID private key + push shared secret live in the `private_config` table (out-of-band, **never committed**).
+> - Migrations: `20260619_stage4a_internal_messaging.sql`, `20260624_stage4b_buyer_confirmation.sql`, `20260624_buyer_unread_summary.sql`, `20260624_broadcast_order_messages.sql`, `20260624_web_push_infrastructure.sql`. Edge function: `supabase/functions/send-push/`. Spec: `SPEC_internal_messaging.md` (Phase 1 + bell §7a + realtime §5 done; Phase 2 push done).
+> - **Honest positioning (answers "why still WhatsApp?"):** in-app push only reaches buyers who **install/open the PWA and grant permission** (iOS needs PWA-install, 16.4+, and is flaky). WhatsApp stays the **delivery-guarantee backbone** for one-off buyers who don't opt in. The hybrid is deliberate; **gate any reduction of WhatsApp on measured push-adoption %.**
+> - **Cloudflare/proxy gotcha noted:** this sandbox's egress policy **403-blocks `yebosell.co.za`**, so I cannot `curl`-verify the live site from here — deploy state must be confirmed from the Cloudflare dashboard or by the user. (Cost me a long false "deploy stuck" detour.) Cloudflare did deploy normally each time.
 
 > ✅ **2026-06-17 — critical RLS gap found, fixed & DEPLOYED (Stage 3c).** Stage 3b did **not** cover everything: 10 tables (`sellers`, `platform_config`, `products`, `discount_codes`, `customers`, `deliveries`, `product_reviews`, `buyer_wishlists`, `seller_settlements`, `webhook_message_log`) still had `USING (true)` policies **and full DML granted to `anon`**. Verified live: with only the public anon key, anyone could update platform fees, overwrite any seller's row (incl. bank_details), read every seller's contact details, and forge settlements/discounts. **Migration `20260617_stage3c_rls_close_remaining_tables.sql` is now applied to prod** (writes → owner/admin; sensitive seller columns hidden via column grants; checkout's stock/discount writes moved server-side into `create_storefront_order`). Frontend (shop+admin) is live on `main`/Cloudflare. **Verified post-deploy:** anon can no longer UPDATE platform_config/sellers or read bank_details/email; storefront reads + anon checkout (with server-side stock decrement) still work; Supabase advisor `rls_policy_always_true` warnings dropped 11 → 1 (the remaining one is the intentional public review-submission INSERT). Backfill linked 2 existing sellers (Ehsan, MyShop); the rest self-link on next OTP login.
 
@@ -65,6 +74,7 @@ The dormant `whatsapp-notify` / `whatsapp-webhook` edge functions remain deploye
 
 ## SESSION WORK (June 2026)
 
+- **Stage 4 — internal messaging + realtime + Web Push (2026-06-24)** — buyer↔seller order-scoped chat on `/track` (token-scoped RPCs), persistent + overflow-fixed dashboard bell, buyer cross-order bell (`buyer_unread_summary`), Supabase Realtime **Broadcast** for instant in-app updates (anon-safe `order-rt:<token>` topic), and **Web Push** (VAPID `send-push` Edge Function + `pg_net` trigger + service-worker handlers, secrets in `private_config`). **Real-device verified on Android: instant in-app + lock-screen push.** See the Pick-Up-Here note.
 - **WhatsApp-free tracking** — `track_token` + `get_tracked_order` RPC, buyer PWA (manifest/service worker/icons), click-to-chat buyer templates (EN+Sesotho), phone-sync + "My Orders".
 - **Hardened seller auth** — bcrypt PIN in `seller_secrets`, OTP register/login/forgot-PIN RPCs, rate limiting, optional email; real Supabase phone-OTP sessions + PIN unlock.
 - **Stage 3b RLS lockdown** — closed orders/payments/fees/etc.; routed public flows through SECURITY DEFINER RPCs; verified with a true anon client. *(Did not cover all tables — see Stage 3c.)*
@@ -85,7 +95,9 @@ The dormant `whatsapp-notify` / `whatsapp-webhook` edge functions remain deploye
 
 **Launch hygiene (do first):** clean test/demo data · enable leaked-password protection · confirm fee values · rotate GitHub PAT.
 
-**Hardening / cleanup (low priority):** delete dormant `whatsapp-notify`/`whatsapp-webhook` edge functions · `REVOKE EXECUTE` on `admin_*` RPCs from `anon` (defense-in-depth; they already self-guard) · normalize buyer phone to E.164 on store in `create_storefront_order` · pin `search_path` on remaining non-definer functions.
+**Hardening / cleanup (low priority):** delete dormant `whatsapp-notify`/`whatsapp-webhook` edge functions · `REVOKE EXECUTE` on `admin_*` RPCs from `anon` (defense-in-depth; they already self-guard) · normalize buyer phone to E.164 on store in `create_storefront_order` · pin `search_path` on remaining non-definer functions · move the `pg_net` extension out of the `public` schema (minor advisor WARN from the push work).
+
+**Messaging / push follow-ups (Stage 4):** **measure push-adoption %** (what fraction of buyers install the PWA + grant notifications) before reducing WhatsApp dependence — this is the data gate for the whole hybrid · auto-send the WhatsApp click-to-chat nudge for buyers *without* a push subscription (so non-opted-in buyers still get pinged) · iOS push needs PWA-install (16.4+) and is flaky — nudge install on iOS · consider an admin dispute-thread viewer (SPEC §7 Phase 3) · localise auto status-update messages (EN/Sesotho) in the thread.
 
 **Known minor (cosmetic):** admin action buttons use native `confirm()` dialogs · repo root `.md` files (this file, HANDOFF, SPECs) are web-served at yebosell.co.za/… — move out of web root if that matters.
 
