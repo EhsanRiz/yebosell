@@ -1,9 +1,9 @@
-// YeboSell service worker — installable buyer app shell + offline fallback
-const CACHE = 'yebosell-v1';
+// YeboSell service worker — installable buyer app shell + offline fallback + web push
+const CACHE = 'yebosell-v2';
 const SHELL = [
   '/track/',
   '/manifest.json',
-  '/assets/config.js?v=5',
+  '/assets/config.js?v=11',
   '/assets/favicon.png',
   '/assets/icon-192.png',
   '/assets/icon-512.png'
@@ -20,6 +20,34 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+// ---- Web Push: show notification on push, focus/open the order on click ----
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) {}
+  const title = data.title || 'YeboSell';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || 'You have a new update on your order',
+    icon: '/assets/icon-192.png',
+    badge: '/assets/icon-192.png',
+    tag: data.tag || 'yebosell',
+    renotify: true,
+    data: { url: data.url || '/track/' }
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/track/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if ('focus' in w) { try { w.navigate(url); } catch (e) {} return w.focus(); }
+      }
+      return self.clients.openWindow(url);
+    })
   );
 });
 

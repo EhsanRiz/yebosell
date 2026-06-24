@@ -114,6 +114,73 @@
             } catch (e) {}
         };
 
+        // ---- Web Push (Phase 2): subscribe the device + register its order tokens ----
+        const VAPID_PUBLIC = 'BAOUC3r1CqP-_UxUWmX_237sTfOwseK0N2xR2FBxIU-RdKNHybH99rJlHIEwqyaScb4eFUFjBV6TlEUAEjcLpbg';
+        const pushSupported = () =>
+            (typeof window !== 'undefined') && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        function urlB64ToUint8Array(b64) {
+            const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+            const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64);
+            const out = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+            return out;
+        }
+        // Ensure this device has a push subscription and that the server knows
+        // every order token it holds (so any order can notify it). Safe to call
+        // repeatedly / whenever the saved-order list changes.
+        async function syncPushSubscription() {
+            try {
+                if (!pushSupported() || Notification.permission !== 'granted') return false;
+                const reg = await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC) });
+                }
+                const j = sub.toJSON();
+                const tokens = readMyOrders().map(o => o.token).filter(Boolean);
+                await supabase.rpc('register_push_subscription', { p_endpoint: sub.endpoint, p_keys: j.keys, p_tokens: tokens });
+                return true;
+            } catch (e) { return false; }
+        }
+        async function enablePush() {
+            if (!pushSupported()) return 'unsupported';
+            let perm = Notification.permission;
+            if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) { return 'error'; } }
+            if (perm !== 'granted') return perm;
+            return (await syncPushSubscription()) ? 'granted' : 'error';
+        }
+
+        // Small prompt to turn on push. Hidden when unsupported, denied, or already on.
+        function PushPrompt() {
+            const [perm, setPerm] = useState(pushSupported() ? Notification.permission : 'unsupported');
+            const [busy, setBusy] = useState(false);
+            if (!pushSupported() || perm === 'granted' || perm === 'denied' || perm === 'unsupported') return null;
+            const turnOn = async () => {
+                setBusy(true);
+                const res = await enablePush();
+                setPerm(res === 'granted' ? 'granted' : (pushSupported() ? Notification.permission : 'unsupported'));
+                setBusy(false);
+                if (res === 'granted') window.toast('Notifications on — we’ll alert you when the seller replies.', 'success');
+                else if (res === 'denied') window.toast('Notifications blocked. Enable them in your browser settings.', 'error');
+            };
+            return (
+                <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 flex items-center gap-3">
+                    <span className="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center flex-shrink-0">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-brand-900">Turn on notifications</p>
+                        <p className="text-xs text-brand-700">Get alerted when the seller replies — even when YeboSell is closed.</p>
+                    </div>
+                    <button onClick={turnOn} disabled={busy}
+                        className="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-bold text-sm px-4 py-2 rounded-xl flex-shrink-0">
+                        {busy ? '…' : 'Enable'}
+                    </button>
+                </div>
+            );
+        }
+
         // Buyer-side order conversation (mirrors the seller dashboard thread).
         // Anon buyers reach the thread only through token-scoped SECURITY DEFINER
         // RPCs; no direct table access. Realtime isn't available to anon, so we
@@ -145,7 +212,19 @@
                 const iv = setInterval(() => { if (document.visibilityState === 'visible') load(true); }, 7000);
                 const onVis = () => { if (document.visibilityState === 'visible') load(true); };
                 document.addEventListener('visibilitychange', onVis);
-                return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
+                // Instant updates via Realtime Broadcast (DB-emitted on the public
+                // topic order-rt:<token>); polling above stays as a fallback.
+                let ch = null;
+                try {
+                    ch = supabase.channel('order-rt:' + token)
+                        .on('broadcast', { event: 'msg' }, () => load(true))
+                        .subscribe();
+                } catch (e) {}
+                return () => {
+                    clearInterval(iv);
+                    document.removeEventListener('visibilitychange', onVis);
+                    if (ch) { try { supabase.removeChannel(ch); } catch (e) {} }
+                };
             }, [token]);
 
             useEffect(() => { try { endRef.current && endRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {} }, [msgs]);
@@ -229,7 +308,18 @@
                 const onRead = () => setTimeout(refresh, 400);
                 document.addEventListener('visibilitychange', onVis);
                 window.addEventListener('yebo-thread-read', onRead);
-                return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('yebo-thread-read', onRead); };
+                // Instant cross-order updates: one Broadcast channel per saved order
+                // (capped). Any ping → recount. Polling stays as a fallback.
+                const chans = readMyOrders().map(o => o.token).filter(Boolean).slice(0, 25).map(tok => {
+                    try { return supabase.channel('order-rt:' + tok).on('broadcast', { event: 'msg' }, () => setTimeout(refresh, 300)).subscribe(); }
+                    catch (e) { return null; }
+                }).filter(Boolean);
+                return () => {
+                    clearInterval(iv);
+                    document.removeEventListener('visibilitychange', onVis);
+                    window.removeEventListener('yebo-thread-read', onRead);
+                    chans.forEach(c => { try { supabase.removeChannel(c); } catch (e) {} });
+                };
             }, []);
 
             useEffect(() => {
@@ -315,6 +405,10 @@
                 (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
             const installed = (() => { try { return localStorage.getItem('yebosell_installed') === '1'; } catch (e) { return false; } })();
             const showInstall = canInstall && !isStandalone && !installed;
+
+            // Keep the push subscription's order-token list current (no-op unless the
+            // buyer has already granted notifications). Runs on mount + when orders change.
+            useEffect(() => { syncPushSubscription(); }, [myOrders]);
 
             // On load: token link → load that order; else show My Orders (+ legacy form)
             useEffect(() => {
@@ -532,6 +626,8 @@
                                         <InstallButton />
                                     </div>
                                 )}
+
+                                {myOrders.length > 0 && <PushPrompt />}
 
                                 {/* My Orders list */}
                                 {myOrders.length > 0 && (
@@ -767,6 +863,9 @@
                                         })}
                                     </div>
                                 </div>
+
+                                {/* Turn on push so seller replies reach a closed app */}
+                                {activeToken && <PushPrompt />}
 
                                 {/* In-app conversation — token-scoped, only on track links */}
                                 {activeToken && <BuyerThread token={activeToken} sellerName={seller && seller.business_name} />}
