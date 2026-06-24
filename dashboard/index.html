@@ -138,6 +138,11 @@
                     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
                 </svg>
             ),
+            chat: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                </svg>
+            ),
             copy: (props) => (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -696,6 +701,10 @@
                             m.kind === 'status' ? (
                                 <div key={m.id} className="text-center">
                                     <span className="inline-block text-[11px] text-gray-500 bg-gray-200/70 rounded-full px-3 py-1">{m.body}</span>
+                                </div>
+                            ) : (m.meta && m.meta.confirm) ? (
+                                <div key={m.id} className="text-center">
+                                    <span className={`inline-block text-[11px] font-semibold rounded-full px-3 py-1 ${m.meta.confirm === 'dispute' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>{m.body}</span>
                                 </div>
                             ) : (
                                 <div key={m.id} className={`flex ${m.sender === 'seller' ? 'justify-end' : 'justify-start'}`}>
@@ -2250,9 +2259,31 @@
         // ORDERS SCREEN
         // ============================================================================
 
+        // Small badges that surface the BUYER's own assertions (two-sided state)
+        // so the seller sees them at a glance in the order list. Dispute is loudest.
+        const BuyerSignals = ({ order }) => {
+            const items = [];
+            if (order.buyer_dispute_at)
+                items.push(['⚠ Buyer reported a problem', '#b91c1c', '#fef2f2', '#fecaca']);
+            if (order.buyer_paid_confirmed_at)
+                items.push(['✓ Buyer confirmed payment', '#15803d', '#f0fdf4', '#bbf7d0']);
+            if (order.buyer_received_confirmed_at)
+                items.push(['✓ Buyer confirmed receipt', '#15803d', '#f0fdf4', '#bbf7d0']);
+            if (!items.length) return null;
+            return (
+                <div className="flex flex-wrap gap-1 mt-1">
+                    {items.map(([label, color, bg, border], i) => (
+                        <span key={i} className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded"
+                            style={{ color, background: bg, border: '1px solid ' + border }}>{label}</span>
+                    ))}
+                </div>
+            );
+        };
+
         const OrdersScreen = ({ seller }) => {
             const [orders, setOrders] = useState([]);
             const [loading, setLoading] = useState(true);
+            const [unreadByOrder, setUnreadByOrder] = useState({});
             const [showForm, setShowForm] = useState(false);
             const [selectedOrder, setSelectedOrder] = useState(null);
             const [detailOrder, setDetailOrder] = useState(null);
@@ -2277,6 +2308,17 @@
 
                     if (error) throw error;
                     setOrders(data || []);
+
+                    // Unread buyer messages per order (lights the Message button)
+                    const { data: msgs } = await supabase
+                        .from('order_messages')
+                        .select('order_id')
+                        .eq('seller_id', seller.id)
+                        .eq('sender', 'buyer')
+                        .is('read_by_seller_at', null);
+                    const counts = {};
+                    (msgs || []).forEach(m => { counts[m.order_id] = (counts[m.order_id] || 0) + 1; });
+                    setUnreadByOrder(counts);
                 } catch (err) {
                     console.error('Load orders error:', err);
                 } finally {
@@ -2524,6 +2566,7 @@
                                                 <td>
                                                     <p className="text-gray-900">{order.customer_name}</p>
                                                     <p className="text-xs text-gray-400">{order.customer_phone}</p>
+                                                    <BuyerSignals order={order} />
                                                 </td>
                                                 <td>
                                                     <select
@@ -2562,10 +2605,15 @@
                                                 <td className="text-right font-semibold text-green-600">{formatCurrency(order.total)}</td>
                                                 <td>
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); sendWhatsApp(order); }}
-                                                        className="flex items-center gap-1.5 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                                        onClick={(e) => { e.stopPropagation(); setDetailOrder(order); }}
+                                                        className="relative flex items-center gap-1.5 bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                                                     >
-                                                        <Icons.whatsapp /> Message
+                                                        <Icons.chat /> Message
+                                                        {unreadByOrder[order.id] > 0 && (
+                                                            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full">
+                                                                {unreadByOrder[order.id]}
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -2580,11 +2628,19 @@
                                     <div key={order.id} className="card card-shadow p-4 cursor-pointer hover:shadow-md transition" onClick={() => setDetailOrder(order)}>
                                         <div className="flex justify-between items-start mb-2">
                                             <div>
-                                                <p className="font-bold text-gray-900">{order.order_number}</p>
+                                                <p className="font-bold text-gray-900 flex items-center gap-1.5">
+                                                    {order.order_number}
+                                                    {unreadByOrder[order.id] > 0 && (
+                                                        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+                                                            {unreadByOrder[order.id]}
+                                                        </span>
+                                                    )}
+                                                </p>
                                                 <p className="text-xs text-gray-500">{order.customer_name}</p>
                                             </div>
                                             <p className="text-lg font-bold text-green-600">{formatCurrency(order.total)}</p>
                                         </div>
+                                        <BuyerSignals order={order} />
 
                                         <div className="flex gap-2 mb-3 flex-wrap">
                                             <span className="badge" style={{ backgroundColor: getStatusColor(order.status) + '15', color: getStatusColor(order.status) }}>
@@ -2636,7 +2692,7 @@
                     )}
 
                     {/* Order Detail Modal */}
-                    {detailOrder && <OrderDetailModal order={detailOrder} onClose={() => setDetailOrder(null)} />}
+                    {detailOrder && <OrderDetailModal order={detailOrder} onClose={() => { setDetailOrder(null); loadOrders(); }} />}
                 </div>
             );
         };
