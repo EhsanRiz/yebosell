@@ -17,7 +17,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=11"></script>
+    <script src="/assets/config.js?v=12"></script>
     <script>
         // ---- PWA: service worker + install prompt capture (plain JS, runs before React) ----
         window.__yeboDeferredPrompt = null;
@@ -88,14 +88,6 @@
             pickup: 'Customer Pickup', self_delivery: 'Seller Delivery',
             courier: 'Courier / Third Party', taxi: 'Via Taxi', bus: 'Via Bus', local_courier: 'Local Courier'
         };
-
-        const DELIVERY_STATUS_STEPS = [
-            { key: 'pending', label: 'Order Received', icon: '📋', desc: 'Your order has been received' },
-            { key: 'ready_for_pickup', label: 'Ready for Pickup', icon: '🏪', desc: 'Your order is ready to collect', pickupOnly: true },
-            { key: 'out_for_delivery', label: 'Out for Delivery', icon: '🚗', desc: 'Your order is on its way', deliveryOnly: true },
-            { key: 'in_transit', label: 'In Transit', icon: '📦', desc: 'Your order is being transported', deliveryOnly: true },
-            { key: 'delivered', label: 'Delivered', icon: '✅', desc: 'Your order has been delivered' }
-        ];
 
         // ---- buyer order list persistence (the permanent app) ----
         const readMyOrders = () => {
@@ -585,17 +577,15 @@
                 try { window.history.replaceState({}, '', '/track/'); } catch (e) {}
             };
 
+            // Unified lifecycle, identical to the seller's: New → Confirmed →
+            // Preparing → (Ready for Pickup | Out for Delivery) → Delivered.
+            // Step 4 adapts to the delivery method (pickup vs delivery).
             const getActiveSteps = () => {
                 if (!order) return [];
-                const isPickup = order.delivery_method === 'pickup';
-                return DELIVERY_STATUS_STEPS.filter(s => {
-                    if (isPickup && s.deliveryOnly) return false;
-                    if (!isPickup && s.pickupOnly) return false;
-                    return true;
-                });
+                return window.orderStages(order.delivery_method);
             };
             const getStepStatus = (stepKey, steps) => {
-                const currentIndex = steps.findIndex(s => s.key === (order?.delivery_status || 'pending'));
+                const currentIndex = steps.findIndex(s => s.key === (order?.status || 'new'));
                 const stepIndex = steps.findIndex(s => s.key === stepKey);
                 if (stepIndex < currentIndex) return 'completed';
                 if (stepIndex === currentIndex) return 'current';
@@ -846,37 +836,44 @@
                                     </div>
                                 )}
 
-                                {/* Delivery Timeline */}
+                                {/* Order progress — same lifecycle the seller sees */}
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">
-                                        {order.delivery_method === 'pickup' ? '🏪 Pickup Status' : '🚚 Delivery Status'}
+                                        {order.delivery_method === 'pickup' ? '🏪 Order Progress (Pickup)' : '🚚 Order Progress'}
                                     </h3>
-                                    <div className="space-y-0">
-                                        {getActiveSteps().map((step, i, arr) => {
-                                            const status = getStepStatus(step.key, arr);
-                                            const isLast = i === arr.length - 1;
-                                            return (
-                                                <div key={step.key} className="relative flex gap-4 pb-6">
-                                                    {!isLast && (
-                                                        <div className={`absolute left-[15px] top-[36px] bottom-0 w-0.5 ${status === 'completed' ? 'bg-brand-500' : 'bg-gray-200'}`} />
-                                                    )}
-                                                    <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${
-                                                        status === 'completed' ? 'bg-brand-500 text-white' :
-                                                        status === 'current' ? 'bg-brand-100 border-2 border-brand-500 text-brand-600' :
-                                                        'bg-gray-100 text-gray-400'}`}>
-                                                        {status === 'completed' ? '✓' : step.icon}
-                                                    </div>
-                                                    <div className="flex-1 pt-1">
-                                                        <p className={`text-sm font-semibold ${status === 'upcoming' ? 'text-gray-400' : 'text-gray-900'}`}>{step.label}</p>
-                                                        <p className={`text-xs ${status === 'upcoming' ? 'text-gray-300' : 'text-gray-500'}`}>{step.desc}</p>
-                                                        {status === 'current' && order.delivery_updated_at && (
-                                                            <p className="text-xs text-brand-600 mt-0.5">Updated: {new Date(order.delivery_updated_at).toLocaleString()}</p>
+                                    {order.status === 'cancelled' ? (
+                                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                                            <p className="text-sm font-bold text-red-700">✕ Order Cancelled</p>
+                                            <p className="text-xs text-red-600 mt-1">This order has been cancelled. Message the seller below if you have any questions.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-0">
+                                            {getActiveSteps().map((step, i, arr) => {
+                                                const status = getStepStatus(step.key, arr);
+                                                const isLast = i === arr.length - 1;
+                                                return (
+                                                    <div key={step.key} className="relative flex gap-4 pb-6">
+                                                        {!isLast && (
+                                                            <div className={`absolute left-[15px] top-[36px] bottom-0 w-0.5 ${status === 'completed' ? 'bg-brand-500' : 'bg-gray-200'}`} />
                                                         )}
+                                                        <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
+                                                            status === 'completed' ? 'bg-brand-500 text-white' :
+                                                            status === 'current' ? 'bg-brand-100 border-2 border-brand-500 text-brand-600' :
+                                                            'bg-gray-100 text-gray-400'}`}>
+                                                            {status === 'completed' ? '✓' : (i + 1)}
+                                                        </div>
+                                                        <div className="flex-1 pt-1">
+                                                            <p className={`text-sm font-semibold ${status === 'upcoming' ? 'text-gray-400' : 'text-gray-900'}`}>{step.label}</p>
+                                                            <p className={`text-xs ${status === 'upcoming' ? 'text-gray-300' : 'text-gray-500'}`}>{step.desc}</p>
+                                                            {status === 'current' && order.delivery_updated_at && (
+                                                                <p className="text-xs text-brand-600 mt-0.5">Updated: {new Date(order.delivery_updated_at).toLocaleString()}</p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Turn on push so seller replies reach a closed app */}
