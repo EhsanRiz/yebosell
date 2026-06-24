@@ -740,11 +740,19 @@
         // ============================================================================
 
         // Seller-side conversation thread for one order (chat + auto status updates).
-        const OrderThread = ({ orderId, sellerId }) => {
+        const OrderThread = ({ orderId, sellerId, order }) => {
             const [msgs, setMsgs] = useState([]);
             const [text, setText] = useState('');
             const [sending, setSending] = useState(false);
+            const [notify, setNotify] = useState(null); // { has_push, track_token } | null
             const endRef = useRef(null);
+
+            const loadNotify = async () => {
+                try {
+                    const { data } = await supabase.rpc('order_notify_info', { p_order_id: orderId });
+                    setNotify(data || null);
+                } catch (e) {}
+            };
 
             const load = async () => {
                 const { data } = await supabase.from('order_messages')
@@ -760,6 +768,7 @@
 
             useEffect(() => {
                 load();
+                loadNotify();
                 const ch = supabase.channel('order-msg-' + orderId)
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_messages', filter: 'order_id=eq.' + orderId },
                         (payload) => { setMsgs(prev => prev.some(m => m.id === payload.new.id) ? prev : [...prev, payload.new]); })
@@ -779,6 +788,20 @@
                 if (error) { window.toast('Could not send: ' + error.message, 'error'); return; }
                 setText('');
                 load();
+                loadNotify(); // buyer may have just enabled push
+            };
+
+            // Fallback nudge: only when the buyer has NO push subscription for this
+            // order — otherwise the push already reached them (no need to bug anyone).
+            const nudgeWhatsApp = () => {
+                const phone = order && order.customer_phone;
+                if (!phone) { window.toast('No buyer phone on this order.', 'error'); return; }
+                const name = (order.customer_name || '').split(' ')[0];
+                const link = window.trackLink(notify && notify.track_token);
+                const msg = (name ? 'Hi ' + name + ', ' : 'Hi, ') +
+                    'there’s an update on your order ' + (order.order_number || '') + '.' +
+                    (link ? '\nOpen it here: ' + link : '');
+                window.open(window.whatsappLink(phone, msg), '_blank');
             };
 
             return (
@@ -814,6 +837,21 @@
                         <button onClick={send} disabled={sending || !text.trim()}
                             className="bg-brand-500 hover:bg-brand-600 disabled:bg-gray-300 text-white font-semibold px-4 py-2 rounded-xl text-sm">Send</button>
                     </div>
+                    {notify && notify.has_push === false && order && order.customer_phone && (
+                        <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
+                            <span className="text-amber-600 flex-shrink-0 mt-0.5">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-amber-900">This buyer won’t get an app notification</p>
+                                <p className="text-[11px] text-amber-700 mt-0.5">They haven’t enabled notifications, so they’ll only see your message when they next open the tracking link. Send them a quick WhatsApp nudge.</p>
+                            </div>
+                            <button onClick={nudgeWhatsApp}
+                                className="flex-shrink-0 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs px-3 py-2 rounded-lg flex items-center gap-1.5">
+                                <Icons.whatsapp /> Notify
+                            </button>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -935,7 +973,7 @@
 
                             {/* Conversation thread */}
                             <div className="border-t border-gray-200 pt-4">
-                                <OrderThread orderId={order.id} sellerId={order.seller_id} />
+                                <OrderThread orderId={order.id} sellerId={order.seller_id} order={order} />
                             </div>
 
                             {/* Source */}
