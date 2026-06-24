@@ -12,7 +12,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/assets/config.js?v=11"></script>
+    <script src="/assets/config.js?v=12"></script>
 
     <script>
         tailwind.config = {
@@ -898,9 +898,6 @@
                                 <span className="badge" style={{ backgroundColor: getStatusColor(order.payment_status) + '15', color: getStatusColor(order.payment_status) }}>
                                     Pay: {getStatusLabel(order.payment_status)}
                                 </span>
-                                <span className="badge" style={{ backgroundColor: getStatusColor(order.delivery_status) + '15', color: getStatusColor(order.delivery_status) }}>
-                                    Del: {getStatusLabel(order.delivery_status)}
-                                </span>
                             </div>
 
                             {/* Customer info */}
@@ -1063,7 +1060,7 @@
                     const pendingPaymentsAmount = unpaidOrders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
 
                     // To deliver
-                    const toDeliver = allOrders.filter(o => ['confirmed', 'preparing', 'paid'].includes(o.status)).length;
+                    const toDeliver = allOrders.filter(o => ['confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status)).length;
 
                     // Collection rate
                     const totalConfirmedPayments = confirmedPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
@@ -1513,7 +1510,7 @@
                                         if (dashPopup === 'revenue_today') filtered = allOrdersData.filter(o => o.created_at >= today);
                                         else if (dashPopup === 'revenue_month') filtered = allOrdersData.filter(o => o.created_at >= monthStart);
                                         else if (dashPopup === 'pending_payments') filtered = allOrdersData.filter(o => o.payment_status !== 'paid');
-                                        else if (dashPopup === 'to_deliver') filtered = allOrdersData.filter(o => ['confirmed', 'preparing', 'paid'].includes(o.status));
+                                        else if (dashPopup === 'to_deliver') filtered = allOrdersData.filter(o => ['confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery'].includes(o.status));
 
                                         if (filtered.length === 0) return <div className="p-8 text-center text-gray-400 text-sm">No orders found</div>;
 
@@ -2524,7 +2521,8 @@
             const updateOrderStatus = async (orderId, field, value) => {
                 try {
                     const updateData = { [field]: value };
-                    if (field === 'delivery_status') updateData.delivery_updated_at = new Date().toISOString();
+                    // Unified lifecycle lives on `status`; stamp the progress time on any stage change.
+                    if (field === 'status') updateData.delivery_updated_at = new Date().toISOString();
                     const { error } = await supabase
                         .from('orders')
                         .update(updateData)
@@ -2532,17 +2530,15 @@
                     if (error) throw error;
 
                     // Offer to notify the buyer via the seller's own WhatsApp (click-to-chat, no API)
-                    const notifyStatuses = ['confirmed', 'preparing', 'paid', 'dispatched', 'shipped', 'delivered', 'cancelled'];
-                    const notifyDelivery = ['ready_for_pickup', 'out_for_delivery', 'in_transit', 'delivered'];
-                    const shouldNotify =
-                        (field === 'status' && notifyStatuses.includes(value)) ||
-                        (field === 'delivery_status' && notifyDelivery.includes(value));
+                    const notifyStatuses = ['confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'];
+                    const shouldNotify = field === 'status' && notifyStatuses.includes(value);
 
                     if (shouldNotify) {
                         const order = orders.find(o => o.id === orderId) || {};
-                        const milestone = (field === 'delivery_status')
-                            ? ({ ready_for_pickup: 'ready_for_pickup', out_for_delivery: 'out_for_delivery', in_transit: 'out_for_delivery', delivered: 'delivered' }[value] || 'status_update')
-                            : ({ confirmed: 'order_confirmation', paid: 'payment_received', delivered: 'delivered' }[value] || 'status_update');
+                        const milestone = ({
+                            confirmed: 'order_confirmation', ready_for_pickup: 'ready_for_pickup',
+                            out_for_delivery: 'out_for_delivery', delivered: 'delivered'
+                        }[value] || 'status_update');
                         const ctx = {
                             name: order.customer_name, order: order.order_number,
                             seller: seller.business_name, total: formatCurrency(order.total),
@@ -2700,7 +2696,6 @@
                                             <th>Customer</th>
                                             <th>Status</th>
                                             <th>Payment</th>
-                                            <th>Delivery</th>
                                             <th className="text-right">Total</th>
                                             <th>Actions</th>
                                         </tr>
@@ -2721,11 +2716,9 @@
                                                         onClick={(e) => e.stopPropagation()}
                                                         className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
                                                     >
-                                                        <option value="new">New</option>
-                                                        <option value="confirmed">Confirmed</option>
-                                                        <option value="preparing">Preparing</option>
-                                                        <option value="dispatched">Dispatched</option>
-                                                        <option value="delivered">Delivered</option>
+                                                        {window.orderStages(order.delivery_method).map(s => (
+                                                            <option key={s.key} value={s.key}>{s.label}</option>
+                                                        ))}
                                                         <option value="cancelled">Cancelled</option>
                                                     </select>
                                                 </td>
@@ -2733,20 +2726,6 @@
                                                     <span className="badge" style={{ backgroundColor: getStatusColor(order.payment_status) + '15', color: getStatusColor(order.payment_status) }}>
                                                         {getStatusLabel(order.payment_status)}
                                                     </span>
-                                                </td>
-                                                <td>
-                                                    <select
-                                                        value={order.delivery_status}
-                                                        onChange={(e) => updateOrderStatus(order.id, 'delivery_status', e.target.value)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                                                    >
-                                                        <option value="pending">Pending</option>
-                                                        <option value="ready_for_pickup">Ready for Pickup</option>
-                                                        <option value="out_for_delivery">Out for Delivery</option>
-                                                        <option value="in_transit">In Transit</option>
-                                                        <option value="delivered">Delivered</option>
-                                                    </select>
                                                 </td>
                                                 <td className="text-right font-semibold text-green-600">{formatCurrency(order.total)}</td>
                                                 <td>
@@ -2795,9 +2774,6 @@
                                             <span className="badge" style={{ backgroundColor: getStatusColor(order.payment_status) + '15', color: getStatusColor(order.payment_status) }}>
                                                 Pay: {getStatusLabel(order.payment_status)}
                                             </span>
-                                            <span className="badge" style={{ backgroundColor: getStatusColor(order.delivery_status) + '15', color: getStatusColor(order.delivery_status) }}>
-                                                Del: {getStatusLabel(order.delivery_status)}
-                                            </span>
                                         </div>
 
                                         <div className="flex gap-2 flex-wrap text-xs">
@@ -2807,21 +2783,10 @@
                                                 onClick={(e) => e.stopPropagation()}
                                                 className="px-2 py-1.5 border border-gray-200 rounded-lg bg-white"
                                             >
-                                                <option value="new">New</option>
-                                                <option value="confirmed">Confirmed</option>
-                                                <option value="preparing">Preparing</option>
-                                                <option value="dispatched">Dispatched</option>
-                                            </select>
-
-                                            <select
-                                                value={order.delivery_status}
-                                                onChange={(e) => updateOrderStatus(order.id, 'delivery_status', e.target.value)}
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="px-2 py-1.5 border border-gray-200 rounded-lg bg-white"
-                                            >
-                                                <option value="pending">Pending</option>
-                                                <option value="in_transit">In Transit</option>
-                                                <option value="delivered">Delivered</option>
+                                                {window.orderStages(order.delivery_method).map(s => (
+                                                    <option key={s.key} value={s.key}>{s.label}</option>
+                                                ))}
+                                                <option value="cancelled">Cancelled</option>
                                             </select>
 
                                             <button
@@ -4578,7 +4543,7 @@
                 // Everything also ages out after a few days so the badge can't run away.
                 const DAY = 86400000, FRESH_MS = 4 * DAY, now = Date.now();
                 const fresh = (ts) => (now - new Date(ts).getTime()) < FRESH_MS;
-                const done = (o) => o && (o.status === 'delivered' || o.status === 'cancelled' || o.delivery_status === 'delivered');
+                const done = (o) => o && (o.status === 'delivered' || o.status === 'cancelled');
                 const omap = {};
                 (ords || []).forEach(o => { omap[o.id] = o; });
                 const evs = [];

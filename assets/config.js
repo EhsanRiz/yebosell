@@ -62,7 +62,31 @@ window.getStatusColor = (status) => {
     return map[status] || '#6b7280';
 };
 
+// Canonical order lifecycle (single source of truth, shown identically to
+// buyer & seller). Step 4 is delivery-method-aware. Payment is a separate axis.
+window.ORDER_STAGE_LABELS = {
+    new: 'New', confirmed: 'Confirmed', preparing: 'Preparing',
+    ready_for_pickup: 'Ready for Pickup', out_for_delivery: 'Out for Delivery',
+    delivered: 'Delivered', cancelled: 'Cancelled'
+};
+// Ordered stages for an order, adapted to its delivery method: pickup orders
+// get 'Ready for Pickup' at step 4, every other method gets 'Out for Delivery'.
+// Excludes 'cancelled' (a separate terminal state).
+window.orderStages = (deliveryMethod) => {
+    const isPickup = deliveryMethod === 'pickup';
+    return [
+        { key: 'new', label: 'New', desc: 'Order placed' },
+        { key: 'confirmed', label: 'Confirmed', desc: 'Seller confirmed your order' },
+        { key: 'preparing', label: 'Preparing', desc: 'Your order is being prepared' },
+        isPickup
+            ? { key: 'ready_for_pickup', label: 'Ready for Pickup', desc: 'Your order is ready to collect' }
+            : { key: 'out_for_delivery', label: 'Out for Delivery', desc: 'Your order is on its way' },
+        { key: 'delivered', label: 'Delivered', desc: isPickup ? 'Your order has been collected' : 'Your order has been delivered' }
+    ];
+};
+
 window.getStatusLabel = (status) => {
+    if (window.ORDER_STAGE_LABELS && window.ORDER_STAGE_LABELS[status]) return window.ORDER_STAGE_LABELS[status];
     return (status || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
