@@ -131,6 +131,10 @@
             const [syncCode, setSyncCode] = useState('');
             const [syncError, setSyncError] = useState('');
             const [syncLoading, setSyncLoading] = useState(false);
+            const [activeToken, setActiveToken] = useState('');
+            const [confirmBusy, setConfirmBusy] = useState('');
+            const [showDispute, setShowDispute] = useState(false);
+            const [disputeNote, setDisputeNote] = useState('');
 
             // PWA install availability
             useEffect(() => {
@@ -175,6 +179,7 @@
                     setOrder(data.order);
                     setItems(data.items || []);
                     setSeller(data.seller || null);
+                    setActiveToken(token);
                     persistMyOrder(token, data);
                     setMyOrders(readMyOrders());
                     try { window.history.replaceState({}, '', `/track/?t=${token}`); } catch (e) {}
@@ -182,6 +187,37 @@
                     setError('Something went wrong. Please try again.');
                 }
                 setLoading(false);
+            };
+
+            // Buyer-side confirmation: records the buyer's own assertion (paid /
+            // received / problem) independently of the seller, into the order thread.
+            const confirmOrder = async (action, note) => {
+                if (!activeToken || confirmBusy) return;
+                if (action === 'dispute' && !showDispute) { setShowDispute(true); return; }
+                setConfirmBusy(action);
+                try {
+                    const { data, error: rpcErr } = await supabase.rpc('buyer_confirm_order', {
+                        p_token: activeToken, p_action: action, p_note: note || null });
+                    if (rpcErr || !data || data.error) {
+                        window.toast((data && data.message) || 'Could not save just now. Please try again.', 'error');
+                    } else {
+                        setOrder(o => Object.assign({}, o, {
+                            buyer_paid_confirmed_at: data.buyer_paid_confirmed_at,
+                            buyer_received_confirmed_at: data.buyer_received_confirmed_at,
+                            buyer_dispute_at: data.buyer_dispute_at,
+                            buyer_dispute_reason: data.buyer_dispute_reason
+                        }));
+                        setShowDispute(false); setDisputeNote('');
+                        window.toast(
+                            action === 'paid' ? "Thanks — we've let the seller know you paid." :
+                            action === 'received' ? 'Thanks for confirming you received your order.' :
+                            "Reported. The seller and YeboSell can now see this.",
+                            action === 'dispute' ? 'info' : 'success');
+                    }
+                } catch (e) {
+                    window.toast('Something went wrong. Please try again.', 'error');
+                }
+                setConfirmBusy('');
             };
 
             // Legacy lookup by order number + phone (kept ~60 days for old links)
@@ -269,6 +305,7 @@
 
             const backToHome = () => {
                 setOrder(null); setSeller(null); setItems([]); setError(''); setSearched(false);
+                setActiveToken(''); setShowDispute(false); setDisputeNote('');
                 setMyOrders(readMyOrders());
                 try { window.history.replaceState({}, '', '/track/'); } catch (e) {}
             };
@@ -467,6 +504,69 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Buyer confirmation — two-sided state. Only on token links. */}
+                                {activeToken && (
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Confirm your order</h3>
+                                        <p className="text-xs text-gray-500 mb-4">Your confirmation is recorded for the seller and YeboSell — it protects you if anything goes wrong.</p>
+
+                                        {/* I've paid */}
+                                        {order.buyer_paid_confirmed_at ? (
+                                            <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold mb-2">
+                                                <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">✓</span>
+                                                You confirmed payment · {new Date(order.buyer_paid_confirmed_at).toLocaleDateString()}
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => confirmOrder('paid')} disabled={!!confirmBusy}
+                                                className="w-full flex items-center justify-center gap-2 border-2 border-brand-500 text-brand-700 font-bold py-2.5 rounded-xl transition hover:bg-brand-50 disabled:opacity-50 mb-2">
+                                                {confirmBusy === 'paid' ? 'Saving…' : "✓ I've paid for this order"}
+                                            </button>
+                                        )}
+
+                                        {/* Confirm receipt */}
+                                        {order.buyer_received_confirmed_at ? (
+                                            <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold mb-2">
+                                                <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">✓</span>
+                                                You confirmed receipt · {new Date(order.buyer_received_confirmed_at).toLocaleDateString()}
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => confirmOrder('received')} disabled={!!confirmBusy}
+                                                className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 rounded-xl transition disabled:opacity-50 mb-2">
+                                                {confirmBusy === 'received' ? 'Saving…' : '✓ Confirm I received my order'}
+                                            </button>
+                                        )}
+
+                                        {/* Report a problem */}
+                                        {order.buyer_dispute_at ? (
+                                            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                                <p className="text-xs font-bold text-amber-900">⚠ You reported a problem · {new Date(order.buyer_dispute_at).toLocaleDateString()}</p>
+                                                {order.buyer_dispute_reason && <p className="text-xs text-amber-800 mt-1">"{order.buyer_dispute_reason}"</p>}
+                                                <p className="text-xs text-amber-700 mt-1">The seller and YeboSell can see this. You can keep messaging the seller below.</p>
+                                            </div>
+                                        ) : showDispute ? (
+                                            <div className="mt-2 border border-gray-200 rounded-xl p-3">
+                                                <label className="text-xs font-semibold text-gray-700">What went wrong?</label>
+                                                <textarea value={disputeNote} onChange={e => setDisputeNote(e.target.value)} rows="2" maxLength="500"
+                                                    placeholder="e.g. I paid but haven't received my order"
+                                                    className="w-full mt-1 text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-brand-500" />
+                                                <div className="flex gap-2 mt-2">
+                                                    <button onClick={() => confirmOrder('dispute', disputeNote)} disabled={!!confirmBusy}
+                                                        className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg text-sm transition disabled:opacity-50">
+                                                        {confirmBusy === 'dispute' ? 'Sending…' : 'Submit report'}
+                                                    </button>
+                                                    <button onClick={() => { setShowDispute(false); setDisputeNote(''); }}
+                                                        className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm transition">Cancel</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setShowDispute(true)} disabled={!!confirmBusy}
+                                                className="w-full text-center text-amber-700 hover:text-amber-800 font-semibold py-2 text-sm transition">
+                                                ⚠ Report a problem with this order
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Delivery Timeline */}
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
