@@ -859,6 +859,8 @@
         const OrderDetailModal = ({ order, onClose }) => {
             const [items, setItems] = useState([]);
             const [loading, setLoading] = useState(true);
+            const [proofs, setProofs] = useState([]);
+            const [proofBusy, setProofBusy] = useState('');
 
             useEffect(() => {
                 if (order) {
@@ -866,8 +868,24 @@
                         .select('*')
                         .eq('order_id', order.id)
                         .then(({ data }) => { setItems(data || []); setLoading(false); });
+                    supabase.from('payment_proofs')
+                        .select('id, storage_path, file_name, content_type, source, created_at')
+                        .eq('order_id', order.id).order('created_at', { ascending: false })
+                        .then(({ data }) => setProofs(data || []));
                 }
             }, [order]);
+
+            // Private bucket — generate a short-lived signed URL on demand (seller
+            // is authenticated + owns the order, so storage RLS allows the read).
+            const viewProof = async (p) => {
+                setProofBusy(p.id);
+                try {
+                    const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(p.storage_path, 3600);
+                    if (error || !data) window.toast('Could not open the file.', 'error');
+                    else window.open(data.signedUrl, '_blank');
+                } catch (e) { window.toast('Could not open the file.', 'error'); }
+                setProofBusy('');
+            };
 
             if (!order) return null;
 
@@ -967,6 +985,30 @@
                                 <p className="text-sm font-semibold text-gray-500">Order Total</p>
                                 <p className="text-2xl font-bold text-green-600">{formatCurrency(order.total)}</p>
                             </div>
+
+                            {/* Payment proof (buyer-uploaded) */}
+                            {proofs.length > 0 && (
+                                <div className="border-t border-gray-200 pt-4">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Payment Proof</p>
+                                    <div className="space-y-2">
+                                        {proofs.map(p => (
+                                            <div key={p.id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                                                <span className="w-9 h-9 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center flex-shrink-0">
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">{p.file_name || 'Receipt'}</p>
+                                                    <p className="text-xs text-gray-400">{p.source === 'buyer' ? 'Buyer uploaded' : 'Uploaded'} · {new Date(p.created_at).toLocaleString()}</p>
+                                                </div>
+                                                <button onClick={() => viewProof(p)} disabled={proofBusy === p.id}
+                                                    className="flex-shrink-0 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold text-xs px-3 py-2 rounded-lg">
+                                                    {proofBusy === p.id ? '…' : 'View'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Conversation thread */}
                             <div className="border-t border-gray-200 pt-4">
