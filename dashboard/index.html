@@ -4517,7 +4517,7 @@
             );
         };
 
-        const NotificationBell = ({ seller, onOpenOrder }) => {
+        const NotificationBell = ({ seller, onOpenOrder, align = 'right' }) => {
             const [events, setEvents] = useState([]);
             const [open, setOpen] = useState(false);
             const [seenAt, setSeenAt] = useState(() => { try { return Number(localStorage.getItem('yebosell_notif_seen')) || 0; } catch (e) { return 0; } });
@@ -4595,7 +4595,7 @@
                         )}
                     </button>
                     {open && (
-                        <div className="absolute right-0 mt-2 w-80 max-w-[88vw] bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
+                        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-80 max-w-[88vw] bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden`}>
                             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                                 <p className="font-bold text-sm text-gray-900">Notifications</p>
                                 {unread > 0 && <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{unread} new</span>}
@@ -4733,7 +4733,7 @@
                                         <p className="text-xs text-gray-500 truncate">{currentUser.business_name}</p>
                                     </div>
                                 </div>
-                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} />
+                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} align="left" />
                             </div>
                         </div>
 
