@@ -1125,14 +1125,19 @@
                         )}
                     </div>
                     <div className="p-3.5">
-                        <h3 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-1">{product.name}</h3>
+                        <div className="flex items-start gap-1.5 mb-1">
+                            <h3 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 flex-1">{product.name}</h3>
+                            {(product.condition === 'used' || product.condition === 'refurbished') && (
+                                <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{product.condition}</span>
+                            )}
+                        </div>
                         {rating > 0 && <div className="mb-1"><StarRating rating={rating} size={12} count={reviewCount} /></div>}
                         {product.description && <p className="text-xs text-gray-400 line-clamp-1 mb-2">{product.description}</p>}
                         <div className="flex items-center justify-between">
                             {hasVariants && minPrice !== maxPrice ? (
-                                <span className={`text-sm font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>From {formatCurrency(minPrice)}</span>
+                                <span className={`text-sm font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>From {formatCurrency(minPrice)}{product.unit ? <span className="text-[11px] font-normal text-gray-400 ml-1">{product.unit}</span> : ''}</span>
                             ) : (
-                                <span className={`text-lg font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>{formatCurrency(hasVariants ? minPrice : product.price)}</span>
+                                <span className={`text-lg font-bold ${isOOS ? 'text-gray-400 line-through' : 'text-brand-600'}`}>{formatCurrency(hasVariants ? minPrice : product.price)}{product.unit ? <span className="text-[11px] font-normal text-gray-400 ml-1">{product.unit}</span> : ''}</span>
                             )}
                             <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${isOOS ? 'text-gray-400 bg-gray-100' : 'text-brand-500 bg-brand-50 group-hover:bg-brand-500 group-hover:text-white'}`}>{isOOS ? 'Sold Out' : 'View'}</span>
                         </div>
@@ -1300,7 +1305,12 @@
                         {/* Product info */}
                         <div className="p-5 space-y-4">
                             <div>
-                                <h2 className="text-xl font-bold text-gray-900">{product.name}</h2>
+                                <div className="flex items-start gap-2">
+                                    <h2 className="text-xl font-bold text-gray-900 flex-1">{product.name}</h2>
+                                    {product.condition && (
+                                        <span className={'flex-shrink-0 mt-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ' + (product.condition === 'new' ? 'bg-brand-100 text-brand-700' : 'bg-amber-100 text-amber-700')}>{product.condition}</span>
+                                    )}
+                                </div>
                                 {avgRating > 0 && <div className="mt-1"><StarRating rating={avgRating} count={reviews.length} /></div>}
                                 {product.description && <p className="text-sm text-gray-500 mt-1">{product.description}</p>}
                             </div>
@@ -1393,7 +1403,7 @@
                             {/* Price + Qty + Add */}
                             <div className="pt-3 border-t border-gray-100 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-2xl font-bold text-brand-600">{needsSelection ? `From ${formatCurrency(minVariantPrice)}` : formatCurrency(displayPrice)}</span>
+                                    <span className="text-2xl font-bold text-brand-600">{needsSelection ? `From ${formatCurrency(minVariantPrice)}` : formatCurrency(displayPrice)}{product.unit ? <span className="text-sm font-normal text-gray-400 ml-1">{product.unit}</span> : ''}</span>
                                     {!isDemo && <div className="flex items-center gap-3">
                                         <span className="text-xs font-semibold text-gray-500 uppercase">Qty</span>
                                         <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
