@@ -859,8 +859,18 @@
         const OrderDetailModal = ({ order, onClose }) => {
             const [items, setItems] = useState([]);
             const [loading, setLoading] = useState(true);
-            const [proofs, setProofs] = useState([]);
-            const [proofBusy, setProofBusy] = useState('');
+            const [docs, setDocs] = useState([]);
+            const [docBusy, setDocBusy] = useState('');
+            const [uploadType, setUploadType] = useState('receipt');
+            const [uploading, setUploading] = useState(false);
+            const docInputRef = useRef(null);
+
+            const loadDocs = (oid) => {
+                supabase.from('order_documents')
+                    .select('id, storage_path, file_name, content_type, doc_type, source, created_at')
+                    .eq('order_id', oid).order('created_at', { ascending: false })
+                    .then(({ data }) => setDocs(data || []));
+            };
 
             useEffect(() => {
                 if (order) {
@@ -868,23 +878,46 @@
                         .select('*')
                         .eq('order_id', order.id)
                         .then(({ data }) => { setItems(data || []); setLoading(false); });
-                    supabase.from('payment_proofs')
-                        .select('id, storage_path, file_name, content_type, source, created_at')
-                        .eq('order_id', order.id).order('created_at', { ascending: false })
-                        .then(({ data }) => setProofs(data || []));
+                    loadDocs(order.id);
                 }
             }, [order]);
 
+            const DOC_LABELS = { payment_proof: 'Proof of payment', receipt: 'Receipt / invoice', delivery_proof: 'Delivery proof', other: 'Document' };
+
             // Private bucket — generate a short-lived signed URL on demand (seller
             // is authenticated + owns the order, so storage RLS allows the read).
-            const viewProof = async (p) => {
-                setProofBusy(p.id);
+            const viewDoc = async (d) => {
+                setDocBusy(d.id);
                 try {
-                    const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(p.storage_path, 3600);
+                    const { data, error } = await supabase.storage.from('payment-proofs').createSignedUrl(d.storage_path, 3600);
                     if (error || !data) window.toast('Could not open the file.', 'error');
                     else window.open(data.signedUrl, '_blank');
                 } catch (e) { window.toast('Could not open the file.', 'error'); }
-                setProofBusy('');
+                setDocBusy('');
+            };
+
+            // Seller upload: authenticated owner writes straight to storage (RLS
+            // scopes it to <order_id>/...) then records the order_documents row.
+            const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+            const onDocPick = async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                if (!EXT[file.type]) { window.toast('Only JPG, PNG, WebP or PDF allowed.', 'error'); if (docInputRef.current) docInputRef.current.value = ''; return; }
+                if (file.size > 5 * 1024 * 1024) { window.toast('File too large (max 5MB).', 'error'); if (docInputRef.current) docInputRef.current.value = ''; return; }
+                setUploading(true);
+                try {
+                    const path = `${order.id}/${(crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2))}.${EXT[file.type]}`;
+                    const up = await supabase.storage.from('payment-proofs').upload(path, file, { contentType: file.type, upsert: false });
+                    if (up.error) { window.toast('Upload failed: ' + up.error.message, 'error'); setUploading(false); if (docInputRef.current) docInputRef.current.value = ''; return; }
+                    const { error } = await supabase.from('order_documents').insert({
+                        order_id: order.id, seller_id: order.seller_id, storage_path: path, doc_type: uploadType,
+                        content_type: file.type, file_name: file.name.slice(0, 200), source: 'seller'
+                    });
+                    if (error) { window.toast('Could not save: ' + error.message, 'error'); try { await supabase.storage.from('payment-proofs').remove([path]); } catch (e) {} }
+                    else { window.toast('Document uploaded — the buyer can see it now.', 'success'); loadDocs(order.id); }
+                } catch (e) { window.toast('Upload failed. Please try again.', 'error'); }
+                setUploading(false);
+                if (docInputRef.current) docInputRef.current.value = '';
             };
 
             if (!order) return null;
@@ -986,29 +1019,45 @@
                                 <p className="text-2xl font-bold text-green-600">{formatCurrency(order.total)}</p>
                             </div>
 
-                            {/* Payment proof (buyer-uploaded) */}
-                            {proofs.length > 0 && (
-                                <div className="border-t border-gray-200 pt-4">
-                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Payment Proof</p>
-                                    <div className="space-y-2">
-                                        {proofs.map(p => (
-                                            <div key={p.id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                            {/* Order documents (proofs, receipts, delivery proof) — shared with buyer */}
+                            <div className="border-t border-gray-200 pt-4">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Order Documents</p>
+                                {docs.length > 0 ? (
+                                    <div className="space-y-2 mb-3">
+                                        {docs.map(d => (
+                                            <div key={d.id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
                                                 <span className="w-9 h-9 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center flex-shrink-0">
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
                                                 </span>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">{p.file_name || 'Receipt'}</p>
-                                                    <p className="text-xs text-gray-400">{p.source === 'buyer' ? 'Buyer uploaded' : 'Uploaded'} · {new Date(p.created_at).toLocaleString()}</p>
+                                                    <p className="text-sm font-medium text-gray-900 truncate">{DOC_LABELS[d.doc_type] || 'Document'}</p>
+                                                    <p className="text-xs text-gray-400 truncate">{d.file_name ? d.file_name + ' · ' : ''}{d.source === 'buyer' ? 'Buyer uploaded' : 'You uploaded'} · {new Date(d.created_at).toLocaleString()}</p>
                                                 </div>
-                                                <button onClick={() => viewProof(p)} disabled={proofBusy === p.id}
+                                                <button onClick={() => viewDoc(d)} disabled={docBusy === d.id}
                                                     className="flex-shrink-0 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold text-xs px-3 py-2 rounded-lg">
-                                                    {proofBusy === p.id ? '…' : 'View'}
+                                                    {docBusy === d.id ? '…' : 'View'}
                                                 </button>
                                             </div>
                                         ))}
                                     </div>
+                                ) : (
+                                    <p className="text-xs text-gray-400 mb-3">No documents on this order yet.</p>
+                                )}
+                                <div className="flex gap-2">
+                                    <select value={uploadType} onChange={e => setUploadType(e.target.value)}
+                                        className="text-xs px-2 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                                        <option value="receipt">Receipt / invoice</option>
+                                        <option value="delivery_proof">Delivery proof</option>
+                                        <option value="other">Other document</option>
+                                    </select>
+                                    <input ref={docInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={onDocPick} disabled={uploading} className="hidden" />
+                                    <button onClick={() => docInputRef.current && docInputRef.current.click()} disabled={uploading}
+                                        className="flex-1 text-center text-brand-700 hover:text-brand-800 border border-dashed border-brand-300 rounded-lg py-2 text-sm font-semibold transition disabled:opacity-50">
+                                        {uploading ? 'Uploading…' : '📎 Upload document'}
+                                    </button>
                                 </div>
-                            )}
+                                <p className="text-[10px] text-gray-400 mt-1">Shared with the buyer · JPG, PNG, WebP or PDF · max 5MB</p>
+                            </div>
 
                             {/* Conversation thread */}
                             <div className="border-t border-gray-200 pt-4">
