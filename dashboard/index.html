@@ -920,7 +920,35 @@
                 if (docInputRef.current) docInputRef.current.value = '';
             };
 
+            // One-tap confirm: records a confirmed payment for the outstanding
+            // amount (keeps the Payments ledger / collection stats accurate) and
+            // marks the order paid — no need to re-enter it via Report Payment.
+            const [payBusy, setPayBusy] = useState(false);
+            const [paidNow, setPaidNow] = useState(false);
+            const markPaid = async () => {
+                if (payBusy) return;
+                setPayBusy(true);
+                try {
+                    const { data: pays } = await supabase.from('payments').select('amount,status').eq('order_id', order.id);
+                    const paid = (pays || []).filter(p => p.status === 'confirmed').reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                    const outstanding = Math.max(0, (parseFloat(order.total) || 0) - paid);
+                    if (outstanding > 0) {
+                        const { error: pErr } = await supabase.from('payments').insert({
+                            seller_id: order.seller_id, order_id: order.id, amount: outstanding,
+                            payment_method: order.payment_method || 'eft', status: 'confirmed'
+                        });
+                        if (pErr) throw pErr;
+                    }
+                    const { error } = await supabase.from('orders').update({ payment_status: 'paid' }).eq('id', order.id);
+                    if (error) throw error;
+                    setPaidNow(true);
+                    window.toast('Payment confirmed — order marked as paid.', 'success');
+                } catch (e) { window.toast('Could not update: ' + e.message, 'error'); }
+                setPayBusy(false);
+            };
+
             if (!order) return null;
+            const isPaid = paidNow || order.payment_status === 'paid';
 
             const DELIVERY_LABELS = { self_delivery: 'Seller Delivery', pickup: 'Customer Pickup', taxi: 'Via Taxi', bus: 'Via Bus', courier: 'Courier / Third Party' };
             const PAYMENT_LABELS = { eft: 'EFT / Bank Transfer', mobile_money: 'Mobile Money', cash: 'Cash on Delivery' };
@@ -946,10 +974,26 @@
                                 <span className="badge" style={{ backgroundColor: getStatusColor(order.status) + '15', color: getStatusColor(order.status) }}>
                                     {getStatusLabel(order.status)}
                                 </span>
-                                <span className="badge" style={{ backgroundColor: getStatusColor(order.payment_status) + '15', color: getStatusColor(order.payment_status) }}>
-                                    Pay: {getStatusLabel(order.payment_status)}
+                                <span className="badge" style={{ backgroundColor: getStatusColor(isPaid ? 'paid' : order.payment_status) + '15', color: getStatusColor(isPaid ? 'paid' : order.payment_status) }}>
+                                    Pay: {isPaid ? 'Paid' : getStatusLabel(order.payment_status)}
                                 </span>
                             </div>
+
+                            {/* One-tap payment confirmation (replaces re-entering via Report Payment) */}
+                            {!isPaid && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs font-semibold text-amber-900">
+                                            {order.buyer_paid_confirmed_at ? 'Buyer says they’ve paid' : 'Awaiting payment'}
+                                        </p>
+                                        <p className="text-[11px] text-amber-700 mt-0.5">{order.buyer_paid_confirmed_at ? 'Review their proof below, then confirm.' : 'Confirm once you’ve received the money.'}</p>
+                                    </div>
+                                    <button onClick={markPaid} disabled={payBusy}
+                                        className="flex-shrink-0 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold text-xs px-3 py-2 rounded-lg">
+                                        {payBusy ? '…' : '✓ Confirm payment'}
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Customer info */}
                             <div className="bg-gray-50 rounded-xl p-4">
@@ -4013,23 +4057,30 @@
                 setSavingDelivery(false);
             };
 
-            // ---- Bank / Payment Details ----
+            // ---- Payment Options (accepted methods + per-method details) ----
             const [bankDetails, setBankDetails] = useState({
                 bank_name: '', account_holder: '', account_number: '', branch_code: '', reference: '',
                 ...(seller.bank_details || {})
             });
+            const [payOpts, setPayOpts] = useState({
+                methods: ['eft'], mobile_money: { provider: '', number: '', name: '' }, cash_note: '',
+                ...(seller.payment_options || {}),
+                mobile_money: { provider: '', number: '', name: '', ...((seller.payment_options || {}).mobile_money || {}) }
+            });
             const [savingBank, setSavingBank] = useState(false);
+            const togglePayMethod = (m) => setPayOpts(p => ({ ...p, methods: (p.methods || []).includes(m) ? p.methods.filter(x => x !== m) : [...(p.methods || []), m] }));
+            const hasPayMethod = (m) => (payOpts.methods || []).includes(m);
 
             const saveBank = async () => {
                 setSavingBank(true);
                 try {
-                    const { error } = await supabase.from('sellers').update({ bank_details: bankDetails }).eq('id', seller.id);
+                    const { error } = await supabase.from('sellers').update({ bank_details: bankDetails, payment_options: payOpts }).eq('id', seller.id);
                     if (error) throw error;
-                    const updated = { ...seller, bank_details: bankDetails };
+                    const updated = { ...seller, bank_details: bankDetails, payment_options: payOpts };
                     onSellerUpdate(updated);
                     localStorage.setItem('current_seller', JSON.stringify(updated));
-                    showFlash('Bank details saved!');
-                } catch (err) { showFlash('Failed to save bank details: ' + err.message, 'error'); }
+                    showFlash('Payment options saved!');
+                } catch (err) { showFlash('Failed to save payment options: ' + err.message, 'error'); }
                 setSavingBank(false);
             };
 
@@ -4209,18 +4260,54 @@
                         <SettingsSaveButton onClick={saveDelivery} saving={savingDelivery} />
                     </SettingsSectionCard>
 
-                    {/* 5. Bank / Payment Details */}
-                    <SettingsSectionCard icon={<Icons.bank />} title="Bank / Payment Details">
-                        <p className="text-xs text-gray-400">These details are shown to buyers when they select EFT payment.</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputField label="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
-                            <SettingsInputField label="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
+                    {/* 5. Payment Options */}
+                    <SettingsSectionCard icon={<Icons.bank />} title="Payment Options">
+                        <p className="text-xs text-gray-400">Choose how buyers can pay you. The details you fill in are shown to buyers at checkout and on their order tracking page.</p>
+                        {/* Accepted methods */}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Accepted Methods</label>
+                            <div className="flex flex-wrap gap-2">
+                                {[{ k: 'eft', l: 'EFT / Bank Transfer' }, { k: 'mobile_money', l: 'Mobile Money' }, { k: 'cash', l: 'Cash' }].map(m => (
+                                    <button key={m.k} type="button" onClick={() => togglePayMethod(m.k)}
+                                        className={'px-3 py-1.5 rounded-lg text-sm font-semibold border-2 transition ' + (hasPayMethod(m.k) ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-500 hover:border-gray-300')}>
+                                        {hasPayMethod(m.k) ? '✓ ' : ''}{m.l}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <SettingsInputField label="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
-                            <SettingsInputField label="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
-                        </div>
-                        <SettingsInputField label="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
+                        {/* EFT details */}
+                        {hasPayMethod('eft') && (
+                            <div className="border-t border-gray-100 pt-4 space-y-4">
+                                <p className="text-xs font-bold text-gray-700">Bank Transfer (EFT) details</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <SettingsInputField label="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
+                                    <SettingsInputField label="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <SettingsInputField label="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
+                                    <SettingsInputField label="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
+                                </div>
+                                <SettingsInputField label="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
+                            </div>
+                        )}
+                        {/* Mobile money details */}
+                        {hasPayMethod('mobile_money') && (
+                            <div className="border-t border-gray-100 pt-4 space-y-4">
+                                <p className="text-xs font-bold text-gray-700">Mobile Money details</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <SettingsInputField label="Provider" value={payOpts.mobile_money.provider} onChange={v => setPayOpts({...payOpts, mobile_money: {...payOpts.mobile_money, provider: v}})} placeholder="e.g. M-Pesa, EcoCash" />
+                                    <SettingsInputField label="Number" value={payOpts.mobile_money.number} onChange={v => setPayOpts({...payOpts, mobile_money: {...payOpts.mobile_money, number: v}})} placeholder="e.g. +266 5..." />
+                                </div>
+                                <SettingsInputField label="Account Name" value={payOpts.mobile_money.name} onChange={v => setPayOpts({...payOpts, mobile_money: {...payOpts.mobile_money, name: v}})} placeholder="Name registered to the number" />
+                            </div>
+                        )}
+                        {/* Cash note */}
+                        {hasPayMethod('cash') && (
+                            <div className="border-t border-gray-100 pt-4">
+                                <SettingsInputField label="Cash instructions (optional)" value={payOpts.cash_note} onChange={v => setPayOpts({...payOpts, cash_note: v})}
+                                    placeholder="e.g. Pay in cash on collection / delivery" textarea />
+                            </div>
+                        )}
                         <SettingsSaveButton onClick={saveBank} saving={savingBank} />
                     </SettingsSectionCard>
 

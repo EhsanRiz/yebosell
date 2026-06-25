@@ -297,6 +297,52 @@
         // parties can open anytime. Anon buyers can't touch the private bucket
         // directly: uploads go through upload-payment-proof and views through
         // get-order-document, both token-validated Edge Functions.
+        // "How to pay" — the seller's accepted methods + details, so the buyer
+        // knows exactly where to send money (payments are off-platform). Shown
+        // only while the order is unpaid.
+        function HowToPay({ seller, order }) {
+            if (!seller || !order || order.payment_status === 'paid') return null;
+            const po = seller.payment_options || {};
+            const bank = seller.bank_details || {};
+            const mm = po.mobile_money || {};
+            const hasBank = bank.account_number || bank.bank_name;
+            const methods = (po.methods && po.methods.length) ? po.methods : (hasBank ? ['eft'] : []);
+            const show = { eft: methods.includes('eft') && hasBank, mobile_money: methods.includes('mobile_money') && (mm.number || mm.provider), cash: methods.includes('cash') };
+            if (!show.eft && !show.mobile_money && !show.cash) return null;
+            return (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+                    <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wide mb-3">💳 How to Pay</h3>
+                    <div className="space-y-3 text-sm text-blue-900">
+                        {show.eft && (
+                            <div>
+                                <p className="font-bold">Bank Transfer (EFT)</p>
+                                {bank.bank_name && <p>Bank: {bank.bank_name}</p>}
+                                {bank.account_holder && <p>Account holder: {bank.account_holder}</p>}
+                                {bank.account_number && <p>Account no: {bank.account_number}</p>}
+                                {bank.branch_code && <p>Branch code: {bank.branch_code}</p>}
+                                <p>Reference: {bank.reference || order.order_number}</p>
+                            </div>
+                        )}
+                        {show.mobile_money && (
+                            <div>
+                                <p className="font-bold">Mobile Money</p>
+                                {mm.provider && <p>Provider: {mm.provider}</p>}
+                                {mm.number && <p>Number: {mm.number}</p>}
+                                {mm.name && <p>Name: {mm.name}</p>}
+                            </div>
+                        )}
+                        {show.cash && (
+                            <div>
+                                <p className="font-bold">Cash</p>
+                                <p>{po.cash_note || 'Pay in cash on collection / delivery.'}</p>
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-xs text-blue-700 mt-3">After paying, tap “I've paid” below and attach your proof of payment.</p>
+                </div>
+            );
+        }
+
         function OrderDocuments({ token, sellerName }) {
             const [docs, setDocs] = useState([]);
             const [busy, setBusy] = useState(false);
@@ -862,6 +908,9 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* How to pay — seller's payment options, while unpaid */}
+                                <HowToPay seller={seller} order={order} />
 
                                 {/* Buyer confirmation — two-sided state. Only on token links. */}
                                 {activeToken && (
