@@ -1202,7 +1202,7 @@
 
             const handleAdd = () => {
                 if (hasVariants && colors.length > 0 && !selectedColor) { window.toast('Please select a color'); return; }
-                if (hasVariants && sizes.length > 0 && !selectedSize) { window.toast('Please select a size'); return; }
+                if (hasVariants && sizes.length > 0 && !selectedSize) { window.toast('Please select a ' + (colors.length > 0 ? 'size' : (product.option_label || 'option')).toLowerCase()); return; }
                 if (!canAdd) { window.toast(isOutOfStock ? 'This item is out of stock' : 'Not enough stock available'); return; }
                 for (let n = 0; n < qty; n++) {
                     onAddToCart({
@@ -1346,10 +1346,13 @@
                                 </div>
                             )}
 
-                            {/* Size selector */}
+                            {/* Size / option selector */}
                             {sizes.length > 0 && (
                                 <div>
-                                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Size</p>
+                                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+                                        {colors.length > 0 ? 'Size' : (product.option_label || 'Option')}
+                                        {selectedSize ? <span className="text-brand-600 normal-case font-bold ml-1">— {selectedSize}</span> : ''}
+                                    </p>
                                     <div className="flex flex-wrap gap-2">
                                         {sizes.map(s => {
                                             const available = !selectedColor || availableSizes.includes(s);
