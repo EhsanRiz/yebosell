@@ -826,7 +826,8 @@
                                         <div className="space-y-2">
                                             {[
                                                 { value: 'eft', label: 'EFT / Bank Transfer', icon: '🏦' },
-                                                { value: 'mobile_money', label: 'Mobile Money', icon: '📱' },
+                                                { value: 'ecocash', label: 'EcoCash', icon: '📱' },
+                                                { value: 'mpesa', label: 'M-Pesa', icon: '📱' },
                                                 { value: 'cash', label: 'Cash on Delivery', icon: '💵' }
                                             ].filter(m => { const am = seller?.payment_options?.methods; return !am || !am.length || am.includes(m.value); }).map(m => (
                                                 <label key={m.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${formData.payment_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
@@ -834,7 +835,7 @@
                                                         onChange={e => setFormData({...formData, payment_method: e.target.value})} className="hidden"/>
                                                     <span className="w-5 flex-shrink-0 flex justify-center">{m.value === 'eft' ? (
                                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><path d="M4 21V10l8-5 8 5v11"/><line x1="9" y1="21" x2="9" y2="13"/><line x1="15" y1="21" x2="15" y2="13"/></svg>
-                                                    ) : m.value === 'mobile_money' ? (
+                                                    ) : (m.value === 'ecocash' || m.value === 'mpesa') ? (
                                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
                                                     ) : (
                                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg>
@@ -854,12 +855,18 @@
                                                 {seller.bank_details.reference && <p>Reference: {seller.bank_details.reference}</p>}
                                             </div>
                                         )}
-                                        {formData.payment_method === 'mobile_money' && seller?.payment_options?.mobile_money && (seller.payment_options.mobile_money.number || seller.payment_options.mobile_money.provider) && (
+                                        {formData.payment_method === 'ecocash' && seller?.payment_options?.ecocash?.number && (
                                             <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
-                                                <p className="font-bold text-blue-900">Mobile Money:</p>
-                                                {seller.payment_options.mobile_money.provider && <p>Provider: {seller.payment_options.mobile_money.provider}</p>}
-                                                {seller.payment_options.mobile_money.number && <p>Number: {seller.payment_options.mobile_money.number}</p>}
-                                                {seller.payment_options.mobile_money.name && <p>Name: {seller.payment_options.mobile_money.name}</p>}
+                                                <p className="font-bold text-blue-900">EcoCash:</p>
+                                                <p>Number: {seller.payment_options.ecocash.number}</p>
+                                                {seller.payment_options.ecocash.name && <p>Name: {seller.payment_options.ecocash.name}</p>}
+                                            </div>
+                                        )}
+                                        {formData.payment_method === 'mpesa' && seller?.payment_options?.mpesa?.number && (
+                                            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
+                                                <p className="font-bold text-blue-900">M-Pesa:</p>
+                                                <p>Number: {seller.payment_options.mpesa.number}</p>
+                                                {seller.payment_options.mpesa.name && <p>Name: {seller.payment_options.mpesa.name}</p>}
                                             </div>
                                         )}
                                         {formData.payment_method === 'cash' && seller?.payment_options?.cash_note && (

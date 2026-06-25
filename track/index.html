@@ -304,11 +304,17 @@
             if (!seller || !order || order.payment_status === 'paid') return null;
             const po = seller.payment_options || {};
             const bank = seller.bank_details || {};
-            const mm = po.mobile_money || {};
+            const eco = po.ecocash || {};
+            const mpesa = po.mpesa || {};
             const hasBank = bank.account_number || bank.bank_name;
             const methods = (po.methods && po.methods.length) ? po.methods : (hasBank ? ['eft'] : []);
-            const show = { eft: methods.includes('eft') && hasBank, mobile_money: methods.includes('mobile_money') && (mm.number || mm.provider), cash: methods.includes('cash') };
-            if (!show.eft && !show.mobile_money && !show.cash) return null;
+            const show = {
+                eft: methods.includes('eft') && hasBank,
+                ecocash: methods.includes('ecocash') && eco.number,
+                mpesa: methods.includes('mpesa') && mpesa.number,
+                cash: methods.includes('cash')
+            };
+            if (!show.eft && !show.ecocash && !show.mpesa && !show.cash) return null;
             return (
                 <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
                     <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wide mb-3">💳 How to Pay</h3>
@@ -323,12 +329,18 @@
                                 <p>Reference: {bank.reference || order.order_number}</p>
                             </div>
                         )}
-                        {show.mobile_money && (
+                        {show.ecocash && (
                             <div>
-                                <p className="font-bold">Mobile Money</p>
-                                {mm.provider && <p>Provider: {mm.provider}</p>}
-                                {mm.number && <p>Number: {mm.number}</p>}
-                                {mm.name && <p>Name: {mm.name}</p>}
+                                <p className="font-bold">EcoCash</p>
+                                <p>Number: {eco.number}</p>
+                                {eco.name && <p>Name: {eco.name}</p>}
+                            </div>
+                        )}
+                        {show.mpesa && (
+                            <div>
+                                <p className="font-bold">M-Pesa</p>
+                                <p>Number: {mpesa.number}</p>
+                                {mpesa.name && <p>Name: {mpesa.name}</p>}
                             </div>
                         )}
                         {show.cash && (
