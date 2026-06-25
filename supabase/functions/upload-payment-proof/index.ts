@@ -61,8 +61,8 @@ Deno.serve(async (req) => {
   const up = await admin.storage.from("payment-proofs").upload(path, bytes, { contentType: content_type, upsert: false });
   if (up.error) return json({ error: "upload", message: up.error.message }, 500);
 
-  const { data: row, error: iErr } = await admin.from("payment_proofs").insert({
-    order_id: order.id, seller_id: order.seller_id, storage_path: path,
+  const { data: row, error: iErr } = await admin.from("order_documents").insert({
+    order_id: order.id, seller_id: order.seller_id, storage_path: path, doc_type: "payment_proof",
     content_type, file_name: (typeof file_name === "string" ? file_name.slice(0, 200) : null), source: "buyer",
   }).select("id").single();
   if (iErr) {
