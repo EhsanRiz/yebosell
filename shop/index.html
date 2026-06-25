@@ -212,6 +212,11 @@
                             .from('sellers').select('id, full_name, phone, business_name, location, preferred_language, is_active, created_at, updated_at, slug, business_description, banner_url, logo_url, business_hours, delivery_areas, social_links, address, seller_phone, is_admin, seller_status, delivery_methods, delivery_fee, delivery_fee_type, pickup_address, delivery_notes, is_demo').eq('slug', slug).single();
                         if (sellerError || !sellerData) { setError("This store doesn't exist. Please check the link."); setLoading(false); return; }
                         if (sellerData.seller_status === 'suspended') { setError("This store is temporarily unavailable. Please check back later."); setLoading(false); return; }
+                        // Payment instructions (bank_details is hidden from anon on the table; fetch via RPC)
+                        try {
+                            const { data: pay } = await supabase.rpc('get_seller_payment_options', { p_slug: slug });
+                            if (pay) { sellerData.bank_details = pay.bank_details || {}; sellerData.payment_options = pay.payment_options || {}; }
+                        } catch (e) {}
                         setSeller(sellerData);
                         if (sellerData.is_demo) setIsDemo(true);
                         // Set default delivery method from seller's enabled methods
@@ -823,7 +828,7 @@
                                                 { value: 'eft', label: 'EFT / Bank Transfer', icon: '🏦' },
                                                 { value: 'mobile_money', label: 'Mobile Money', icon: '📱' },
                                                 { value: 'cash', label: 'Cash on Delivery', icon: '💵' }
-                                            ].map(m => (
+                                            ].filter(m => { const am = seller?.payment_options?.methods; return !am || !am.length || am.includes(m.value); }).map(m => (
                                                 <label key={m.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${formData.payment_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
                                                     <input type="radio" name="payment" value={m.value} checked={formData.payment_method === m.value}
                                                         onChange={e => setFormData({...formData, payment_method: e.target.value})} className="hidden"/>
@@ -838,8 +843,8 @@
                                                 </label>
                                             ))}
                                         </div>
-                                        {/* Show bank details for EFT */}
-                                        {formData.payment_method === 'eft' && seller?.bank_details && (
+                                        {/* Show details for the selected method */}
+                                        {formData.payment_method === 'eft' && seller?.bank_details && (seller.bank_details.account_number || seller.bank_details.bank_name) && (
                                             <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
                                                 <p className="font-bold text-blue-900">Bank Details for EFT:</p>
                                                 {seller.bank_details.bank_name && <p>Bank: {seller.bank_details.bank_name}</p>}
@@ -847,6 +852,20 @@
                                                 {seller.bank_details.account_number && <p>Account No: {seller.bank_details.account_number}</p>}
                                                 {seller.bank_details.branch_code && <p>Branch Code: {seller.bank_details.branch_code}</p>}
                                                 {seller.bank_details.reference && <p>Reference: {seller.bank_details.reference}</p>}
+                                            </div>
+                                        )}
+                                        {formData.payment_method === 'mobile_money' && seller?.payment_options?.mobile_money && (seller.payment_options.mobile_money.number || seller.payment_options.mobile_money.provider) && (
+                                            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
+                                                <p className="font-bold text-blue-900">Mobile Money:</p>
+                                                {seller.payment_options.mobile_money.provider && <p>Provider: {seller.payment_options.mobile_money.provider}</p>}
+                                                {seller.payment_options.mobile_money.number && <p>Number: {seller.payment_options.mobile_money.number}</p>}
+                                                {seller.payment_options.mobile_money.name && <p>Name: {seller.payment_options.mobile_money.name}</p>}
+                                            </div>
+                                        )}
+                                        {formData.payment_method === 'cash' && seller?.payment_options?.cash_note && (
+                                            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                                                <p className="font-bold text-blue-900">Cash:</p>
+                                                <p>{seller.payment_options.cash_note}</p>
                                             </div>
                                         )}
                                     </div>
