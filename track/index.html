@@ -749,149 +749,154 @@
 
             return (
                 <div className="min-h-screen bg-gray-50">
-                    {/* Header */}
-                    <div className="bg-white border-b border-gray-200">
-                        <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-                            <div className="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center">
+                    {/* Header — sticky, full-width, wider on desktop */}
+                    <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+                        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
+                            <div className="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center flex-shrink-0">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h1 className="text-lg font-bold text-gray-900">{order ? 'Track Your Order' : 'My Orders'}</h1>
-                                <p className="text-xs text-gray-400">Powered by YeboSell</p>
+                                <h1 className="text-lg font-bold text-gray-900">{order ? `Order ${order.order_number}` : 'My Orders'}</h1>
+                                {order && seller
+                                    ? <p className="text-xs text-gray-400">from <span className="font-semibold text-gray-600">{seller.business_name}</span></p>
+                                    : <p className="text-xs text-gray-400">Powered by YeboSell</p>}
                             </div>
                             <BuyerBell onOpenOrder={loadByToken} />
                         </div>
                     </div>
 
-                    <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+                    <div className="max-w-5xl mx-auto px-4 py-6">
 
-                        {/* ===== HOME / MY ORDERS (no order loaded) ===== */}
+                        {/* ===== HOME / MY ORDERS ===== */}
                         {!order && (
-                            <div className="space-y-4 fade-in">
+                            <div className="fade-in">
                                 {loading && (
                                     <div className="flex justify-center py-10"><div className="spin w-8 h-8 border-brand-500 border-t-transparent rounded-full" style={{ borderWidth: 3, borderStyle: 'solid' }}></div></div>
                                 )}
 
-                                {showInstall && (
-                                    <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 space-y-2">
-                                        <p className="text-sm font-semibold text-brand-900">Keep all your orders in one place</p>
-                                        <p className="text-xs text-brand-700">Add YeboSell to your home screen — install once, and every future order shows up here automatically.</p>
-                                        <InstallButton />
-                                    </div>
-                                )}
+                                {/* Two-column on desktop: My Orders | Get all my orders */}
+                                <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
 
-                                {myOrders.length > 0 && <PushPrompt />}
-
-                                {/* My Orders list */}
-                                {myOrders.length > 0 && (
-                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">Your Orders</h3>
-                                        <div className="space-y-2">
-                                            {myOrders.map((o) => (
-                                                <button key={o.token} onClick={() => loadByToken(o.token)}
-                                                    className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-brand-300 hover:bg-brand-50 transition text-left">
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-gray-900 font-mono truncate">{o.order_number || 'Order'}</p>
-                                                        <p className="text-xs text-gray-500 truncate">{o.seller_name || 'Seller'} · {o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</p>
-                                                    </div>
-                                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                                        {o.status && (
-                                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: getStatusColor(o.status) + '15', color: getStatusColor(o.status) }}>
-                                                                {getStatusLabel(o.status)}
-                                                            </span>
-                                                        )}
-                                                        <span className="text-brand-600 text-xs font-bold">Track →</span>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {myOrders.length === 0 && !loading && (
-                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
-                                        <div className="text-4xl mb-2">📦</div>
-                                        <h2 className="text-lg font-bold text-gray-900">No orders yet</h2>
-                                        <p className="text-sm text-gray-500">Orders you place will appear here automatically. Have a tracking link or order number? Use the option below.</p>
-                                    </div>
-                                )}
-
-                                {/* Get all my orders — one-time SMS verify, then auto-syncs */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Get all my orders</h3>
-                                    <p className="text-xs text-gray-500 mb-3">Verify your phone once and every order you've placed shows up here — and stays up to date automatically, on this device and future ones.</p>
-
-                                    {syncStep === 'idle' && (
-                                        <div className="space-y-3">
-                                            <input type="tel" value={syncPhone} onChange={e => setSyncPhone(e.target.value)}
-                                                placeholder="+27... or +266..."
-                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                            {syncError && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{syncError}</div>)}
-                                            <button onClick={sendCode} disabled={syncLoading}
-                                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
-                                                {syncLoading ? 'Sending...' : 'Text me a code'}
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {syncStep === 'code' && (
-                                        <div className="space-y-3 fade-in">
-                                            <p className="text-xs text-gray-500">Enter the 6-digit code sent to <strong>{syncPhone}</strong></p>
-                                            <input type="text" inputMode="numeric" value={syncCode}
-                                                onChange={e => setSyncCode(e.target.value.replace(/[^0-9]/g, ''))}
-                                                placeholder="123456" maxLength={6}
-                                                onKeyDown={e => e.key === 'Enter' && verifyCode()}
-                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                            {syncError && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{syncError}</div>)}
-                                            <button onClick={verifyCode} disabled={syncLoading}
-                                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
-                                                {syncLoading ? 'Verifying...' : 'Verify & load my orders'}
-                                            </button>
-                                            <button onClick={() => { setSyncStep('idle'); setSyncError(''); }}
-                                                className="w-full text-xs font-semibold text-gray-500 hover:text-gray-700">← Use a different number</button>
-                                        </div>
-                                    )}
-
-                                    <div className="mt-3 pt-3 border-t border-gray-100">
-                                        <button onClick={() => setShowLegacyForm(v => !v)}
-                                            className="w-full flex items-center justify-between text-xs font-semibold text-gray-500">
-                                            <span>Track a single order by number instead</span>
-                                            <span className="text-gray-400">{showLegacyForm ? '−' : '+'}</span>
-                                        </button>
-                                        {showLegacyForm && (
-                                            <div className="space-y-3 mt-3 fade-in">
-                                                <input type="text" value={orderNumber} onChange={e => setOrderNumber(e.target.value.toUpperCase())}
-                                                    placeholder="ORD-20260411-123"
-                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                                                    placeholder="Phone for verification"
-                                                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
-                                                {error && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>)}
-                                                <button onClick={() => lookupOrder()} disabled={loading}
-                                                    className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl transition disabled:opacity-50">
-                                                    {loading ? 'Searching...' : 'Track Order'}
-                                                </button>
+                                    {/* Left: orders list */}
+                                    <div className="lg:w-5/12 space-y-4 mb-4 lg:mb-0">
+                                        {showInstall && (
+                                            <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 space-y-2">
+                                                <p className="text-sm font-semibold text-brand-900">Keep all your orders in one place</p>
+                                                <p className="text-xs text-brand-700">Add YeboSell to your home screen — install once, and every future order shows up here automatically.</p>
+                                                <InstallButton />
                                             </div>
                                         )}
+                                        {myOrders.length > 0 && (
+                                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                                                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">Your Orders</h3>
+                                                <div className="space-y-2">
+                                                    {myOrders.map((o) => (
+                                                        <button key={o.token} onClick={() => loadByToken(o.token)}
+                                                            className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-100 hover:border-brand-300 hover:bg-brand-50 transition text-left">
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-bold text-gray-900 font-mono truncate">{o.order_number || 'Order'}</p>
+                                                                <p className="text-xs text-gray-500 truncate">{o.seller_name || 'Seller'} · {o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}</p>
+                                                            </div>
+                                                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                                {o.status && (
+                                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: getStatusColor(o.status) + '15', color: getStatusColor(o.status) }}>
+                                                                        {getStatusLabel(o.status)}
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-brand-600 text-xs font-bold">Track →</span>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {myOrders.length === 0 && !loading && (
+                                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+                                                <div className="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                                                </div>
+                                                <h2 className="text-base font-bold text-gray-900 mb-1">No orders yet</h2>
+                                                <p className="text-sm text-gray-500">Orders you place will appear here. Have a tracking link? Open it, or search by order number on the right.</p>
+                                            </div>
+                                        )}
+                                        {myOrders.length > 0 && <PushPrompt />}
+                                        {error && !showLegacyForm && (
+                                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>
+                                        )}
+                                    </div>
+
+                                    {/* Right: sync + legacy lookup */}
+                                    <div className="lg:w-7/12 space-y-4">
+                                        {myOrders.length === 0 && <PushPrompt />}
+                                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Get all my orders</h3>
+                                            <p className="text-xs text-gray-500 mb-4">Verify your phone once and every order you've placed shows up here — stays up to date automatically on this device and future ones.</p>
+                                            {syncStep === 'idle' && (
+                                                <div className="space-y-3">
+                                                    <input type="tel" value={syncPhone} onChange={e => setSyncPhone(e.target.value)}
+                                                        placeholder="+27... or +266..."
+                                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                                    {syncError && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{syncError}</div>)}
+                                                    <button onClick={sendCode} disabled={syncLoading}
+                                                        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
+                                                        {syncLoading ? 'Sending...' : 'Text me a code'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {syncStep === 'code' && (
+                                                <div className="space-y-3 fade-in">
+                                                    <p className="text-xs text-gray-500">Enter the 6-digit code sent to <strong>{syncPhone}</strong></p>
+                                                    <input type="text" inputMode="numeric" value={syncCode}
+                                                        onChange={e => setSyncCode(e.target.value.replace(/[^0-9]/g, ''))}
+                                                        placeholder="123456" maxLength={6}
+                                                        onKeyDown={e => e.key === 'Enter' && verifyCode()}
+                                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                                    {syncError && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{syncError}</div>)}
+                                                    <button onClick={verifyCode} disabled={syncLoading}
+                                                        className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition shadow-md disabled:opacity-50">
+                                                        {syncLoading ? 'Verifying...' : 'Verify & load my orders'}
+                                                    </button>
+                                                    <button onClick={() => { setSyncStep('idle'); setSyncError(''); }}
+                                                        className="w-full text-xs font-semibold text-gray-500 hover:text-gray-700">← Use a different number</button>
+                                                </div>
+                                            )}
+                                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                                <button onClick={() => setShowLegacyForm(v => !v)}
+                                                    className="w-full flex items-center justify-between text-xs font-semibold text-gray-500">
+                                                    <span>Track a single order by number instead</span>
+                                                    <span className="text-gray-400">{showLegacyForm ? '−' : '+'}</span>
+                                                </button>
+                                                {showLegacyForm && (
+                                                    <div className="space-y-3 mt-3 fade-in">
+                                                        <input type="text" value={orderNumber} onChange={e => setOrderNumber(e.target.value.toUpperCase())}
+                                                            placeholder="ORD-20260411-123"
+                                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                                                            placeholder="Phone for verification"
+                                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-gray-50" />
+                                                        {error && (<div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>)}
+                                                        <button onClick={() => lookupOrder()} disabled={loading}
+                                                            className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl transition disabled:opacity-50">
+                                                            {loading ? 'Searching...' : 'Track Order'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-
-                                {/* Error when a token link failed (no form open) */}
-                                {error && !showLegacyForm && (
-                                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>
-                                )}
                             </div>
                         )}
 
                         {/* ===== ORDER DETAIL ===== */}
                         {order && (
-                            <div className="space-y-4 fade-in">
+                            <div className="fade-in">
                                 {myOrders.length > 0 && (
-                                    <button onClick={backToHome} className="text-sm font-semibold text-brand-600 hover:underline">← My Orders</button>
+                                    <button onClick={backToHome} className="text-sm font-semibold text-brand-600 hover:underline mb-4 inline-block">← My Orders</button>
                                 )}
 
-                                {/* Order header card */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                {/* Order header — full width above both columns */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4 lg:mb-6">
                                     <div className="bg-brand-500 text-white px-5 py-4">
                                         <div className="flex items-center justify-between">
                                             <div>
@@ -921,189 +926,196 @@
                                     </div>
                                 </div>
 
-                                {/* How to pay — seller's payment options, while unpaid */}
-                                <HowToPay seller={seller} order={order} />
+                                {/* Two-column layout.
+                                    Mobile: flex-col — right column (order-1) comes first so
+                                    status/actions appear before item details.
+                                    Desktop: flex-row — left = order details, right = status/comms. */}
+                                <div className="flex flex-col lg:flex-row lg:gap-6 lg:items-start">
 
-                                {/* Buyer confirmation — two-sided state. Only on token links. */}
-                                {activeToken && (
-                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Confirm your order</h3>
-                                        <p className="text-xs text-gray-500 mb-4">Your confirmation is recorded for the seller and YeboSell — it protects you if anything goes wrong.</p>
-
-                                        {/* I've paid */}
-                                        {order.buyer_paid_confirmed_at ? (
-                                            <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold mb-2">
-                                                <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">✓</span>
-                                                You confirmed payment · {new Date(order.buyer_paid_confirmed_at).toLocaleDateString()}
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => confirmOrder('paid')} disabled={!!confirmBusy}
-                                                className="w-full flex items-center justify-center gap-2 border-2 border-brand-500 text-brand-700 font-bold py-2.5 rounded-xl transition hover:bg-brand-50 disabled:opacity-50 mb-2">
-                                                {confirmBusy === 'paid' ? 'Saving…' : "✓ I've paid for this order"}
-                                            </button>
-                                        )}
-
-                                        {/* Confirm receipt */}
-                                        {order.buyer_received_confirmed_at ? (
-                                            <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold mb-2">
-                                                <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">✓</span>
-                                                You confirmed receipt · {new Date(order.buyer_received_confirmed_at).toLocaleDateString()}
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => confirmOrder('received')} disabled={!!confirmBusy}
-                                                className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 rounded-xl transition disabled:opacity-50 mb-2">
-                                                {confirmBusy === 'received' ? 'Saving…' : '✓ Confirm I received my order'}
-                                            </button>
-                                        )}
-
-                                        {/* Report a problem */}
-                                        {order.buyer_dispute_at ? (
-                                            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                                                <p className="text-xs font-bold text-amber-900">⚠ You reported a problem · {new Date(order.buyer_dispute_at).toLocaleDateString()}</p>
-                                                {order.buyer_dispute_reason && <p className="text-xs text-amber-800 mt-1">"{order.buyer_dispute_reason}"</p>}
-                                                <p className="text-xs text-amber-700 mt-1">The seller and YeboSell can see this. You can keep messaging the seller below.</p>
-                                            </div>
-                                        ) : showDispute ? (
-                                            <div className="mt-2 border border-gray-200 rounded-xl p-3">
-                                                <label className="text-xs font-semibold text-gray-700">What went wrong?</label>
-                                                <textarea value={disputeNote} onChange={e => setDisputeNote(e.target.value)} rows="2" maxLength="500"
-                                                    placeholder="e.g. I paid but haven't received my order"
-                                                    className="w-full mt-1 text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-brand-500" />
-                                                <div className="flex gap-2 mt-2">
-                                                    <button onClick={() => confirmOrder('dispute', disputeNote)} disabled={!!confirmBusy}
-                                                        className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg text-sm transition disabled:opacity-50">
-                                                        {confirmBusy === 'dispute' ? 'Sending…' : 'Submit report'}
-                                                    </button>
-                                                    <button onClick={() => { setShowDispute(false); setDisputeNote(''); }}
-                                                        className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm transition">Cancel</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => setShowDispute(true)} disabled={!!confirmBusy}
-                                                className="w-full text-center text-amber-700 hover:text-amber-800 font-semibold py-2 text-sm transition">
-                                                ⚠ Report a problem with this order
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Shared order documents (proofs, receipts, delivery proof) */}
-                                {activeToken && <OrderDocuments token={activeToken} sellerName={seller && seller.business_name} />}
-
-                                {/* Order progress — same lifecycle the seller sees */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">
-                                        {order.delivery_method === 'pickup' ? '🏪 Order Progress (Pickup)' : '🚚 Order Progress'}
-                                    </h3>
-                                    {order.status === 'cancelled' ? (
-                                        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-                                            <p className="text-sm font-bold text-red-700">✕ Order Cancelled</p>
-                                            <p className="text-xs text-red-600 mt-1">This order has been cancelled. Message the seller below if you have any questions.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-0">
-                                            {getActiveSteps().map((step, i, arr) => {
-                                                const status = getStepStatus(step.key, arr);
-                                                const isLast = i === arr.length - 1;
-                                                return (
-                                                    <div key={step.key} className="relative flex gap-4 pb-6">
-                                                        {!isLast && (
-                                                            <div className={`absolute left-[15px] top-[36px] bottom-0 w-0.5 ${status === 'completed' ? 'bg-brand-500' : 'bg-gray-200'}`} />
-                                                        )}
-                                                        <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
-                                                            status === 'completed' ? 'bg-brand-500 text-white' :
-                                                            status === 'current' ? 'bg-brand-100 border-2 border-brand-500 text-brand-600' :
-                                                            'bg-gray-100 text-gray-400'}`}>
-                                                            {status === 'completed' ? '✓' : (i + 1)}
+                                    {/* === LEFT: order details (items, location, contact) === */}
+                                    <div className="lg:w-5/12 space-y-4 order-2 lg:order-1">
+                                        {/* Order items */}
+                                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">Order Items</h3>
+                                            <div className="space-y-2">
+                                                {items.map((item, i) => (
+                                                    <div key={i} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-900">{item.product_name}</p>
+                                                            <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
                                                         </div>
-                                                        <div className="flex-1 pt-1">
-                                                            <p className={`text-sm font-semibold ${status === 'upcoming' ? 'text-gray-400' : 'text-gray-900'}`}>{step.label}</p>
-                                                            <p className={`text-xs ${status === 'upcoming' ? 'text-gray-300' : 'text-gray-500'}`}>{step.desc}</p>
-                                                            {status === 'current' && order.delivery_updated_at && (
-                                                                <p className="text-xs text-brand-600 mt-0.5">Updated: {new Date(order.delivery_updated_at).toLocaleString()}</p>
-                                                            )}
+                                                        <p className="text-sm font-bold text-gray-900">{formatCurrency((item.unit_price || 0) * item.quantity)}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {Number(order.discount_amount) > 0 && (
+                                                <div className="flex justify-between text-sm text-green-600 pt-2 mt-2 border-t border-gray-100">
+                                                    <span>Discount {order.discount_code && `(${order.discount_code})`}</span>
+                                                    <span>-{formatCurrency(order.discount_amount)}</span>
+                                                </div>
+                                            )}
+                                            {Number(order.delivery_fee) > 0 && (
+                                                <div className="flex justify-between text-sm text-amber-600 pt-1">
+                                                    <span>🚚 Delivery Fee</span>
+                                                    <span>+{formatCurrency(order.delivery_fee)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between items-center pt-3 mt-3 border-t border-gray-200">
+                                                <span className="font-semibold text-gray-700">Total</span>
+                                                <span className="text-xl font-bold text-brand-600">{formatCurrency(order.total)}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Pickup / delivery address */}
+                                        {order.delivery_method === 'pickup' && seller && seller.pickup_address && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+                                                <p className="text-xs font-bold text-blue-900 uppercase tracking-wide mb-1">📍 Pickup Location</p>
+                                                <p className="text-sm text-blue-800">{seller.pickup_address}</p>
+                                            </div>
+                                        )}
+                                        {order.delivery_address && order.delivery_method !== 'pickup' && (
+                                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                                                <p className="text-xs font-bold text-amber-900 uppercase tracking-wide mb-1">📍 Delivering To</p>
+                                                <p className="text-sm text-amber-800">{order.delivery_address}</p>
+                                            </div>
+                                        )}
+
+                                        {/* WhatsApp contact */}
+                                        {seller && seller.phone && (
+                                            <a href={`https://wa.me/${window.waNumber(seller.phone)}?text=Hi, I'd like an update on my order ${order.order_number}`}
+                                                target="_blank" rel="noopener"
+                                                className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition shadow-md">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.76-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.96 11.96 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.395 0-4.6-.804-6.368-2.155l-.444-.34-2.632.882.882-2.632-.34-.444A9.955 9.955 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+                                                Message {seller.business_name} on WhatsApp
+                                            </a>
+                                        )}
+
+                                        <InstallButton />
+                                        <button onClick={backToHome}
+                                            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-2xl transition text-sm">
+                                            {myOrders.length > 0 ? 'Back to My Orders' : 'Track Another Order'}
+                                        </button>
+                                    </div>
+
+                                    {/* === RIGHT: status, actions, communication === */}
+                                    {/* order-1 on mobile = this column appears first (above order details) */}
+                                    <div className="lg:w-7/12 space-y-4 order-1 lg:order-2">
+                                        {/* How to pay (while unpaid) */}
+                                        <HowToPay seller={seller} order={order} />
+
+                                        {/* Order progress */}
+                                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">
+                                                {order.delivery_method === 'pickup' ? '🏪 Order Progress (Pickup)' : '🚚 Order Progress'}
+                                            </h3>
+                                            {order.status === 'cancelled' ? (
+                                                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                                                    <p className="text-sm font-bold text-red-700">✕ Order Cancelled</p>
+                                                    <p className="text-xs text-red-600 mt-1">This order has been cancelled. Message the seller below if you have any questions.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-0">
+                                                    {getActiveSteps().map((step, i, arr) => {
+                                                        const status = getStepStatus(step.key, arr);
+                                                        const isLast = i === arr.length - 1;
+                                                        return (
+                                                            <div key={step.key} className="relative flex gap-4 pb-6">
+                                                                {!isLast && (
+                                                                    <div className={`absolute left-[15px] top-[36px] bottom-0 w-0.5 ${status === 'completed' ? 'bg-brand-500' : 'bg-gray-200'}`} />
+                                                                )}
+                                                                <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
+                                                                    status === 'completed' ? 'bg-brand-500 text-white' :
+                                                                    status === 'current' ? 'bg-brand-100 border-2 border-brand-500 text-brand-600' :
+                                                                    'bg-gray-100 text-gray-400'}`}>
+                                                                    {status === 'completed' ? '✓' : (i + 1)}
+                                                                </div>
+                                                                <div className="flex-1 pt-1">
+                                                                    <p className={`text-sm font-semibold ${status === 'upcoming' ? 'text-gray-400' : 'text-gray-900'}`}>{step.label}</p>
+                                                                    <p className={`text-xs ${status === 'upcoming' ? 'text-gray-300' : 'text-gray-500'}`}>{step.desc}</p>
+                                                                    {status === 'current' && order.delivery_updated_at && (
+                                                                        <p className="text-xs text-brand-600 mt-0.5">Updated: {new Date(order.delivery_updated_at).toLocaleString()}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Buyer confirmation */}
+                                        {activeToken && (
+                                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Confirm your order</h3>
+                                                <p className="text-xs text-gray-500 mb-4">Your confirmation is recorded for the seller and YeboSell — it protects you if anything goes wrong.</p>
+                                                {order.buyer_paid_confirmed_at ? (
+                                                    <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold mb-2">
+                                                        <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">✓</span>
+                                                        You confirmed payment · {new Date(order.buyer_paid_confirmed_at).toLocaleDateString()}
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => confirmOrder('paid')} disabled={!!confirmBusy}
+                                                        className="w-full flex items-center justify-center gap-2 border-2 border-brand-500 text-brand-700 font-bold py-2.5 rounded-xl transition hover:bg-brand-50 disabled:opacity-50 mb-2">
+                                                        {confirmBusy === 'paid' ? 'Saving…' : "✓ I've paid for this order"}
+                                                    </button>
+                                                )}
+                                                {order.buyer_received_confirmed_at ? (
+                                                    <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold mb-2">
+                                                        <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">✓</span>
+                                                        You confirmed receipt · {new Date(order.buyer_received_confirmed_at).toLocaleDateString()}
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => confirmOrder('received')} disabled={!!confirmBusy}
+                                                        className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 rounded-xl transition disabled:opacity-50 mb-2">
+                                                        {confirmBusy === 'received' ? 'Saving…' : '✓ Confirm I received my order'}
+                                                    </button>
+                                                )}
+                                                {order.buyer_dispute_at ? (
+                                                    <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                                        <p className="text-xs font-bold text-amber-900">⚠ You reported a problem · {new Date(order.buyer_dispute_at).toLocaleDateString()}</p>
+                                                        {order.buyer_dispute_reason && <p className="text-xs text-amber-800 mt-1">"{order.buyer_dispute_reason}"</p>}
+                                                        <p className="text-xs text-amber-700 mt-1">The seller and YeboSell can see this. You can keep messaging the seller below.</p>
+                                                    </div>
+                                                ) : showDispute ? (
+                                                    <div className="mt-2 border border-gray-200 rounded-xl p-3">
+                                                        <label className="text-xs font-semibold text-gray-700">What went wrong?</label>
+                                                        <textarea value={disputeNote} onChange={e => setDisputeNote(e.target.value)} rows="2" maxLength="500"
+                                                            placeholder="e.g. I paid but haven't received my order"
+                                                            className="w-full mt-1 text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-brand-500" />
+                                                        <div className="flex gap-2 mt-2">
+                                                            <button onClick={() => confirmOrder('dispute', disputeNote)} disabled={!!confirmBusy}
+                                                                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg text-sm transition disabled:opacity-50">
+                                                                {confirmBusy === 'dispute' ? 'Sending…' : 'Submit report'}
+                                                            </button>
+                                                            <button onClick={() => { setShowDispute(false); setDisputeNote(''); }}
+                                                                className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm transition">Cancel</button>
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Turn on push so seller replies reach a closed app */}
-                                {activeToken && <PushPrompt />}
-
-                                {/* In-app conversation — token-scoped, only on track links */}
-                                {activeToken && <BuyerThread token={activeToken} sellerName={seller && seller.business_name} />}
-
-                                {/* Delivery address or pickup location */}
-                                {order.delivery_method === 'pickup' && seller?.pickup_address && (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                                        <p className="text-xs font-bold text-blue-900 uppercase tracking-wide mb-1">📍 Pickup Location</p>
-                                        <p className="text-sm text-blue-800">{seller.pickup_address}</p>
-                                    </div>
-                                )}
-                                {order.delivery_address && order.delivery_method !== 'pickup' && (
-                                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                                        <p className="text-xs font-bold text-amber-900 uppercase tracking-wide mb-1">📍 Delivering To</p>
-                                        <p className="text-sm text-amber-800">{order.delivery_address}</p>
-                                    </div>
-                                )}
-
-                                {/* Order items */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3">Order Items</h3>
-                                    <div className="space-y-2">
-                                        {items.map((item, i) => (
-                                            <div key={i} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-900">{item.product_name}</p>
-                                                    <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
-                                                </div>
-                                                <p className="text-sm font-bold text-gray-900">{formatCurrency((item.unit_price || 0) * item.quantity)}</p>
+                                                ) : (
+                                                    <button onClick={() => setShowDispute(true)} disabled={!!confirmBusy}
+                                                        className="w-full text-center text-amber-700 hover:text-amber-800 font-semibold py-2 text-sm transition">
+                                                        ⚠ Report a problem with this order
+                                                    </button>
+                                                )}
                                             </div>
-                                        ))}
-                                    </div>
-                                    {Number(order.discount_amount) > 0 && (
-                                        <div className="flex justify-between text-sm text-green-600 pt-2 mt-2 border-t border-gray-100">
-                                            <span>Discount {order.discount_code && `(${order.discount_code})`}</span>
-                                            <span>-{formatCurrency(order.discount_amount)}</span>
-                                        </div>
-                                    )}
-                                    {Number(order.delivery_fee) > 0 && (
-                                        <div className="flex justify-between text-sm text-amber-600 pt-1">
-                                            <span>🚚 Delivery Fee</span>
-                                            <span>+{formatCurrency(order.delivery_fee)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between items-center pt-3 mt-3 border-t border-gray-200">
-                                        <span className="font-semibold text-gray-700">Total</span>
-                                        <span className="text-xl font-bold text-brand-600">{formatCurrency(order.total)}</span>
+                                        )}
+
+                                        {/* Shared order documents */}
+                                        {activeToken && <OrderDocuments token={activeToken} sellerName={seller && seller.business_name} />}
+
+                                        {/* Push opt-in */}
+                                        {activeToken && <PushPrompt />}
+
+                                        {/* In-app chat */}
+                                        {activeToken && <BuyerThread token={activeToken} sellerName={seller && seller.business_name} />}
                                     </div>
                                 </div>
-
-                                {/* Contact seller */}
-                                {seller && seller.phone && (
-                                    <a href={`https://wa.me/${window.waNumber(seller.phone)}?text=Hi, I'd like an update on my order ${order.order_number}`}
-                                        target="_blank" rel="noopener"
-                                        className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition shadow-md">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.96 11.96 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.395 0-4.6-.804-6.368-2.155l-.444-.34-2.632.882.882-2.632-.34-.444A9.955 9.955 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
-                                        Message {seller.business_name} on WhatsApp
-                                    </a>
-                                )}
-
-                                <InstallButton />
-
-                                <button onClick={backToHome}
-                                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-2xl transition text-sm">
-                                    {myOrders.length > 0 ? 'Back to My Orders' : 'Track Another Order'}
-                                </button>
                             </div>
                         )}
                     </div>
 
                     {/* Footer */}
-                    <footer className="text-center py-6 text-xs text-gray-400">
+                    <footer className="text-center py-8 text-xs text-gray-400">
                         <p>Powered by <a href="https://yebosell.co.za" className="font-semibold hover:underline"><span className="text-brand-600">Yebo</span><span className="text-amber-500">Sell</span></a></p>
                     </footer>
                 </div>
