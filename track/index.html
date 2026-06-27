@@ -198,6 +198,7 @@
             const [sending, setSending] = useState(false);
             const [loaded, setLoaded] = useState(false);
             const endRef = React.useRef(null);
+            const chatContainerRef = React.useRef(null);
 
             const load = async (markRead) => {
                 try {
@@ -234,7 +235,7 @@
                 };
             }, [token]);
 
-            useEffect(() => { try { endRef.current && endRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {} }, [msgs]);
+            useEffect(() => { try { if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight; } catch (e) {} }, [msgs]);
 
             const send = async () => {
                 const body = text.trim();
@@ -253,7 +254,7 @@
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">💬 Messages</h3>
                     <p className="text-xs text-gray-500 mb-3">Chat directly with {sellerName || 'the seller'} about this order — they'll see your replies in their dashboard.</p>
-                    <div className="bg-gray-50 rounded-xl p-3 max-h-72 overflow-y-auto space-y-2">
+                    <div ref={chatContainerRef} className="bg-gray-50 rounded-xl p-3 max-h-72 overflow-y-auto space-y-2">
                         {!loaded ? (
                             <p className="text-xs text-gray-400 text-center py-3">Loading…</p>
                         ) : msgs.length === 0 ? (
