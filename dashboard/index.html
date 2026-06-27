@@ -1119,6 +1119,86 @@
         };
 
         // ============================================================================
+        // FEE SETTLEMENT MODAL
+        // ============================================================================
+
+        const FeeSettlementModal = ({ seller, feeData, onClose, onSubmitted }) => {
+            const [payRef, setPayRef] = useState('');
+            const [payMethod, setPayMethod] = useState('');
+            const [notes, setNotes] = useState('');
+            const [submitting, setSubmitting] = useState(false);
+
+            const submit = async () => {
+                if (!payMethod) { window.toast('Please select a payment method', 'error'); return; }
+                setSubmitting(true);
+                try {
+                    const { error } = await supabase.from('fee_settlement_requests').insert({
+                        seller_id: seller.id,
+                        amount_claimed: feeData.pending_fees,
+                        payment_ref: payRef || null,
+                        payment_method: payMethod,
+                        notes: notes || null,
+                    });
+                    if (error) throw error;
+                    window.toast("Payment proof submitted — we'll review within 24h", 'success');
+                    onSubmitted && onSubmitted();
+                    onClose();
+                } catch (e) {
+                    window.toast('Failed to submit: ' + (e.message || 'Unknown error'), 'error');
+                } finally {
+                    setSubmitting(false);
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex items-center justify-between rounded-t-2xl">
+                            <h2 className="text-lg font-bold text-gray-900">Submit Payment Proof</h2>
+                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="bg-brand-50 border border-brand-200 rounded-xl p-4">
+                                <p className="text-sm font-semibold text-brand-900">Amount to settle: {formatCurrency(feeData.pending_fees)}</p>
+                                <p className="text-xs text-brand-700 mt-1">Pay via EcoCash, bank transfer, or M-Pesa and enter your reference below. We'll verify and clear your balance within 24 hours.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Payment Method</label>
+                                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50">
+                                    <option value="">Select method</option>
+                                    <option value="ecocash">EcoCash</option>
+                                    <option value="mpesa">M-Pesa</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="cash">Cash</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Transaction Reference <span className="text-gray-400 normal-case font-normal">(optional but recommended)</span></label>
+                                <input type="text" value={payRef} onChange={e => setPayRef(e.target.value)}
+                                    placeholder="e.g. ECO-123456789"
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Notes <span className="text-gray-400 normal-case font-normal">(optional)</span></label>
+                                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                                    placeholder="Any additional info..."
+                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 resize-none" />
+                            </div>
+                            <button onClick={submit} disabled={submitting || !payMethod}
+                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition disabled:opacity-50">
+                                {submitting ? 'Submitting…' : 'Submit Payment Proof'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================================
         // DASHBOARD SCREEN
         // ============================================================================
 
@@ -1133,6 +1213,8 @@
             const [detailOrder, setDetailOrder] = useState(null);
             const [allOrdersData, setAllOrdersData] = useState([]);
             const [lowStockProducts, setLowStockProducts] = useState([]);
+            const [feeData, setFeeData] = useState(null);
+            const [showFeeModal, setShowFeeModal] = useState(false);
             const [stats, setStats] = useState({
                 todayOrders: 0, todayRevenue: 0,
                 monthOrders: 0, monthRevenue: 0,
@@ -1261,6 +1343,10 @@
                         return { ...p, lowestStock, lowVariants };
                     }).sort((a, b) => a.lowestStock - b.lowestStock);
                     setLowStockProducts(lowStock);
+
+                    // Platform fee summary (SECURITY DEFINER RPC — reads platform_config internally)
+                    const { data: feeRes } = await supabase.rpc('get_seller_fee_summary', { p_seller_id: seller.id });
+                    if (feeRes) setFeeData(feeRes);
                 } catch (err) {
                     console.error('Dashboard data load error:', err);
                 } finally {
@@ -1323,6 +1409,30 @@
                                 <p className="text-xs text-amber-700 mt-0.5">Add your pickup address so buyers know where to collect their orders.</p>
                             </div>
                             <button onClick={() => onNavigate && onNavigate('settings')} className="text-xs font-semibold text-amber-800 underline whitespace-nowrap mt-0.5">Add address</button>
+                        </div>
+                    )}
+
+                    {/* Account suspended — fees at limit */}
+                    {feeData && feeData.suspended && (
+                        <div className="mb-6 rounded-xl border-2 border-red-400 bg-red-50 px-4 py-3 flex items-start gap-3">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-red-900">Account suspended — fees overdue</p>
+                                <p className="text-xs text-red-700 mt-0.5">Outstanding fees ({formatCurrency(feeData.pending_fees)}) have exceeded the limit. New orders are paused until fees are settled.</p>
+                            </div>
+                            <button onClick={() => setShowFeeModal(true)} className="text-xs font-semibold text-red-800 underline whitespace-nowrap mt-0.5">Settle now</button>
+                        </div>
+                    )}
+
+                    {/* Near-suspension warning (fees >= 80% of threshold) */}
+                    {feeData && feeData.near_suspension && !feeData.suspended && (
+                        <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-amber-900">Outstanding fees approaching limit</p>
+                                <p className="text-xs text-amber-700 mt-0.5">{formatCurrency(feeData.pending_fees)} in platform fees pending. Settle before reaching {formatCurrency(feeData.suspension_threshold)} to keep your store active.</p>
+                            </div>
+                            <button onClick={() => setShowFeeModal(true)} className="text-xs font-semibold text-amber-800 underline whitespace-nowrap mt-0.5">Pay now</button>
                         </div>
                     )}
 
@@ -1521,6 +1631,58 @@
                         </div>
                     )}
 
+                    {/* ===== YEBOSELL ACCOUNT (fee card) ===== */}
+                    {feeData && (
+                        <div className="card card-shadow p-5 mb-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 text-sm">YeboSell Account</h3>
+                                    <p className="text-xs text-gray-400">{feeData.fee_pct}% fee per order — pay when you sell</p>
+                                </div>
+                                {feeData.in_trial && (
+                                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Free Trial</span>
+                                )}
+                            </div>
+                            {feeData.in_trial ? (
+                                <div>
+                                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-3">
+                                        <p className="text-sm font-semibold text-green-800">
+                                            {Math.max(0, feeData.trial_order_limit - feeData.orders_in_trial)} free order{Math.max(0, feeData.trial_order_limit - feeData.orders_in_trial) !== 1 ? 's' : ''} remaining
+                                        </p>
+                                        <p className="text-xs text-green-700 mt-1">Your first {feeData.trial_order_limit} orders are completely free — no fees while you get started.</p>
+                                    </div>
+                                    <div className="bg-gray-100 rounded-full h-2 mb-1">
+                                        <div className="bg-green-500 h-2 rounded-full transition-all"
+                                            style={{ width: `${Math.min(100, feeData.trial_order_limit > 0 ? (feeData.orders_in_trial / feeData.trial_order_limit) * 100 : 0)}%` }} />
+                                    </div>
+                                    <p className="text-xs text-gray-400">{feeData.orders_in_trial} of {feeData.trial_order_limit} trial orders used</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="bg-gray-50 rounded-xl p-3">
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Fees Owed</p>
+                                            <p className={`text-xl font-bold mt-1 ${feeData.near_suspension ? 'text-amber-600' : 'text-gray-900'}`}>
+                                                {formatCurrency(feeData.pending_fees)}
+                                            </p>
+                                            {feeData.near_suspension && <p className="text-xs text-amber-600 mt-0.5">Approaching limit</p>}
+                                        </div>
+                                        <div className="bg-gray-50 rounded-xl p-3">
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Paid to Date</p>
+                                            <p className="text-xl font-bold text-green-600 mt-1">{formatCurrency(feeData.settled_fees)}</p>
+                                        </div>
+                                    </div>
+                                    {feeData.pending_fees > 0 && (
+                                        <button onClick={() => setShowFeeModal(true)}
+                                            className="w-full flex items-center justify-center gap-2 border-2 border-brand-500 text-brand-700 font-bold py-2.5 rounded-xl hover:bg-brand-50 transition text-sm">
+                                            I've paid — submit reference
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* ===== STOREFRONT LINK ===== */}
                     <div className="card card-shadow p-5 mb-6">
                         <div className="flex items-center gap-2 mb-3">
@@ -1619,6 +1781,11 @@
                             </>
                         )}
                     </div>
+
+                    {/* Fee Settlement Modal */}
+                    {showFeeModal && feeData && (
+                        <FeeSettlementModal seller={seller} feeData={feeData} onClose={() => setShowFeeModal(false)} onSubmitted={() => {}} />
+                    )}
 
                     {/* Dashboard KPI Popup Modal */}
                     {dashPopup && (
