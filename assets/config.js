@@ -6,7 +6,7 @@
 
 window.SUPABASE_URL = 'https://nizrqwvfuxbuhertypva.supabase.co';
 window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5penJxd3ZmdXhidWhlcnR5cHZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NTg3MjMsImV4cCI6MjA5MTMzNDcyM30.nqduzFlkaYWq2kYYFQysb8nBU_l1Eom88uoS7l6pkCw';
-window.SITE_URL = window.location.origin || 'https://yebosell.co.za';
+window.SITE_URL = window.location.origin || 'https://yebosell.com';
 window.BRAND_NAME = 'YeboSell';
 window.BRAND_TAGLINE = 'Sell smarter. Reach further. Grow together.';
 
