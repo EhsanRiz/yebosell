@@ -2965,6 +2965,9 @@
             const [loading, setLoading] = useState(true);
             const [search, setSearch] = useState('');
             const [lowOnly, setLowOnly] = useState(false);
+            const [editId, setEditId] = useState(null);   // product id being stock-edited
+            const [edits, setEdits] = useState({});        // { vkey | 'base': value }
+            const [savingStock, setSavingStock] = useState(false);
 
             useEffect(() => { load(); }, [seller.id]);
             useLiveRefresh(() => load(), { realtime: { table: 'orders', filter: 'seller_id=eq.' + seller.id } });
@@ -3012,7 +3015,7 @@
                                 const s = sold.byName[`${p.name} (${lbl})`] || 0;
                                 matchedSold += s;
                                 const remaining = parseInt(v.stock) || 0;
-                                return { label: lbl, sold: s, remaining, initial: remaining + s };
+                                return { label: lbl, color: v.color || '', size: v.size || '', vkey: (v.color || '') + '|' + (v.size || ''), sold: s, remaining, initial: remaining + s };
                             });
                         }
                         const otherSold = Math.max(0, sold.total - matchedSold);
@@ -3026,7 +3029,8 @@
                         return {
                             id: p.id, name: p.name, photo, active: p.is_active,
                             hasVariants: vars.length > 0, variants, otherSold,
-                            baseRemaining, unlimited, totalRemaining, totalSold, totalInitial
+                            baseRemaining, unlimited, totalRemaining, totalSold, totalInitial,
+                            rawVariants: Array.isArray(p.variants) ? p.variants : []
                         };
                     });
                     setRows(out);
@@ -3040,6 +3044,42 @@
                 } finally {
                     setLoading(false);
                 }
+            };
+
+            // ---- Inline stock editing (restock from the Inventory tab) ----
+            const startEditStock = (r) => {
+                const init = {};
+                if (r.hasVariants) r.variants.forEach(v => { init[v.vkey] = String(v.remaining); });
+                else init.base = r.baseRemaining === null ? '' : String(r.baseRemaining);
+                setEdits(init);
+                setEditId(r.id);
+            };
+            const cancelEditStock = () => { setEditId(null); setEdits({}); };
+            const saveStock = async (r) => {
+                if (savingStock) return;
+                setSavingStock(true);
+                try {
+                    if (r.hasVariants) {
+                        const newVariants = (r.rawVariants || []).map(v => {
+                            const key = (v.color || '') + '|' + (v.size || '');
+                            return (key in edits) ? { ...v, stock: parseInt(edits[key]) || 0 } : v;
+                        });
+                        const { error } = await supabase.from('products').update({ variants: newVariants }).eq('id', r.id);
+                        if (error) throw error;
+                    } else {
+                        const val = edits.base;
+                        const newStock = (val === '' || val === undefined) ? null : (parseInt(val) || 0);
+                        const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', r.id);
+                        if (error) throw error;
+                    }
+                    window.toast('Stock updated', 'success');
+                    setEditId(null); setEdits({});
+                    load();
+                } catch (e) {
+                    const denied = /row-level security|policy/i.test(e.message || '');
+                    window.toast(denied ? 'Your store is suspended — you can’t change stock until it’s reactivated.' : 'Could not update stock: ' + e.message, 'error');
+                }
+                setSavingStock(false);
             };
 
             // A non-variant product's out/low using its own initial (remaining+sold).
@@ -3150,6 +3190,16 @@
                                                 </span>
                                             </p>
                                         </div>
+                                        {editId === r.id ? (
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                <button onClick={() => saveStock(r)} disabled={savingStock}
+                                                    className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">{savingStock ? '…' : 'Save'}</button>
+                                                <button onClick={cancelEditStock} className="text-gray-500 hover:text-gray-700 text-xs font-semibold px-2 py-1.5">Cancel</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => startEditStock(r)}
+                                                className="flex-shrink-0 text-xs font-semibold text-brand-600 hover:text-brand-800 border border-gray-200 hover:border-brand-300 rounded-lg px-2.5 py-1.5">Edit stock</button>
+                                        )}
                                     </div>
 
                                     {r.hasVariants ? (
@@ -3165,7 +3215,12 @@
                                                     <span className={`text-sm truncate ${isVarNeverStocked(v) ? 'text-gray-400' : 'text-gray-700'}`}>{v.label}</span>
                                                     <span className="text-center text-sm text-gray-500">{v.initial}</span>
                                                     <span className="text-center text-sm text-brand-600 font-medium">{v.sold}</span>
-                                                    <span className="text-center">{isVarNeverStocked(v) ? <span className="text-[11px] text-gray-400">Not stocked</span> : <StockBadge n={v.remaining} />}</span>
+                                                    <span className="text-center">
+                                                        {editId === r.id
+                                                            ? <input type="number" min="0" value={edits[v.vkey] ?? ''} onChange={e => setEdits(prev => ({ ...prev, [v.vkey]: e.target.value }))}
+                                                                className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                            : (isVarNeverStocked(v) ? <span className="text-[11px] text-gray-400">Not stocked</span> : <StockBadge n={v.remaining} />)}
+                                                    </span>
                                                 </div>
                                             ))}
                                             {r.otherSold > 0 && (
@@ -3182,7 +3237,12 @@
                                             <span className="text-sm text-gray-500">Single item</span>
                                             <span className={`text-center text-sm ${r.totalInitial === null ? 'text-gray-300' : 'text-gray-500'}`}>{r.totalInitial === null ? '—' : r.totalInitial}</span>
                                             <span className="text-center text-sm text-brand-600 font-medium">{r.totalSold}</span>
-                                            <span className="text-center"><StockBadge n={r.baseRemaining} /></span>
+                                            <span className="text-center">
+                                                {editId === r.id
+                                                    ? <input type="number" min="0" value={edits.base ?? ''} placeholder="∞" onChange={e => setEdits(prev => ({ ...prev, base: e.target.value }))}
+                                                        className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                    : <StockBadge n={r.baseRemaining} />}
+                                            </span>
                                         </div>
                                     )}
                                 </div>
