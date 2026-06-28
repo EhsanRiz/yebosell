@@ -597,6 +597,8 @@
                                             <TruckIcon /> My Orders
                                         </button>
                                     </div>
+                                    {/* At-a-glance facts */}
+                                    <StoreFactStrip seller={seller} onOpenInfo={() => setShowStoreInfo(true)} />
                                 </div>
                             </div>
                         </div>
@@ -1844,6 +1846,41 @@
         }
 
         // ==================== STORE INFO MODAL ====================
+        // Compact at-a-glance facts under the store header — today's hours,
+        // pickup/delivery, and where they deliver. Tapping any chip opens Store Info.
+        function StoreFactStrip({ seller, onOpenInfo }) {
+            if (!seller) return null;
+            const dayNames = ['mon','tue','wed','thu','fri','sat','sun'];
+            const todayHours = (seller.business_hours || {})[dayNames[(new Date().getDay() + 6) % 7]];
+            const methods = seller.delivery_methods || [];
+            const areas = seller.delivery_areas || [];
+
+            const chips = [];
+            if (todayHours) {
+                const closed = /closed/i.test(todayHours);
+                chips.push({ icon: 'clock', open: !closed, text: closed ? 'Closed today' : `Open today · ${todayHours}` });
+            }
+            const fulfil = [];
+            if (methods.includes('pickup')) fulfil.push('Pickup');
+            if (methods.includes('self_delivery') || methods.includes('courier')) fulfil.push('Delivery');
+            if (fulfil.length) chips.push({ icon: 'truck', text: fulfil.join(' & ') });
+            if (areas.length) chips.push({ icon: 'pin', text: 'Delivers to ' + areas[0] + (areas.length > 1 ? ` +${areas.length - 1}` : '') });
+            if (!chips.length) return null;
+
+            return (
+                <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
+                    {chips.map((c, i) => (
+                        <button key={i} onClick={onOpenInfo}
+                            className="glass text-white/90 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 hover:bg-white/20 transition">
+                            {c.open && <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />}
+                            {c.icon === 'clock' ? <ClockIcon /> : c.icon === 'truck' ? <TruckIcon /> : <MapPinIcon />}
+                            {c.text}
+                        </button>
+                    ))}
+                </div>
+            );
+        }
+
         function StoreInfoModal({ seller, onClose }) {
             const hours = seller?.business_hours || {};
             const areas = seller?.delivery_areas || [];
