@@ -4,6 +4,13 @@ alter table public.products add column if not exists lead_time_days int;
 alter table public.sellers  add column if not exists default_lead_time_days int;
 alter table public.orders   add column if not exists eta_date date;
 
+-- public.sellers uses COLUMN-LEVEL grants (anon has no table-level SELECT), so a new
+-- column must be granted explicitly or the public storefront select fails with
+-- "permission denied for table sellers". Mirror an existing public column.
+grant select (default_lead_time_days) on public.sellers to anon;
+grant select (default_lead_time_days), insert (default_lead_time_days), update (default_lead_time_days)
+  on public.sellers to authenticated;
+
 -- Auto-set the ETA the first time an order leaves 'new' (i.e. the seller confirms),
 -- unless one is already set (seller override). ETA = today + slowest item lead time
 -- (falling back to the store default, then 2 days) + 1 transit day for delivery/courier.
