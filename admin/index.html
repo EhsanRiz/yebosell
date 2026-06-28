@@ -1532,7 +1532,7 @@
             );
         };
 
-        const AdminBell = ({ adminId, sellers, orders, fees, settlements, settlementRequests, config, onNavigate }) => {
+        const AdminBell = ({ adminId, sellers, orders, fees, settlements, settlementRequests, config, onNavigate, align = 'right' }) => {
             const [open, setOpen] = useState(false);
             const [tick, setTick] = useState(0);
             const wrapRef = React.useRef(null);
@@ -1620,7 +1620,7 @@
                         {unread > 0 && <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full">{unread > 99 ? '99+' : unread}</span>}
                     </button>
                     {open && (
-                        <div className="absolute right-0 mt-2 w-80 max-w-[88vw] bg-white rounded-xl shadow-lg border border-gray-100 z-[60] overflow-hidden">
+                        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-80 max-w-[88vw] bg-white rounded-xl shadow-lg border border-gray-100 z-[60] overflow-hidden`}>
                             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
                                 <p className="font-bold text-sm text-gray-900">Notifications</p>
                                 <div className="flex items-center gap-2">
@@ -1760,7 +1760,7 @@
                                     <h1 className="font-bold text-sm text-gray-900"><span style={{color:'#1a8a4a'}}>Yebo</span><span style={{color:'#D4A017'}}>Sell</span></h1>
                                     <p className="text-xs text-gray-500">Admin Panel</p>
                                 </div>
-                                <AdminBell adminId={admin.auth_user_id || admin.id} sellers={sellers} orders={orders} fees={fees} settlements={settlements} settlementRequests={settlementRequests} config={config} onNavigate={setTab} />
+                                <AdminBell adminId={admin.auth_user_id || admin.id} sellers={sellers} orders={orders} fees={fees} settlements={settlements} settlementRequests={settlementRequests} config={config} onNavigate={setTab} align="left" />
                             </div>
                         </div>
                         <nav className="flex-1 px-3 py-4 space-y-1">
