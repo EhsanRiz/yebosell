@@ -927,6 +927,14 @@
             const [dispMethod, setDispMethod] = useState(order.delivery_method);
             const [dispFee, setDispFee] = useState(Number(order.delivery_fee) || 0);
             const [dispTotal, setDispTotal] = useState(Number(order.total) || 0);
+            const [eta, setEta] = useState(order.eta_date || '');
+            const [etaSaving, setEtaSaving] = useState(false);
+            const saveEta = async (val) => {
+                setEta(val); setEtaSaving(true);
+                try { await supabase.from('orders').update({ eta_date: val || null }).eq('id', order.id); }
+                catch (e) { window.toast('Could not save the date.', 'error'); }
+                setEtaSaving(false);
+            };
 
             const previewTotal = Math.max(0, dispTotal - dispFee + (dMethod === 'pickup' ? 0 : (parseFloat(dFee) || 0)));
             const saveDelivery = async () => {
@@ -1144,6 +1152,16 @@
                                     <p className="text-sm text-amber-900">{order.delivery_address}</p>
                                 </div>
                             )}
+
+                            {/* Estimated delivery / ready date — buyer sees this on tracking */}
+                            <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estimated {dispMethod === 'pickup' ? 'ready' : 'delivery'} date</p>
+                                    <p className="text-[11px] text-gray-400">{eta ? 'Shown to the buyer on their tracking page.' : 'Set automatically when you confirm — or pick a date.'}</p>
+                                </div>
+                                <input type="date" value={eta || ''} onChange={(e) => saveEta(e.target.value)} disabled={etaSaving}
+                                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500" />
+                            </div>
 
                             {/* Order Items */}
                             <div>
@@ -1984,6 +2002,7 @@
                 option2_label: '',
                 unit: '',
                 condition: '',
+                lead_time_days: '',
                 photos: [],
                 active: true,
                 variants: [],
@@ -2183,7 +2202,7 @@
                 }
 
                 try {
-                    const { active, photos, variants: _v, stock: stockStr, option_label: _ol, option2_label: _ol2, ...rest } = formData;
+                    const { active, photos, variants: _v, stock: stockStr, option_label: _ol, option2_label: _ol2, lead_time_days: leadStr, ...rest } = formData;
                     const computedVariants = matrixToVariants(varMatrix, formData.price);
                     const hasVars = computedVariants.length > 0;
                     const dbData = {
@@ -2195,6 +2214,7 @@
                         photo_url: photos.length > 0 ? photos[0] : '',
                         variants: computedVariants,
                         stock: hasVars ? null : (stockStr !== '' ? parseInt(stockStr) : null),
+                        lead_time_days: leadStr !== '' && leadStr != null ? (parseInt(leadStr) || null) : null,
                     };
 
                     if (editingId) {
@@ -2285,6 +2305,7 @@
                     option2_label: '',
                     unit: '',
                     condition: '',
+                    lead_time_days: '',
                     photos: [],
                     active: true,
                     variants: [],
@@ -2305,6 +2326,7 @@
                     option2_label: product.option2_label || '',
                     unit: product.unit || '',
                     condition: product.condition || '',
+                    lead_time_days: product.lead_time_days != null ? String(product.lead_time_days) : '',
                     photos: Array.isArray(product.photos) ? product.photos : (product.photo_url ? [product.photo_url] : []),
                     active: product.active !== undefined ? product.active : product.is_active,
                     variants: Array.isArray(product.variants) ? product.variants : [],
@@ -2507,6 +2529,14 @@
                                         <option value="used">Used</option>
                                         <option value="refurbished">Refurbished</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Ready in (days) <span className="normal-case text-gray-400">(optional)</span></label>
+                                    <input type="number" min="0" value={formData.lead_time_days}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, lead_time_days: e.target.value }))}
+                                        placeholder="e.g. 2"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50" />
+                                    <p className="text-[11px] text-gray-400 mt-1">Prep time before this item is ready — buyers see an estimated delivery date.</p>
                                 </div>
                             </div>
 
@@ -4800,6 +4830,7 @@
             const [deliveryFeeType, setDeliveryFeeType] = useState(seller.delivery_fee_type || 'flat');
             const [pickupAddress, setPickupAddress] = useState(seller.pickup_address || seller.address || '');
             const [deliveryNotes, setDeliveryNotes] = useState(seller.delivery_notes || '');
+            const [defaultLeadTime, setDefaultLeadTime] = useState(seller.default_lead_time_days != null ? String(seller.default_lead_time_days) : '');
             const [areasText, setAreasText] = useState((seller.delivery_areas || []).join(', '));
             const [savingDelivery, setSavingDelivery] = useState(false);
 
@@ -4817,6 +4848,7 @@
                     delivery_fee_type: deliveryFeeType,
                     pickup_address: pickupAddress,
                     delivery_notes: deliveryNotes,
+                    default_lead_time_days: defaultLeadTime !== '' ? (parseInt(defaultLeadTime) || null) : null,
                     delivery_areas: areasArray
                 };
                 try {
@@ -5034,6 +5066,15 @@
                                 ))}
                             </div>
                         )}
+
+                        {/* Default prep time */}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Default prep time (days)</label>
+                            <input type="number" min="0" value={defaultLeadTime} onChange={e => setDefaultLeadTime(e.target.value)}
+                                placeholder="e.g. 2"
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+                            <p className="text-xs text-gray-400 mt-1.5">How long, on average, before an order is ready. Used to estimate delivery dates for buyers. A product's own "Ready in" time overrides this.</p>
+                        </div>
 
                         {/* Delivery Notes */}
                         <SettingsInputField label="Delivery Notes (shown to buyer)" value={deliveryNotes} onChange={setDeliveryNotes}
