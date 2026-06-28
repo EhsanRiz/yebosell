@@ -910,10 +910,71 @@
             );
         };
 
+        // Per-seller fee breakdown — which paid orders make up the balance + settlements.
+        const SellerFeeDetail = ({ seller, fees, settlements, orders }) => {
+            if (!seller) return null;
+            const sFees = fees.filter(f => f.seller_id === seller.id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const sSettle = settlements.filter(st => st.seller_id === seller.id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const totalFees = sFees.reduce((s, f) => s + Number(f.fee_amount || 0), 0);
+            const totalSettled = sSettle.reduce((s, st) => s + Number(st.amount || 0), 0);
+            const outstanding = Math.max(0, totalFees - totalSettled);
+            const orderById = {}; orders.forEach(o => { orderById[o.id] = o; });
+            return (
+                <div>
+                    <div className="detail-section bg-gray-50">
+                        <h4 className="font-bold text-lg text-gray-900">{seller.business_name}</h4>
+                        <p className="text-sm text-gray-500">{seller.phone}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-0 border-b border-gray-100">
+                        <div className="p-4 text-center border-r border-gray-100"><p className="detail-label">Total Fees</p><p className="text-lg font-bold text-admin-600">{formatCurrency(totalFees)}</p></div>
+                        <div className="p-4 text-center border-r border-gray-100"><p className="detail-label">Settled</p><p className="text-lg font-bold text-green-600">{formatCurrency(totalSettled)}</p></div>
+                        <div className="p-4 text-center"><p className="detail-label">Outstanding</p><p className={`text-lg font-bold ${outstanding > 0 ? 'text-red-500' : 'text-green-600'}`}>{outstanding > 0 ? formatCurrency(outstanding) : 'Settled'}</p></div>
+                    </div>
+                    <div className="detail-section">
+                        <p className="detail-label mb-3">Fee line items ({sFees.length})</p>
+                        {sFees.length === 0 ? <p className="text-sm text-gray-400">No fees yet — fees accrue when an order is marked paid (after the free-trial orders).</p> : (
+                            <div className="space-y-2">
+                                {sFees.map(f => { const o = orderById[f.order_id]; return (
+                                    <div key={f.id} onClick={() => o && window.__openOrder && window.__openOrder(o)}
+                                        className={`flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2 transition ${o ? 'cursor-pointer hover:bg-gray-100' : ''}`}>
+                                        <div className="min-w-0">
+                                            <span className="text-sm font-mono font-semibold text-gray-900">{o ? o.order_number : '(order removed)'}</span>
+                                            <span className="block text-xs text-gray-400">{new Date(f.created_at).toLocaleDateString()} · on {formatCurrency(f.order_total)}</span>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <span className="text-sm font-semibold text-admin-600">{formatCurrency(f.fee_amount)}</span>
+                                            <span className={`block text-[10px] font-semibold ${f.status === 'settled' ? 'text-green-600' : 'text-amber-600'}`}>{f.status}</span>
+                                        </div>
+                                    </div>
+                                ); })}
+                            </div>
+                        )}
+                    </div>
+                    {sSettle.length > 0 && (
+                        <div className="detail-section">
+                            <p className="detail-label mb-3">Settlements ({sSettle.length})</p>
+                            <div className="space-y-2">
+                                {sSettle.map(st => (
+                                    <div key={st.id} className="flex items-center justify-between bg-green-50 rounded-xl px-3 py-2">
+                                        <div className="min-w-0">
+                                            <span className="text-sm font-semibold text-green-700">{formatCurrency(st.amount)}</span>
+                                            <span className="block text-xs text-gray-500 capitalize">{(st.method || '—').replace(/_/g, ' ')}{st.reference ? ' · ' + st.reference : ''}</span>
+                                        </div>
+                                        <span className="text-xs text-gray-400">{new Date(st.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         // ============================================================================
         // FEES & SETTLEMENTS TAB
         // ============================================================================
-        const FeesTab = ({ sellers, fees, settlements, settlementRequests = [], onRefresh, adminId }) => {
+        const FeesTab = ({ sellers, fees, settlements, orders = [], settlementRequests = [], onRefresh, adminId }) => {
+            const [feeSeller, setFeeSeller] = useState(null);
             const [showSettle, setShowSettle] = useState(null);
             const [settleAmount, setSettleAmount] = useState('');
             const [settleRef, setSettleRef] = useState('');
@@ -1090,7 +1151,7 @@
                                 </tr></thead>
                                 <tbody>
                                     {sellerBalances.map(s => (
-                                        <tr key={s.id} className="table-row border-b border-gray-50">
+                                        <tr key={s.id} className="table-row clickable border-b border-gray-50" onClick={() => setFeeSeller(s)}>
                                             <td className="px-5 py-3">
                                                 <div className="font-semibold text-gray-900">{s.business_name}</div>
                                                 <div className="text-xs text-gray-400">{s.phone}</div>
@@ -1104,7 +1165,7 @@
                                             </td>
                                             <td className="px-5 py-3">
                                                 {s.balance > 0 && (
-                                                    <button onClick={() => { setShowSettle(s); setSettleAmount(s.balance.toFixed(2)); }}
+                                                    <button onClick={(e) => { e.stopPropagation(); setShowSettle(s); setSettleAmount(s.balance.toFixed(2)); }}
                                                         className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-semibold hover:bg-green-100 transition">
                                                         Record Payment
                                                     </button>
@@ -1116,6 +1177,10 @@
                             </table>
                         </div>
                     </div>
+
+                    <SlidePanel open={!!feeSeller} onClose={() => setFeeSeller(null)} title={feeSeller ? feeSeller.business_name + ' · Fees' : 'Seller fees'}>
+                        {feeSeller && <SellerFeeDetail seller={feeSeller} fees={fees} settlements={settlements} orders={orders} />}
+                    </SlidePanel>
 
                     {/* Settlement request history */}
                     {reviewedRequests.length > 0 && (
@@ -1620,8 +1685,21 @@
 
             useEffect(() => { if (admin) loadAllData(); }, [admin]);
 
-            const loadAllData = async () => {
-                setLoading(true);
+            // Keep the panel (and the bell) live: silent poll while visible, instant
+            // refresh on tab return, and a realtime accelerator on orders (covers new
+            // orders, status changes and disputes the moment they happen).
+            useEffect(() => {
+                if (!admin) return;
+                const iv = setInterval(() => { if (document.visibilityState === 'visible') loadAllData(true); }, 60000);
+                const onVis = () => { if (document.visibilityState === 'visible') loadAllData(true); };
+                document.addEventListener('visibilitychange', onVis);
+                let ch = null;
+                try { ch = supabase.channel('admin-live').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadAllData(true)).subscribe(); } catch (e) {}
+                return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); if (ch) { try { supabase.removeChannel(ch); } catch (e) {} } };
+            }, [admin]);
+
+            const loadAllData = async (silent) => {
+                if (!silent) setLoading(true);
                 const [sellersRes, ordersRes, feesRes, settlementsRes, configRes, settlementRequestsRes] = await Promise.all([
                     supabase.from('sellers').select('id, full_name, phone, business_name, location, preferred_language, is_active, created_at, updated_at, slug, business_description, banner_url, logo_url, business_hours, delivery_areas, social_links, address, seller_phone, is_admin, seller_status, delivery_methods, delivery_fee, delivery_fee_type, pickup_address, delivery_notes, is_demo').order('created_at', { ascending: false }),
                     supabase.from('orders').select('id, order_number, seller_id, customer_name, customer_phone, total, status, payment_status, delivery_method, payment_method, discount_code, discount_amount, created_at, buyer_dispute_at').order('created_at', { ascending: false }),
@@ -1636,7 +1714,7 @@
                 setSettlements(settlementsRes.data || []);
                 if (configRes.data) setConfig(configRes.data);
                 setSettlementRequests(settlementRequestsRes.data || []);
-                setLoading(false);
+                if (!silent) setLoading(false);
             };
 
             const handleLogout = async () => {
@@ -1735,7 +1813,7 @@
                             {tab === 'dashboard' && <DashboardTab sellers={sellers} orders={orders} fees={fees} config={config} onNavigate={setTab} />}
                             {tab === 'sellers' && <SellersTab sellers={sellers} orders={orders} fees={fees} onRefresh={loadAllData} />}
                             {tab === 'orders' && <OrdersTab orders={orders} fees={fees} sellers={sellers} />}
-                            {tab === 'fees' && <FeesTab sellers={sellers} fees={fees} settlements={settlements} settlementRequests={settlementRequests} onRefresh={loadAllData} adminId={admin.auth_user_id} />}
+                            {tab === 'fees' && <FeesTab sellers={sellers} fees={fees} settlements={settlements} orders={orders} settlementRequests={settlementRequests} onRefresh={loadAllData} adminId={admin.auth_user_id} />}
                             {tab === 'buyers' && <BuyersTab orders={orders} sellers={sellers} />}
                             {tab === 'activity' && <ActivityTab />}
                             {tab === 'settings' && <SettingsTab config={config} onRefresh={loadAllData} />}
