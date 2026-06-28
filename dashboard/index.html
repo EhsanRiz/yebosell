@@ -1174,7 +1174,7 @@
                             </div>
 
                             {/* Conversation thread */}
-                            <div className="border-t border-gray-200 pt-4">
+                            <div id="order-conversation" className="border-t border-gray-200 pt-4">
                                 <OrderThread orderId={order.id} sellerId={order.seller_id} order={order} />
                             </div>
 
@@ -5298,23 +5298,32 @@
                 message:   ['#1d4ed8', '#dbeafe'],
                 confirm:   ['#15803d', '#dcfce7'],
                 dispute:   ['#b91c1c', '#fee2e2'],
+                low_stock: ['#b45309', '#fef3c7'],
+                out_stock: ['#b91c1c', '#fee2e2'],
             };
             const tone = map[type] || ['#6b7280', '#f3f4f6'];
             return (
                 <span className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: tone[1], color: tone[0] }}>
-                    {type === 'dispute' ? <Icons.alert /> : type === 'confirm' ? <Icons.check /> : type === 'new_order' ? <Icons.orders style={{ width: 14, height: 14 }} /> : <Icons.chat />}
+                    {type === 'dispute' ? <Icons.alert /> : type === 'confirm' ? <Icons.check /> : type === 'new_order' ? <Icons.orders style={{ width: 14, height: 14 }} /> : (type === 'low_stock' || type === 'out_stock') ? <Icons.alertTriangle style={{ width: 14, height: 14 }} /> : <Icons.chat />}
                 </span>
             );
         };
 
-        const NotificationBell = ({ seller, onOpenOrder, align = 'right' }) => {
+        const NotificationBell = ({ seller, onOpenOrder, onNavigate, align = 'right' }) => {
             const [events, setEvents] = useState([]);
             const [open, setOpen] = useState(false);
             const wrapRef = useRef(null);
             const nonceRef = useRef(Math.random().toString(36).slice(2));
 
+            const SEEN_KEY = 'yebosell_notif_seen_' + seller.id;   // new-order "mark all read" cutoff
+            const ACK_KEY = 'yebosell_lowstock_ack_' + seller.id;  // acknowledged low-stock keys
+            const getSeenMs = () => { try { const v = localStorage.getItem(SEEN_KEY); return v ? new Date(v).getTime() : 0; } catch (e) { return 0; } };
+            const getAck = () => { try { return new Set(JSON.parse(localStorage.getItem(ACK_KEY) || '[]')); } catch (e) { return new Set(); } };
+
             const load = async () => {
-                const [{ data: ords }, { data: msgs }] = await Promise.all([
+                const seenMs = getSeenMs();
+                const ack = getAck();
+                const [{ data: ords }, { data: msgs }, { data: prods }] = await Promise.all([
                     supabase.from('orders')
                         .select('id, order_number, customer_name, created_at, status, delivery_status')
                         .eq('seller_id', seller.id).order('created_at', { ascending: false }).limit(25),
@@ -5322,12 +5331,16 @@
                         .select('id, order_id, body, meta, created_at, read_by_seller_at')
                         .eq('seller_id', seller.id).eq('sender', 'buyer')
                         .order('created_at', { ascending: false }).limit(25),
+                    supabase.from('products')
+                        .select('id, name, stock, variants, is_active')
+                        .eq('seller_id', seller.id),
                 ]);
                 // A notification stays "unread" until it's actually dealt with — it
                 // does NOT clear just because the bell was opened/refreshed. It clears
                 // when the seller reads that order's thread (read_by_seller_at), when a
-                // new order leaves 'new' status, or when the order is delivered/cancelled.
-                // Everything also ages out after a few days so the badge can't run away.
+                // new order leaves 'new' status, when "mark all read" sets a cutoff, or
+                // when the order is delivered/cancelled. Everything also ages out after a
+                // few days so the badge can't run away.
                 const DAY = 86400000, FRESH_MS = 4 * DAY, now = Date.now();
                 const fresh = (ts) => (now - new Date(ts).getTime()) < FRESH_MS;
                 const done = (o) => o && (o.status === 'delivered' || o.status === 'cancelled');
@@ -5337,7 +5350,7 @@
                 (ords || []).forEach(o => evs.push({
                     key: 'o-' + o.id, type: 'new_order', order_id: o.id,
                     order_number: o.order_number, who: o.customer_name || 'Buyer', text: 'New order placed', ts: o.created_at,
-                    unread: o.status === 'new' && !done(o) && fresh(o.created_at)
+                    unread: o.status === 'new' && !done(o) && fresh(o.created_at) && new Date(o.created_at).getTime() > seenMs
                 }));
                 (msgs || []).forEach(m => {
                     const o = omap[m.order_id] || {};
@@ -5353,7 +5366,44 @@
                     });
                 });
                 evs.sort((a, b) => new Date(b.ts) - new Date(a.ts));
-                setEvents(evs.slice(0, 30));
+
+                // Low-stock alerts (not time-based): pinned above the time feed, unread
+                // until acknowledged via "mark all read". Keyed by product+level so a new
+                // lower level re-surfaces. Out-of-stock first.
+                const LOW = 5;
+                const lowEvs = [];
+                (prods || []).forEach(p => {
+                    const vars = Array.isArray(p.variants) ? p.variants.filter(v => v.size || v.color) : [];
+                    let lowest = null;
+                    if (vars.length > 0) lowest = Math.min(...vars.map(v => typeof v.stock === 'number' ? v.stock : 999));
+                    else if (typeof p.stock === 'number') lowest = p.stock;
+                    if (lowest === null || lowest > LOW) return;
+                    const key = 'ls-' + p.id + ':' + lowest;
+                    lowEvs.push({
+                        key, type: lowest <= 0 ? 'out_stock' : 'low_stock', nav: 'inventory', noTime: true,
+                        order_number: '', who: p.name,
+                        text: lowest <= 0 ? 'Out of stock' : ('Low stock — only ' + lowest + ' left'),
+                        unread: !ack.has(key)
+                    });
+                });
+                lowEvs.sort((a, b) => (b.type === 'out_stock') - (a.type === 'out_stock'));
+
+                setEvents([...lowEvs, ...evs].slice(0, 40));
+            };
+
+            const markAllRead = async () => {
+                const nowIso = new Date().toISOString();
+                try { localStorage.setItem(SEEN_KEY, nowIso); } catch (e) {}
+                try {
+                    const ack = getAck();
+                    events.filter(e => e.type === 'low_stock' || e.type === 'out_stock').forEach(e => ack.add(e.key));
+                    localStorage.setItem(ACK_KEY, JSON.stringify([...ack]));
+                } catch (e) {}
+                try {
+                    await supabase.from('order_messages').update({ read_by_seller_at: nowIso })
+                        .eq('seller_id', seller.id).eq('sender', 'buyer').is('read_by_seller_at', null);
+                } catch (e) {}
+                load();
             };
 
             // Live: poll/visibility backbone + realtime on buyer messages; plus orders changes.
@@ -5375,7 +5425,11 @@
             const unread = events.filter(e => e.unread).length;
 
             const toggle = () => setOpen(o => !o);
-            const pick = (e) => { setOpen(false); if (onOpenOrder) onOpenOrder(e.order_id); };
+            const pick = (e) => {
+                setOpen(false);
+                if (e.nav) { if (onNavigate) onNavigate(e.nav); return; }
+                if (onOpenOrder) onOpenOrder(e.order_id, e.type !== 'new_order');
+            };
 
             return (
                 <div className="relative" ref={wrapRef}>
@@ -5387,9 +5441,12 @@
                     </button>
                     {open && (
                         <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-80 max-w-[88vw] bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden`}>
-                            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
                                 <p className="font-bold text-sm text-gray-900">Notifications</p>
-                                {unread > 0 && <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{unread} new</span>}
+                                <div className="flex items-center gap-2">
+                                    {unread > 0 && <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{unread} new</span>}
+                                    {unread > 0 && <button onClick={markAllRead} className="text-[11px] font-semibold text-brand-600 hover:text-brand-800">Mark all read</button>}
+                                </div>
                             </div>
                             <div className="max-h-96 overflow-y-auto">
                                 {events.length === 0 ? (
@@ -5403,7 +5460,7 @@
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-sm text-gray-900 truncate"><span className="font-semibold">{e.who}</span>{e.order_number ? ' · ' + e.order_number : ''}</p>
                                                 <p className="text-xs text-gray-500 truncate">{e.text}</p>
-                                                <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(e.ts)}</p>
+                                                {!e.noTime && e.ts && <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(e.ts)}</p>}
                                             </div>
                                             {isNew && <span className="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0 mt-1.5" />}
                                         </button>
@@ -5426,7 +5483,15 @@
             const [lowStockCount, setLowStockCount] = useState(0);
 
             // From the notification bell: jump to the Orders tab and open that order.
-            const openOrderFromNotif = (orderId) => { setCurrentTab('orders'); setFocusOrderId(orderId); };
+            // toThread scrolls the opened order detail straight to its chat thread.
+            const openOrderFromNotif = (orderId, toThread) => {
+                setCurrentTab('orders');
+                setFocusOrderId(orderId);
+                if (toThread) setTimeout(() => {
+                    const el = document.getElementById('order-conversation');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 700);
+            };
 
             useEffect(() => {
                 (async () => {
@@ -5526,7 +5591,7 @@
                                         <p className="text-xs text-gray-500 truncate">{currentUser.business_name}</p>
                                     </div>
                                 </div>
-                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} align="left" />
+                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} onNavigate={setCurrentTab} align="left" />
                             </div>
                         </div>
 
@@ -5593,7 +5658,7 @@
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
-                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} />
+                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} onNavigate={setCurrentTab} />
                                 <button
                                     onClick={lock}
                                     className="text-xs font-semibold text-brand-600 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition-colors"
