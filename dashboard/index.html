@@ -1202,7 +1202,7 @@
         // DASHBOARD SCREEN
         // ============================================================================
 
-        const DashboardScreen = ({ seller, onNavigate }) => {
+        const DashboardScreen = ({ seller, onNavigate, onLowStockUpdate }) => {
             const [isNewSeller] = useState(() => !window.localStorage.getItem('ys_welcomed_' + seller.id));
             useEffect(() => { if (seller && seller.id) window.localStorage.setItem('ys_welcomed_' + seller.id, '1'); }, [seller && seller.id]);
             const needsPickupAddress = (seller.delivery_methods || ['pickup']).includes('pickup') && !(seller.pickup_address && String(seller.pickup_address).trim());
@@ -1343,6 +1343,7 @@
                         return { ...p, lowestStock, lowVariants };
                     }).sort((a, b) => a.lowestStock - b.lowestStock);
                     setLowStockProducts(lowStock);
+                    if (onLowStockUpdate) onLowStockUpdate(lowStock.length);
 
                     // Platform fee summary (SECURITY DEFINER RPC — reads platform_config internally)
                     const { data: feeRes } = await supabase.rpc('get_seller_fee_summary', { p_seller_id: seller.id });
@@ -1847,7 +1848,7 @@
         // PRODUCTS SCREEN
         // ============================================================================
 
-        const ProductsScreen = ({ seller }) => {
+        const ProductsScreen = ({ seller, onLowStockUpdate }) => {
             const [products, setProducts] = useState([]);
             const [loading, setLoading] = useState(true);
             const [showForm, setShowForm] = useState(false);
@@ -1890,12 +1891,21 @@
                         .order('sort_order', { ascending: true });
 
                     if (error) throw error;
-                    setProducts((data || []).map(p => ({
+                    const mapped = (data || []).map(p => ({
                         ...p,
                         active: p.is_active,
                         photos: Array.isArray(p.photos) ? p.photos : (p.photo_url ? [p.photo_url] : []),
                         variants: Array.isArray(p.variants) ? p.variants : []
-                    })));
+                    }));
+                    setProducts(mapped);
+                    if (onLowStockUpdate) {
+                        const LOW = 5;
+                        const cnt = mapped.filter(p => {
+                            if (p.variants && p.variants.length > 0) return p.variants.some(v => typeof v.stock === 'number' && v.stock <= LOW);
+                            return typeof p.stock === 'number' && p.stock <= LOW;
+                        }).length;
+                        onLowStockUpdate(cnt);
+                    }
                 } catch (err) {
                     console.error('Load products error:', err);
                 } finally {
@@ -2035,6 +2045,19 @@
                 setVarMatrix(prev => regenMatrix(newGroups, prev));
             };
             const updateMatrix = (mi, field, val) => setVarMatrix(prev => prev.map((m, i) => i === mi ? { ...m, [field]: val } : m));
+
+            // Rename a value in-place preserving price/stock in the matrix (avoids regenMatrix key loss on each keystroke)
+            const renameGroupValue = (gi, vi, newName) => {
+                const oldName = optGroups[gi] ? optGroups[gi].values[vi] : '';
+                setOptGroups(prev => prev.map((g, i) => i === gi ? { ...g, values: g.values.map((v, j) => j === vi ? newName : v) } : g));
+                setVarMatrix(prev => {
+                    const key = gi === 0 ? 'd1' : 'd2';
+                    const idx = prev.findIndex(m => m[key] === oldName);
+                    if (idx >= 0) return prev.map((m, i) => i === idx ? { ...m, [key]: newName } : m);
+                    if (newName.trim() && optGroups.length === 1) return [...prev, { d1: newName, d2: '', price: '', stock: '' }];
+                    return prev;
+                });
+            };
 
             const saveProduct = async () => {
                 if (!formData.name || !formData.price) {
@@ -2301,16 +2324,21 @@
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                                            Stock {varMatrix.length > 0 && <span className="normal-case text-gray-400">(per option)</span>}
+                                            Stock
+                                            {varMatrix.length > 0 && (
+                                                <span className="ml-1 normal-case font-normal text-gray-400">
+                                                    (total: {varMatrix.reduce((s, m) => s + (parseInt(m.stock) || 0), 0)})
+                                                </span>
+                                            )}
                                         </label>
                                         <input
                                             type="number"
-                                            value={formData.stock}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
+                                            value={varMatrix.length > 0 ? String(varMatrix.reduce((s, m) => s + (parseInt(m.stock) || 0), 0)) : formData.stock}
+                                            onChange={varMatrix.length > 0 ? () => {} : (e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
+                                            readOnly={varMatrix.length > 0}
                                             min="0"
-                                            placeholder={varMatrix.length > 0 ? 'Set below' : 'Unlimited'}
-                                            disabled={varMatrix.length > 0}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                                            placeholder={varMatrix.length > 0 ? '' : 'Unlimited'}
+                                            className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${varMatrix.length > 0 ? 'bg-gray-100 text-gray-600 cursor-default' : 'bg-gray-50'}`}
                                         />
                                     </div>
                                     <div>
@@ -2470,7 +2498,7 @@
                                 <div className="flex items-start justify-between mb-1 gap-3">
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Options (optional)</label>
-                                        <p className="text-xs text-gray-400 mt-0.5">Add choices like sizes or colours — each with its own price &amp; stock. You can add up to two option types (e.g. Size + Colour).</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">Add choices like sizes or colours — each with its own price &amp; stock.</p>
                                     </div>
                                     {optGroups.length === 0 && (
                                         <button onClick={addOptGroup} type="button"
@@ -2484,77 +2512,138 @@
                                     <div className="text-center py-3 text-gray-400 text-xs">No options — base price &amp; stock above apply to all orders.</div>
                                 )}
 
-                                {optGroups.map((g, gi) => (
-                                    <div key={gi} className="mt-3 border border-gray-200 rounded-xl p-3 bg-white">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <select value={g.label} onChange={e => updateGroupLabel(gi, e.target.value)}
-                                                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50">
+                                {/* === 1D: single option type — inline table with value + price + stock per row === */}
+                                {optGroups.length === 1 && (
+                                    <div className="mt-2">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <select value={optGroups[0].label} onChange={e => updateGroupLabel(0, e.target.value)}
+                                                className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white">
                                                 {OPT_LABEL_LIST.map(l => <option key={l} value={l}>{l}</option>)}
                                             </select>
-                                            <button onClick={() => removeOptGroup(gi)} type="button"
-                                                className="text-xs text-red-400 hover:text-red-600 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 transition flex-shrink-0">
+                                            <span className="text-xs text-gray-400 flex-1">Option type</span>
+                                            <button onClick={() => removeOptGroup(0)} type="button"
+                                                className="text-xs text-red-400 hover:text-red-600 font-semibold px-2 py-1 rounded hover:bg-red-50 transition flex-shrink-0">
                                                 Remove
                                             </button>
                                         </div>
-                                        <div className="space-y-1.5">
-                                            {g.values.map((v, vi) => (
-                                                <div key={vi} className="flex gap-2 items-center">
-                                                    <input type="text" value={v} onChange={e => updateGroupValue(gi, vi, e.target.value)}
-                                                        placeholder={g.label === 'Size' ? 'e.g. Small, Medium, Large' : g.label === 'Colour' || g.label === 'Color' ? 'e.g. Red, Blue, Green' : 'e.g. Value'}
-                                                        className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50" />
-                                                    <button onClick={() => removeGroupValue(gi, vi)} type="button"
-                                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors flex-shrink-0">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            <button onClick={() => addGroupValue(gi)} type="button"
-                                                className="text-xs text-brand-600 hover:text-brand-800 font-semibold py-1">
-                                                + Add {g.label.toLowerCase()} value
-                                            </button>
+                                        <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                            <div className="grid px-3 py-1.5 bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wide gap-2" style={{gridTemplateColumns:'1fr 88px 68px 28px'}}>
+                                                <span>{optGroups[0].label}</span>
+                                                <span className="text-right">Price (M)</span>
+                                                <span className="text-center">Stock</span>
+                                                <span></span>
+                                            </div>
+                                            {optGroups[0].values.map((v, vi) => {
+                                                const mi = varMatrix.findIndex(m => m.d1 === v);
+                                                return (
+                                                    <div key={vi} className="grid items-center gap-2 px-2 py-1.5 border-t border-gray-100" style={{gridTemplateColumns:'1fr 88px 68px 28px'}}>
+                                                        <input type="text" value={v}
+                                                            onChange={e => renameGroupValue(0, vi, e.target.value)}
+                                                            placeholder={optGroups[0].label === 'Size' ? 'e.g. Small' : optGroups[0].label === 'Colour' || optGroups[0].label === 'Color' ? 'e.g. Red' : 'e.g. Value'}
+                                                            className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                        <input type="number" step="0.01"
+                                                            value={mi >= 0 ? varMatrix[mi].price : ''}
+                                                            onChange={e => mi >= 0 && updateMatrix(mi, 'price', e.target.value)}
+                                                            placeholder={formData.price || '0'}
+                                                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                        <input type="number" min="0"
+                                                            value={mi >= 0 ? varMatrix[mi].stock : ''}
+                                                            onChange={e => mi >= 0 && updateMatrix(mi, 'stock', e.target.value)}
+                                                            placeholder="0"
+                                                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                        <button onClick={() => removeGroupValue(0, vi)} type="button"
+                                                            className="text-red-400 hover:text-red-600 hover:bg-red-50 w-7 h-7 rounded-lg flex items-center justify-center mx-auto">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                            <div className="px-3 py-2 border-t border-gray-100 flex items-center justify-between">
+                                                <button onClick={() => addGroupValue(0)} type="button"
+                                                    className="text-xs text-brand-600 hover:text-brand-800 font-semibold">
+                                                    + Add {optGroups[0].label.toLowerCase()} value
+                                                </button>
+                                                {varMatrix.length > 0 && (
+                                                    <span className="text-[10px] text-gray-400">
+                                                        Total: {varMatrix.reduce((s, m) => s + (parseInt(m.stock) || 0), 0)} units
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
+                                        <button onClick={addOptGroup} type="button"
+                                            className="mt-2 w-full text-xs text-gray-500 hover:text-brand-600 border border-dashed border-gray-300 hover:border-brand-300 rounded-lg py-2 transition font-semibold">
+                                            + Add second option type (e.g. Colour)
+                                        </button>
                                     </div>
-                                ))}
-
-                                {optGroups.length === 1 && (
-                                    <button onClick={addOptGroup} type="button"
-                                        className="mt-2 w-full text-xs text-gray-500 hover:text-brand-600 border border-dashed border-gray-300 hover:border-brand-300 rounded-lg py-2 transition font-semibold">
-                                        + Add second option (e.g. Colour)
-                                    </button>
                                 )}
 
-                                {varMatrix.length > 0 && (
-                                    <div className="mt-3">
-                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                            {varMatrix.length} {optGroups.length === 2 ? 'combinations' : 'options'} — set price &amp; stock for each
-                                            {optGroups.length === 2 && <span className="ml-1 text-gray-400 font-normal normal-case">({optGroups[0].label} × {optGroups[1].label})</span>}
-                                        </label>
-                                        <div className="space-y-1.5">
-                                            {varMatrix.map((m, mi) => (
-                                                <div key={mi} className="flex gap-2 items-end bg-white rounded-xl p-2.5 border border-gray-100">
-                                                    <div className="flex-1">
-                                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                                                            {optGroups[0] && optGroups[0].label}{optGroups[1] ? ` / ${optGroups[1].label}` : ''}
-                                                        </label>
-                                                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700">
-                                                            {m.d1}{m.d2 ? <span className="text-gray-400"> / {m.d2}</span> : ''}
-                                                        </div>
+                                {/* === 2D: two option types side-by-side, then full combination matrix === */}
+                                {optGroups.length === 2 && (
+                                    <div className="mt-2">
+                                        <div className="grid grid-cols-2 gap-2 mb-3">
+                                            {optGroups.map((g, gi) => (
+                                                <div key={gi} className="border border-gray-200 rounded-xl p-2.5 bg-white">
+                                                    <div className="flex items-center gap-1.5 mb-2">
+                                                        <select value={g.label} onChange={e => updateGroupLabel(gi, e.target.value)}
+                                                            className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 min-w-0">
+                                                            {OPT_LABEL_LIST.map(l => <option key={l} value={l}>{l}</option>)}
+                                                        </select>
+                                                        <button onClick={() => removeOptGroup(gi)} type="button"
+                                                            className="text-red-400 hover:text-red-600 hover:bg-red-50 w-6 h-6 rounded flex items-center justify-center flex-shrink-0">
+                                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                        </button>
                                                     </div>
-                                                    <div className="w-24">
-                                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Price (M)</label>
-                                                        <input type="number" step="0.01" value={m.price} onChange={e => updateMatrix(mi, 'price', e.target.value)}
-                                                            placeholder={formData.price || '0'}
-                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50" />
-                                                    </div>
-                                                    <div className="w-20">
-                                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Stock</label>
-                                                        <input type="number" min="0" value={m.stock} onChange={e => updateMatrix(mi, 'stock', e.target.value)}
-                                                            placeholder="0"
-                                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50" />
+                                                    <div className="space-y-1">
+                                                        {g.values.map((v, vi) => (
+                                                            <div key={vi} className="flex gap-1 items-center">
+                                                                <input type="text" value={v}
+                                                                    onChange={e => updateGroupValue(gi, vi, e.target.value)}
+                                                                    placeholder={g.label === 'Size' ? 'e.g. Small' : g.label === 'Colour' || g.label === 'Color' ? 'e.g. Red' : 'Value'}
+                                                                    className="flex-1 px-2 py-1 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 min-w-0" />
+                                                                <button onClick={() => removeGroupValue(gi, vi)} type="button"
+                                                                    className="text-red-300 hover:text-red-500 w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        <button onClick={() => addGroupValue(gi)} type="button"
+                                                            className="text-[11px] text-brand-600 hover:text-brand-800 font-semibold">
+                                                            + Add {g.label.toLowerCase()}
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
+
+                                        {/* Combination matrix */}
+                                        {varMatrix.length > 0 ? (
+                                            <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                                <div className="grid px-3 py-1.5 bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wide gap-2" style={{gridTemplateColumns:'1fr 88px 68px'}}>
+                                                    <span>{optGroups[0].label} / {optGroups[1].label}</span>
+                                                    <span className="text-right">Price (M)</span>
+                                                    <span className="text-center">Stock</span>
+                                                </div>
+                                                {varMatrix.map((m, mi) => (
+                                                    <div key={mi} className="grid items-center gap-2 px-3 py-1.5 border-t border-gray-100" style={{gridTemplateColumns:'1fr 88px 68px'}}>
+                                                        <span className="text-sm font-medium text-gray-700 truncate">{m.d1} <span className="text-gray-400">/</span> {m.d2}</span>
+                                                        <input type="number" step="0.01" value={m.price}
+                                                            onChange={e => updateMatrix(mi, 'price', e.target.value)}
+                                                            placeholder={formData.price || '0'}
+                                                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                        <input type="number" min="0" value={m.stock}
+                                                            onChange={e => updateMatrix(mi, 'stock', e.target.value)}
+                                                            placeholder="0"
+                                                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                    </div>
+                                                ))}
+                                                <div className="px-3 py-2 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                                                    <span className="text-[10px] text-gray-400">{varMatrix.length} combinations</span>
+                                                    <span className="text-[10px] text-gray-400">Total: {varMatrix.reduce((s, m) => s + (parseInt(m.stock) || 0), 0)} units</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-gray-400 text-center py-2">Enter values for both options above to see the combination table</p>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -5017,6 +5106,7 @@
             const [currentTab, setCurrentTab] = useState('dashboard');
             const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
             const [focusOrderId, setFocusOrderId] = useState(null);
+            const [lowStockCount, setLowStockCount] = useState(0);
 
             // From the notification bell: jump to the Orders tab and open that order.
             const openOrderFromNotif = (orderId) => { setCurrentTab('orders'); setFocusOrderId(orderId); };
@@ -5096,7 +5186,7 @@
 
             const navItems = [
                 { id: 'dashboard', label: 'Dashboard', Icon: Icons.dashboard },
-                { id: 'products', label: 'Products', Icon: Icons.products },
+                { id: 'products', label: 'Products', Icon: Icons.products, badge: lowStockCount },
                 { id: 'orders', label: 'Orders', Icon: Icons.orders },
                 { id: 'payments', label: 'Payments', Icon: Icons.payments },
                 { id: 'discounts', label: 'Discounts', Icon: Icons.discount },
@@ -5124,14 +5214,19 @@
 
                         {/* Navigation */}
                         <nav className="flex-1 px-3 py-4 space-y-1 sidebar-scroll overflow-y-auto">
-                            {navItems.map(({ id, label, Icon }) => (
+                            {navItems.map(({ id, label, Icon, badge }) => (
                                 <button
                                     key={id}
                                     onClick={() => setCurrentTab(id)}
                                     className={`sidebar-link w-full ${currentTab === id ? 'active' : ''}`}
                                 >
                                     <Icon />
-                                    <span>{label}</span>
+                                    <span className="flex-1 text-left">{label}</span>
+                                    {badge > 0 && (
+                                        <span className={`ml-auto text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0 ${currentTab === id ? 'bg-white/30 text-white' : 'bg-amber-400 text-white'}`}>
+                                            {badge > 9 ? '9+' : badge}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </nav>
@@ -5201,8 +5296,8 @@
                     <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
                         <div className="max-w-6xl mx-auto px-4 lg:px-8 py-5 lg:py-8">
                             <div className="tab-content">
-                                {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} onNavigate={setCurrentTab} />}
-                                {currentTab === 'products' && <ProductsScreen seller={currentUser} />}
+                                {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} onNavigate={setCurrentTab} onLowStockUpdate={setLowStockCount} />}
+                                {currentTab === 'products' && <ProductsScreen seller={currentUser} onLowStockUpdate={setLowStockCount} />}
                                 {currentTab === 'orders' && <OrdersScreen seller={currentUser} focusOrderId={focusOrderId} onFocusConsumed={() => setFocusOrderId(null)} />}
                                 {currentTab === 'payments' && <PaymentsScreen seller={currentUser} />}
                                 {currentTab === 'discounts' && <DiscountsScreen seller={currentUser} />}
@@ -5217,7 +5312,7 @@
                         <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none' }}>
                             <style>{`.mobile-bottom-nav::-webkit-scrollbar { display: none; }`}</style>
                             <div className="flex mobile-bottom-nav" style={{ minWidth: '100%', overflowX: 'auto', scrollbarWidth: 'none' }}>
-                                {navItems.map(({ id, label, Icon }) => (
+                                {navItems.map(({ id, label, Icon, badge }) => (
                                     <button
                                         key={id}
                                         onClick={() => setCurrentTab(id)}
@@ -5227,7 +5322,14 @@
                                                 : 'text-gray-400 hover:text-gray-600'
                                         }`}
                                     >
-                                        <Icon style={{ width: 20, height: 20 }} />
+                                        <div className="relative">
+                                            <Icon style={{ width: 20, height: 20 }} />
+                                            {badge > 0 && (
+                                                <span className="absolute -top-1 -right-1.5 bg-amber-400 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                                    {badge > 9 ? '9+' : badge}
+                                                </span>
+                                            )}
+                                        </div>
                                         <span>{label}</span>
                                     </button>
                                 ))}
