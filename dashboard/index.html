@@ -5354,16 +5354,17 @@
                 dispute:   ['#b91c1c', '#fee2e2'],
                 low_stock: ['#b45309', '#fef3c7'],
                 out_stock: ['#b91c1c', '#fee2e2'],
+                suspended: ['#b91c1c', '#fee2e2'],
             };
             const tone = map[type] || ['#6b7280', '#f3f4f6'];
             return (
                 <span className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: tone[1], color: tone[0] }}>
-                    {type === 'dispute' ? <Icons.alert /> : type === 'confirm' ? <Icons.check /> : type === 'new_order' ? <Icons.orders style={{ width: 14, height: 14 }} /> : (type === 'low_stock' || type === 'out_stock') ? <Icons.alertTriangle style={{ width: 14, height: 14 }} /> : <Icons.chat />}
+                    {type === 'dispute' || type === 'suspended' ? <Icons.alert /> : type === 'confirm' ? <Icons.check /> : type === 'new_order' ? <Icons.orders style={{ width: 14, height: 14 }} /> : (type === 'low_stock' || type === 'out_stock') ? <Icons.alertTriangle style={{ width: 14, height: 14 }} /> : <Icons.chat />}
                 </span>
             );
         };
 
-        const NotificationBell = ({ seller, onOpenOrder, onNavigate, align = 'right' }) => {
+        const NotificationBell = ({ seller, onOpenOrder, onNavigate, account, onShowSuspension, align = 'right' }) => {
             const [events, setEvents] = useState([]);
             const [open, setOpen] = useState(false);
             const wrapRef = useRef(null);
@@ -5507,11 +5508,20 @@
                 return () => document.removeEventListener('mousedown', onDoc);
             }, [open]);
 
-            const unread = events.filter(e => e.unread).length;
+            // A suspension is always the loudest, top-pinned, un-dismissable notice.
+            const suspendedEvent = (account && (account.status === 'suspended' || account.status === 'deactivated')) ? {
+                key: 'suspended', type: 'suspended', suspension: true, noTime: true, unread: true,
+                who: account.status === 'deactivated' ? 'Store deactivated' : 'Store suspended',
+                text: 'Your store is offline — tap to see why and how to reactivate.', order_number: ''
+            } : null;
+            const allEvents = suspendedEvent ? [suspendedEvent, ...events] : events;
+
+            const unread = allEvents.filter(e => e.unread).length;
 
             const toggle = () => setOpen(o => !o);
             const pick = (e) => {
                 setOpen(false);
+                if (e.suspension) { if (onShowSuspension) onShowSuspension(); return; }
                 if (e.nav) { if (onNavigate) onNavigate(e.nav); return; }
                 if (onOpenOrder) onOpenOrder(e.order_id, e.type !== 'new_order');
             };
@@ -5534,13 +5544,13 @@
                                 </div>
                             </div>
                             <div className="max-h-96 overflow-y-auto">
-                                {events.length === 0 ? (
+                                {allEvents.length === 0 ? (
                                     <p className="text-xs text-gray-400 text-center py-8">No updates yet</p>
-                                ) : events.map(e => {
+                                ) : allEvents.map(e => {
                                     const isNew = e.unread;
                                     return (
                                         <button key={e.key} onClick={() => pick(e)}
-                                            className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition flex gap-3 items-start ${isNew ? 'bg-brand-50/50' : ''}`}>
+                                            className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition flex gap-3 items-start ${e.suspension ? 'bg-red-50' : isNew ? 'bg-brand-50/50' : ''}`}>
                                             <NotifIcon type={e.type} />
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-sm text-gray-900 truncate"><span className="font-semibold">{e.who}</span>{e.order_number ? ' · ' + e.order_number : ''}</p>
@@ -5554,6 +5564,60 @@
                             </div>
                         </div>
                     )}
+                </div>
+            );
+        };
+
+        // Bold banner shown across the dashboard when the store is suspended/deactivated.
+        const SuspendedBanner = ({ status, onDetails }) => {
+            const deactivated = status === 'deactivated';
+            return (
+                <div className="mb-4 bg-red-600 text-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-md">
+                    <Icons.alert />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold">{deactivated ? 'Your store has been deactivated' : 'Your store is suspended'}</p>
+                        <p className="text-xs text-red-100">Your storefront is offline and you can’t receive new orders. Tap to see why and how to reactivate.</p>
+                    </div>
+                    <button onClick={onDetails} className="flex-shrink-0 bg-white text-red-700 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-lg">Details</button>
+                </div>
+            );
+        };
+
+        // Explains why a store is suspended and how to get it back online.
+        const SuspensionModal = ({ status, reason, onClose }) => {
+            const deactivated = status === 'deactivated';
+            return (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                    <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="bg-red-600 text-white px-5 py-4 flex items-center gap-3">
+                            <Icons.alert />
+                            <h3 className="font-bold text-base">{deactivated ? 'Store deactivated' : 'Store suspended'}</h3>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Reason</p>
+                                <p className="text-sm text-gray-800">{reason ? reason : 'Your store has been paused by the YeboSell team. This is usually due to outstanding platform fees or a policy review.'}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">What this means</p>
+                                <p className="text-sm text-gray-700">Buyers visiting your store see a “temporarily unavailable” message and can’t place new orders. Your products, orders and history are safe.</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">How to reactivate</p>
+                                <ul className="text-sm text-gray-700 list-disc pl-5 space-y-1">
+                                    <li>Settle any outstanding platform fees (see the YeboSell Account card on your Dashboard).</li>
+                                    <li>Contact YeboSell support to review and lift the suspension.</li>
+                                </ul>
+                            </div>
+                            <a href="https://wa.me/27761080024?text=Hi%20YeboSell%2C%20my%20store%20is%20suspended%20%E2%80%94%20I%27d%20like%20to%20reactivate%20it."
+                                target="_blank" rel="noopener"
+                                className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-2.5 rounded-xl transition">
+                                <Icons.whatsapp /> Contact YeboSell Support
+                            </a>
+                            <button onClick={onClose} className="w-full text-sm text-gray-500 hover:text-gray-700 font-medium py-1">Close</button>
+                        </div>
+                    </div>
                 </div>
             );
         };
@@ -5597,6 +5661,8 @@
             const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
             const [focusOrderId, setFocusOrderId] = useState(null);
             const [lowStockCount, setLowStockCount] = useState(0);
+            const [account, setAccount] = useState({ status: 'active', reason: null });
+            const [showSuspend, setShowSuspend] = useState(false);
 
             // From the notification bell: jump to the Orders tab and open that order.
             // toThread scrolls the opened order detail straight to its chat thread.
@@ -5649,6 +5715,25 @@
             // (no-op unless the seller already granted notification permission).
             useEffect(() => {
                 if (currentUser && !locked) { try { syncSellerPush(currentUser.id); } catch (e) {} }
+            }, [currentUser, locked]);
+
+            // Watch this seller's account status so a suspension (set by an admin
+            // while they're logged in) surfaces a banner + bell notice without a
+            // re-login. Polls while visible; refreshes on tab return.
+            useEffect(() => {
+                if (!currentUser || locked) return;
+                let alive = true;
+                const check = async () => {
+                    try {
+                        const { data } = await supabase.rpc('seller_account_status', { p_seller_id: currentUser.id });
+                        if (alive && data) setAccount({ status: data.seller_status || 'active', reason: data.suspension_reason || null });
+                    } catch (e) {}
+                };
+                check();
+                const iv = setInterval(() => { if (document.visibilityState === 'visible') check(); }, 60000);
+                const onVis = () => { if (document.visibilityState === 'visible') check(); };
+                document.addEventListener('visibilitychange', onVis);
+                return () => { alive = false; clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
             }, [currentUser, locked]);
 
             const onAuthed = (seller) => {
@@ -5713,7 +5798,7 @@
                                         <p className="text-xs text-gray-500 truncate">{currentUser.business_name}</p>
                                     </div>
                                 </div>
-                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} onNavigate={setCurrentTab} align="left" />
+                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} onNavigate={setCurrentTab} account={account} onShowSuspension={() => setShowSuspend(true)} align="left" />
                             </div>
                         </div>
 
@@ -5780,7 +5865,7 @@
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
-                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} onNavigate={setCurrentTab} />
+                                <NotificationBell seller={currentUser} onOpenOrder={openOrderFromNotif} onNavigate={setCurrentTab} account={account} onShowSuspension={() => setShowSuspend(true)} />
                                 <button
                                     onClick={lock}
                                     className="text-xs font-semibold text-brand-600 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition-colors"
@@ -5801,6 +5886,8 @@
                     <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
                         <div className="max-w-6xl mx-auto px-4 lg:px-8 py-5 lg:py-8">
                             <div className="tab-content">
+                                {(account.status === 'suspended' || account.status === 'deactivated') &&
+                                    <SuspendedBanner status={account.status} onDetails={() => setShowSuspend(true)} />}
                                 <SellerPushPrompt sellerId={currentUser.id} />
                                 {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} onNavigate={setCurrentTab} onLowStockUpdate={setLowStockCount} />}
                                 {currentTab === 'products' && <ProductsScreen seller={currentUser} onLowStockUpdate={setLowStockCount} />}
@@ -5813,6 +5900,8 @@
                             </div>
                         </div>
                     </main>
+
+                    {showSuspend && <SuspensionModal status={account.status} reason={account.reason} onClose={() => setShowSuspend(false)} />}
 
                     {/* ======= MOBILE BOTTOM NAVIGATION (hidden on desktop) ======= */}
                     <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>

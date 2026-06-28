@@ -123,8 +123,14 @@
 
             const setStatus = async (newStatus, confirmMsg) => {
                 if (confirmMsg && !(await window.confirmDialog({ message: confirmMsg, confirmLabel: 'Confirm', danger: true }))) return;
+                // Capture a reason the seller will see on their dashboard.
+                let reason = null;
+                if (newStatus === 'suspended' || newStatus === 'deactivated') {
+                    reason = window.prompt('Reason (shown to the seller on their dashboard) — e.g. "Outstanding platform fees" or "Policy review". Leave blank for a generic message.', '');
+                    if (reason === null) return; // cancelled
+                }
                 setBusy(true); setMsg('');
-                const { data } = await supabase.rpc('admin_set_seller_status', { p_seller_id: seller.id, p_status: newStatus });
+                const { data } = await supabase.rpc('admin_set_seller_status', { p_seller_id: seller.id, p_status: newStatus, p_reason: reason });
                 setBusy(false);
                 if (data && data.ok) { onRefresh(); } else { setMsg((data && data.message) || 'Action failed'); }
             };
