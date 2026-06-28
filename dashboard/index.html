@@ -2215,7 +2215,10 @@
                     resetForm();
                     loadProducts();
                 } catch (err) {
-                    window.toast('Save failed: ' + err.message);
+                    const denied = /row-level security|policy/i.test(err.message || '') || err.code === '42501';
+                    window.toast(denied
+                        ? 'Your store is suspended — you can’t change products until it’s reactivated.'
+                        : 'Save failed: ' + err.message, 'error');
                 }
             };
 

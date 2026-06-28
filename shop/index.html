@@ -415,7 +415,7 @@
                         p_discount_amount: discountAmount,
                         p_items: orderItems
                     });
-                    if (orderError || !result || result.error) { window.toast('Failed to create order. Please try again.'); setSubmittingOrder(false); return; }
+                    if (orderError || !result || result.error) { window.toast((result && result.message) || 'Failed to create order. Please try again.'); setSubmittingOrder(false); return; }
                     const orderNumber = result.order_number;
                     const trackToken = result.track_token;
 
