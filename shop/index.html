@@ -280,6 +280,15 @@
                 return product.stock !== null && product.stock !== undefined && parseInt(product.stock) <= 0;
             };
 
+            // Review helpers (defined before filteredProducts — the sort comparator
+            // calls getProductRating, and a const in the TDZ would blank the page).
+            const getProductReviews = (productId) => reviews.filter(r => r.product_id === productId);
+            const getProductRating = (productId) => {
+                const pReviews = getProductReviews(productId);
+                if (pReviews.length === 0) return 0;
+                return pReviews.reduce((s, r) => s + r.rating, 0) / pReviews.length;
+            };
+
             // Filtered + sorted products
             const filteredProducts = useMemo(() => {
                 let result = products.filter(p => {
@@ -299,15 +308,7 @@
                     return 0; // default = sort_order from DB
                 });
                 return result;
-            }, [products, activeCategory, search, sortBy]);
-
-            // Review helpers
-            const getProductReviews = (productId) => reviews.filter(r => r.product_id === productId);
-            const getProductRating = (productId) => {
-                const pReviews = getProductReviews(productId);
-                if (pReviews.length === 0) return 0;
-                return pReviews.reduce((s, r) => s + r.rating, 0) / pReviews.length;
-            };
+            }, [products, activeCategory, search, sortBy, reviews]);
 
             const addToCart = (product) => {
                 if (isDemo) return; // Demo stores are browse-only
