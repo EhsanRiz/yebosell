@@ -464,10 +464,11 @@
             );
         }
 
-        // Cross-order notification bell for the buyer: aggregates unread
+        // Cross-order notification bell for the buyer: a per-message feed of
         // seller/admin/system messages across every order saved on this device
-        // (SPEC_internal_messaging §7a). One token-scoped RPC call covers all of
-        // them; tapping an order opens it (which marks that thread read).
+        // (SPEC_internal_messaging §7a). Each message is its own row (newest first),
+        // read ones kept as history (dimmed) and unread highlighted; the badge counts
+        // unread only. Tapping a message opens its order and jumps to the thread.
         function BuyerBell({ onOpenOrder }) {
             const [items, setItems] = useState([]);
             const [open, setOpen] = useState(false);
@@ -477,7 +478,7 @@
                 const tokens = readMyOrders().map(o => o.token).filter(Boolean);
                 if (!tokens.length) { setItems([]); return; }
                 try {
-                    const { data } = await supabase.rpc('buyer_unread_summary', { p_tokens: tokens });
+                    const { data } = await supabase.rpc('buyer_notifications', { p_tokens: tokens });
                     setItems(Array.isArray(data) ? data : []);
                 } catch (e) {}
             };
@@ -510,8 +511,8 @@
                 return () => document.removeEventListener('mousedown', onDoc);
             }, [open]);
 
-            const total = items.reduce((n, o) => n + (o.unread || 0), 0);
-            const pick = (o) => { setOpen(false); if (onOpenOrder) onOpenOrder(o.token); };
+            const total = items.reduce((n, m) => n + (m.read ? 0 : 1), 0);
+            const pick = (m) => { setOpen(false); if (onOpenOrder) onOpenOrder(m.token); };
 
             return (
                 <div className="relative" ref={wrapRef}>
@@ -528,26 +529,26 @@
                                 <p className="font-bold text-sm text-gray-900">Notifications</p>
                                 {total > 0 && <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{total} new</span>}
                             </div>
-                            <div className="max-h-80 overflow-y-auto">
+                            <div className="max-h-96 overflow-y-auto">
                                 {items.length === 0 ? (
-                                    <p className="text-xs text-gray-400 text-center py-8">No new messages</p>
-                                ) : items.map(o => (
-                                    <button key={o.token} onClick={() => pick(o)}
-                                        className="w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition flex gap-3 items-center">
-                                        <span className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-brand-100 text-brand-700">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                    <p className="text-xs text-gray-400 text-center py-8">No notifications yet</p>
+                                ) : items.map(m => (
+                                    <button key={m.id} onClick={() => pick(m)}
+                                        className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition flex gap-3 items-start ${m.read ? '' : 'bg-brand-50/40'}`}>
+                                        <span className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${m.read ? 'bg-gray-100 text-gray-400' : 'bg-brand-100 text-brand-700'}`}>
+                                            {m.kind === 'status'
+                                                ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>}
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-baseline justify-between gap-2">
-                                                <p className="text-sm font-semibold text-gray-900 truncate font-mono">{o.order_number || 'Order'}</p>
-                                                {o.last_at && <span className="text-[10px] text-gray-400 flex-shrink-0">{new Date(o.last_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                                                <p className="text-[11px] font-semibold text-gray-700 truncate font-mono">{m.order_number || 'Order'}</p>
+                                                <span className="text-[10px] text-gray-400 flex-shrink-0">{m.created_at ? new Date(m.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                                             </div>
-                                            {o.last_message
-                                                ? <p className="text-xs text-gray-600 line-clamp-2">{o.last_message}</p>
-                                                : <p className="text-xs text-gray-500 truncate">{o.unread} new message{o.unread === 1 ? '' : 's'}</p>}
-                                            <p className="text-[10px] text-gray-400 truncate mt-0.5">{o.seller_name || 'Seller'}{o.unread > 1 ? ` · ${o.unread} new` : ''}</p>
+                                            <p className={`text-xs line-clamp-2 ${m.read ? 'text-gray-500' : 'text-gray-800 font-medium'}`}>{m.body}</p>
+                                            <p className="text-[10px] text-gray-400 truncate mt-0.5">{m.seller_name || 'Seller'}</p>
                                         </div>
-                                        <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold text-white bg-brand-500 rounded-full flex-shrink-0">{o.unread}</span>
+                                        {!m.read && <span className="mt-1.5 w-2 h-2 rounded-full bg-brand-500 flex-shrink-0" />}
                                     </button>
                                 ))}
                             </div>
