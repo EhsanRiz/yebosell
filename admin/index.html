@@ -797,9 +797,34 @@
         // ============================================================================
         // ORDERS TAB
         // ============================================================================
+        // Shared date-range presets used by Orders (and reusable elsewhere).
+        const DATE_RANGES = [
+            { id: 'all', label: 'All time' },
+            { id: 'today', label: 'Today' },
+            { id: 'yesterday', label: 'Yesterday' },
+            { id: 'last7', label: 'Last 7 days' },
+            { id: 'last30', label: 'Last 30 days' },
+            { id: 'thismonth', label: 'This month' },
+            { id: 'lastmonth', label: 'Last month' },
+        ];
+        const inDateRange = (iso, range) => {
+            if (!iso || range === 'all') return true;
+            const d = new Date(iso); if (isNaN(d)) return false;
+            const now = new Date();
+            const day0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            if (range === 'today') return d >= day0;
+            if (range === 'yesterday') { const y = new Date(day0); y.setDate(y.getDate() - 1); return d >= y && d < day0; }
+            if (range === 'last7') { const s = new Date(day0); s.setDate(s.getDate() - 6); return d >= s; }
+            if (range === 'last30') { const s = new Date(day0); s.setDate(s.getDate() - 29); return d >= s; }
+            if (range === 'thismonth') return d >= new Date(now.getFullYear(), now.getMonth(), 1);
+            if (range === 'lastmonth') { const s = new Date(now.getFullYear(), now.getMonth() - 1, 1); const e = new Date(now.getFullYear(), now.getMonth(), 1); return d >= s && d < e; }
+            return true;
+        };
+
         const OrdersTab = ({ orders, fees, sellers }) => {
             const [search, setSearch] = useState('');
             const [statusFilter, setStatusFilter] = useState('all');
+            const [dateRange, setDateRange] = useState('all');
             const [selectedOrder, setSelectedOrder] = useState(null);
 
             const sellerMap = useMemo(() => {
@@ -810,26 +835,44 @@
 
             const filtered = orders.filter(o => {
                 if (statusFilter !== 'all' && o.status !== statusFilter) return false;
-                if (search && !o.order_number?.toLowerCase().includes(search.toLowerCase()) &&
-                    !o.customer_name?.toLowerCase().includes(search.toLowerCase()) &&
-                    !(sellerMap[o.seller_id]?.business_name || '').toLowerCase().includes(search.toLowerCase())) return false;
+                if (!inDateRange(o.created_at, dateRange)) return false;
+                if (search) {
+                    const q = search.toLowerCase();
+                    const hay = [
+                        o.order_number, o.customer_name, o.customer_phone,
+                        sellerMap[o.seller_id]?.business_name, getStatusLabel(o.status)
+                    ].map(x => (x || '').toString().toLowerCase());
+                    if (!hay.some(h => h.includes(q))) return false;
+                }
                 return true;
             });
 
             const statuses = ['all', ...new Set(orders.map(o => o.status))];
+            const activeFilters = statusFilter !== 'all' || dateRange !== 'all' || !!search;
 
             return (
                 <div className="fade-in">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                         <h2 className="text-xl font-bold text-gray-900">All Orders</h2>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                            <select value={dateRange} onChange={e => setDateRange(e.target.value)}
+                                className="px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white">
+                                {DATE_RANGES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                            </select>
                             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                                 className="px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white">
                                 {statuses.map(s => <option key={s} value={s}>{s === 'all' ? 'All Statuses' : getStatusLabel(s)}</option>)}
                             </select>
-                            <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
-                                className="px-4 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 outline-none" />
+                            <input type="text" placeholder="Order #, seller, buyer, phone…" value={search} onChange={e => setSearch(e.target.value)}
+                                className="px-4 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-admin-500 outline-none min-w-[200px]" />
                         </div>
+                    </div>
+                    <div className="flex items-center gap-3 mb-4 text-xs text-gray-500">
+                        <span><span className="font-semibold text-gray-700">{filtered.length}</span> order{filtered.length === 1 ? '' : 's'}{activeFilters ? ' match' : ''}</span>
+                        {activeFilters && (
+                            <button onClick={() => { setSearch(''); setStatusFilter('all'); setDateRange('all'); }}
+                                className="text-admin-600 font-semibold hover:text-admin-700">Clear filters</button>
+                        )}
                     </div>
                     <div className="card overflow-hidden">
                         <div className="overflow-x-auto">
