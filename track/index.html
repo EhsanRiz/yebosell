@@ -361,7 +361,7 @@
             );
         }
 
-        function OrderDocuments({ token, sellerName }) {
+        function OrderDocuments({ token, sellerName, reloadTrigger }) {
             const [docs, setDocs] = useState([]);
             const [busy, setBusy] = useState(false);
             const [viewing, setViewing] = useState('');
@@ -370,7 +370,7 @@
             const load = async () => {
                 try { const { data } = await supabase.rpc('get_order_documents', { p_token: token }); setDocs(Array.isArray(data) ? data : []); } catch (e) {}
             };
-            useEffect(() => { if (token) load(); }, [token]);
+            useEffect(() => { if (token) load(); }, [token, reloadTrigger]);
 
             const view = async (d) => {
                 setViewing(d.id);
@@ -555,7 +555,10 @@
             const [showPayModal, setShowPayModal] = useState(false);
             const [payProofFile, setPayProofFile] = useState(null);
             const [payProofBusy, setPayProofBusy] = useState(false);
+            const [paidProofName, setPaidProofName] = useState('');
+            const [docsReloadTrigger, setDocsReloadTrigger] = useState(0);
             const payProofInputRef = React.useRef(null);
+            const orderDocsRef = React.useRef(null);
 
             // PWA install availability
             useEffect(() => {
@@ -676,6 +679,7 @@
                             buyer_dispute_at: data.buyer_dispute_at,
                             buyer_dispute_reason: data.buyer_dispute_reason
                         }));
+                        if (payProofFile) { setPaidProofName(payProofFile.name); setDocsReloadTrigger(t => t + 1); }
                         setShowPayModal(false); setPayProofFile(null);
                         window.toast(payProofFile ? "Payment confirmed and proof uploaded — the seller can see it now." : "Thanks — we've let the seller know you paid.", 'success');
                     }
@@ -1098,9 +1102,18 @@
                                                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Confirm your order</h3>
                                                 <p className="text-xs text-gray-500 mb-4">Your confirmation is recorded for the seller and YeboSell — it protects you if anything goes wrong.</p>
                                                 {order.buyer_paid_confirmed_at ? (
-                                                    <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold mb-2">
-                                                        <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs">✓</span>
-                                                        You confirmed payment · {new Date(order.buyer_paid_confirmed_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                                    <div className="mb-2">
+                                                        <div className="flex items-center gap-2 text-sm text-brand-700 font-semibold">
+                                                            <span className="w-5 h-5 rounded-full bg-brand-500 text-white flex items-center justify-center text-xs flex-shrink-0">✓</span>
+                                                            You confirmed payment · {new Date(order.buyer_paid_confirmed_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                                        </div>
+                                                        {paidProofName && (
+                                                            <button onClick={() => orderDocsRef.current && orderDocsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                                                className="ml-7 mt-1 text-xs text-brand-600 hover:text-brand-800 font-medium flex items-center gap-1">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                                                {paidProofName} · View in Order Documents ↓
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     <button onClick={() => setShowPayModal(true)} disabled={!!confirmBusy || payProofBusy}
@@ -1150,7 +1163,7 @@
                                         )}
 
                                         {/* Shared order documents */}
-                                        {activeToken && <OrderDocuments token={activeToken} sellerName={seller && seller.business_name} />}
+                                        {activeToken && <div ref={orderDocsRef}><OrderDocuments token={activeToken} sellerName={seller && seller.business_name} reloadTrigger={docsReloadTrigger} /></div>}
 
                                         {/* Push opt-in */}
                                         {activeToken && <PushPrompt />}
