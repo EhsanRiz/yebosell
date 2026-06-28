@@ -795,6 +795,7 @@
             const [sending, setSending] = useState(false);
             const [notify, setNotify] = useState(null); // { has_push, track_token } | null
             const endRef = useRef(null);
+            const scrollBoxRef = useRef(null);
 
             const loadNotify = async () => {
                 try {
@@ -825,7 +826,9 @@
                 return () => { try { supabase.removeChannel(ch); } catch (e) {} };
             }, [orderId]);
 
-            useEffect(() => { try { endRef.current && endRef.current.scrollIntoView({ behavior: 'smooth' }); } catch (e) {} }, [msgs]);
+            // Scroll only the conversation box to its latest message — never the modal,
+            // which previously jumped past the order header on open.
+            useEffect(() => { try { const el = scrollBoxRef.current; if (el) el.scrollTop = el.scrollHeight; } catch (e) {} }, [msgs]);
 
             const send = async () => {
                 const body = text.trim();
@@ -856,7 +859,7 @@
             return (
                 <div>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Conversation</p>
-                    <div className="bg-gray-50 rounded-xl p-3 max-h-64 overflow-y-auto space-y-2">
+                    <div ref={scrollBoxRef} className="bg-gray-50 rounded-xl p-3 max-h-64 overflow-y-auto space-y-2">
                         {msgs.length === 0 ? (
                             <p className="text-xs text-gray-400 text-center py-3">No messages yet. Send your buyer an update.</p>
                         ) : msgs.map(m => (

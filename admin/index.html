@@ -973,7 +973,7 @@
         // ============================================================================
         // FEES & SETTLEMENTS TAB
         // ============================================================================
-        const FeesTab = ({ sellers, fees, settlements, orders = [], settlementRequests = [], onRefresh, adminId }) => {
+        const FeesTab = ({ sellers, fees, settlements, orders = [], settlementRequests = [], onRefresh, adminId, config = {} }) => {
             const [feeSeller, setFeeSeller] = useState(null);
             const [showSettle, setShowSettle] = useState(null);
             const [settleAmount, setSettleAmount] = useState('');
@@ -1583,12 +1583,14 @@
                     const bal = (fb[s.id] || 0) - (sb[s.id] || 0);
                     if (bal >= threshold) {
                         const ackKey = 'overdue-' + s.id + ':' + Math.round(bal);
+                        const suspended = s.seller_status === 'suspended';
                         evs.push({ key: 'overdue-' + s.id, ackKey, type: 'overdue_fee', noTime: true, ts: null, nav: 'fees',
-                            title: s.business_name || s.full_name, text: 'Outstanding ' + formatCurrency(bal) + ' · over M' + threshold,
+                            title: s.business_name || s.full_name,
+                            text: (suspended ? 'Suspended · ' : 'Over limit · ') + 'fees ' + formatCurrency(bal) + ' (over M' + threshold + ')',
                             unread: !ack.has(ackKey) });
                     }
                 });
-                const prio = { dispute: 0, overdue_fee: 1, settlement_request: 2, new_seller: 3, new_buyer: 4 };
+                const prio = { overdue_fee: 0, dispute: 1, settlement_request: 2, new_seller: 3, new_buyer: 4 };
                 evs.sort((a, b) => { const p = (prio[a.type] ?? 9) - (prio[b.type] ?? 9); return p || (new Date(b.ts || 0) - new Date(a.ts || 0)); });
                 return evs.slice(0, 40);
             }, [sellers, orders, fees, settlements, settlementRequests, config, tick]);
@@ -1813,7 +1815,7 @@
                             {tab === 'dashboard' && <DashboardTab sellers={sellers} orders={orders} fees={fees} config={config} onNavigate={setTab} />}
                             {tab === 'sellers' && <SellersTab sellers={sellers} orders={orders} fees={fees} onRefresh={loadAllData} />}
                             {tab === 'orders' && <OrdersTab orders={orders} fees={fees} sellers={sellers} />}
-                            {tab === 'fees' && <FeesTab sellers={sellers} fees={fees} settlements={settlements} orders={orders} settlementRequests={settlementRequests} onRefresh={loadAllData} adminId={admin.auth_user_id} />}
+                            {tab === 'fees' && <FeesTab sellers={sellers} fees={fees} settlements={settlements} orders={orders} settlementRequests={settlementRequests} onRefresh={loadAllData} adminId={admin.auth_user_id} config={config} />}
                             {tab === 'buyers' && <BuyersTab orders={orders} sellers={sellers} />}
                             {tab === 'activity' && <ActivityTab />}
                             {tab === 'settings' && <SettingsTab config={config} onRefresh={loadAllData} />}
