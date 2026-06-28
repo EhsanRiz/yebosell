@@ -43,38 +43,58 @@ Deno.serve(async (req: Request) => {
   }
   if (!cfg.vapid_private_key || !cfg.vapid_public_key) return json({ error: "no_vapid" }, 500);
 
-  let body: { order_id?: string; sender?: string; kind?: string; preview?: string } = {};
+  let body: { order_id?: string; sender?: string; kind?: string; preview?: string; audience?: string; event?: string } = {};
   try { body = await req.json(); } catch { /* ignore */ }
   if (!body.order_id) return json({ error: "no_order" }, 400);
 
-  // Resolve order → token, order number, seller name.
+  // Resolve order → token, order number, seller.
   const { data: ord } = await admin
     .from("orders")
-    .select("track_token, order_number, sellers(business_name)")
+    .select("track_token, order_number, seller_id, customer_name, sellers(business_name)")
     .eq("id", body.order_id)
     .maybeSingle();
-  if (!ord || !ord.track_token) return json({ error: "no_token" }, 200);
+  if (!ord) return json({ error: "no_order_row" }, 200);
 
   const token = ord.track_token as string;
   // deno-lint-ignore no-explicit-any
   const sellerName = ((ord as any).sellers?.business_name as string) || "Seller";
   const preview = (body.preview || "").trim();
-  const title = ord.order_number || "Your order";
-  const text =
-    body.kind === "status" ? (preview || "Order status updated")
-    : body.sender === "admin" ? `YeboSell Support: ${preview}`
-    : `${sellerName}: ${preview || "New message"}`;
+  const toSeller = body.audience === "seller";
 
-  // Find devices subscribed to this order's token.
-  const { data: subs } = await admin
-    .from("push_subscriptions")
-    .select("endpoint, keys")
-    .contains("tokens", [token]);
+  // Pick recipients + payload by audience.
+  let subs: Array<{ endpoint: string; keys: { p256dh: string; auth: string } }> | null = null;
+  let payload: string;
+
+  if (toSeller) {
+    if (!ord.seller_id) return json({ sent: 0 });
+    const { data } = await admin
+      .from("push_subscriptions")
+      .select("endpoint, keys")
+      .eq("seller_id", ord.seller_id);
+    subs = data as typeof subs;
+    const title = body.event === "new_order" ? "New order received" : (ord.order_number || "New message");
+    const text = body.event === "new_order"
+      ? `${preview || "A buyer"} placed order ${ord.order_number || ""}`.trim()
+      : `${preview || "New message"}`;
+    payload = JSON.stringify({ title, body: text, url: "/dashboard/", tag: `seller-${body.order_id}` });
+  } else {
+    if (!token) return json({ error: "no_token" }, 200);
+    const { data } = await admin
+      .from("push_subscriptions")
+      .select("endpoint, keys")
+      .contains("tokens", [token]);
+    subs = data as typeof subs;
+    const title = ord.order_number || "Your order";
+    const text =
+      body.kind === "status" ? (preview || "Order status updated")
+      : body.sender === "admin" ? `YeboSell Support: ${preview}`
+      : `${sellerName}: ${preview || "New message"}`;
+    payload = JSON.stringify({ title, body: text, url: `/track/?t=${token}`, tag: `order-${token}` });
+  }
+
   if (!subs || !subs.length) return json({ sent: 0 });
 
   webpush.setVapidDetails(cfg.vapid_subject || "mailto:support@yebosell.co.za", cfg.vapid_public_key, cfg.vapid_private_key);
-
-  const payload = JSON.stringify({ title, body: text, url: `/track/?t=${token}`, tag: `order-${token}` });
   let sent = 0;
   const dead: string[] = [];
   await Promise.all((subs as Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>).map(async (s) => {

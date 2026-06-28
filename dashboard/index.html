@@ -89,6 +89,50 @@
         // Pull shared config from window (config.js attaches everything there)
         const supabase = window.supabaseClient;
 
+        // ---- Web Push (seller): subscribe this device to the seller's account so
+        // new orders + buyer messages alert them even when the dashboard is closed.
+        // Reuses the buyer VAPID keypair + send-push edge function.
+        const VAPID_PUBLIC = 'BAOUC3r1CqP-_UxUWmX_237sTfOwseK0N2xR2FBxIU-RdKNHybH99rJlHIEwqyaScb4eFUFjBV6TlEUAEjcLpbg';
+        const pushSupported = () =>
+            (typeof window !== 'undefined') && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        function urlB64ToUint8Array(b64) {
+            const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+            const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64);
+            const out = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+            return out;
+        }
+        async function syncSellerPush(sellerId) {
+            if (!sellerId || !pushSupported()) return { ok: false, step: 'support' };
+            if (Notification.permission !== 'granted') return { ok: false, step: 'permission', detail: Notification.permission };
+            let reg, sub;
+            try { await navigator.serviceWorker.register('/sw.js'); } catch (e) {}
+            try {
+                reg = await Promise.race([
+                    navigator.serviceWorker.ready,
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('sw not ready')), 8000))
+                ]);
+            } catch (e) { return { ok: false, step: 'sw-ready', detail: String(e && e.message || e) }; }
+            try {
+                sub = await reg.pushManager.getSubscription();
+                if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC) });
+            } catch (e) { return { ok: false, step: 'subscribe', detail: String(e && e.message || e) }; }
+            try {
+                const j = sub.toJSON();
+                const { error } = await supabase.rpc('register_seller_push', { p_endpoint: sub.endpoint, p_keys: j.keys, p_seller_id: sellerId });
+                if (error) return { ok: false, step: 'register-rpc', detail: error.message };
+            } catch (e) { return { ok: false, step: 'register-rpc', detail: String(e && e.message || e) }; }
+            return { ok: true };
+        }
+        async function enableSellerPush(sellerId) {
+            if (!pushSupported()) return { ok: false, step: 'support' };
+            let perm = Notification.permission;
+            if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) { return { ok: false, step: 'permission', detail: String(e && e.message || e) }; } }
+            if (perm !== 'granted') return { ok: false, step: 'permission', detail: perm };
+            return await syncSellerPush(sellerId);
+        }
+
         // Auto-refresh helper: polls while the tab is visible, refreshes immediately
         // when the seller returns to the tab/window, and (optionally) subscribes to
         // realtime changes that drive the same refresh. Returns a ref holding the
@@ -5473,6 +5517,37 @@
             );
         };
 
+        // Dismissible banner prompting the seller to enable push (new orders / messages).
+        const SellerPushPrompt = ({ sellerId }) => {
+            const [perm, setPerm] = useState(pushSupported() ? Notification.permission : 'unsupported');
+            const [busy, setBusy] = useState(false);
+            const [dismissed, setDismissed] = useState(() => { try { return localStorage.getItem('yebosell_seller_push_dismissed') === '1'; } catch (e) { return false; } });
+            if (!pushSupported() || perm === 'granted' || perm === 'denied' || perm === 'unsupported' || dismissed) return null;
+            const turnOn = async () => {
+                setBusy(true);
+                const res = await enableSellerPush(sellerId);
+                setPerm(res.ok ? 'granted' : (pushSupported() ? Notification.permission : 'unsupported'));
+                setBusy(false);
+                if (res.ok) window.toast('Notifications on — we’ll alert you to new orders and messages.', 'success');
+                else if (res.step === 'permission' && res.detail === 'denied') window.toast('Notifications blocked. Enable them in your browser settings.', 'error');
+                else window.toast('Couldn’t enable notifications (' + res.step + ').', 'error');
+            };
+            const dismiss = () => { try { localStorage.setItem('yebosell_seller_push_dismissed', '1'); } catch (e) {} setDismissed(true); };
+            return (
+                <div className="mb-4 bg-brand-50 border border-brand-200 rounded-xl p-3 flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center flex-shrink-0"><Icons.bell /></span>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-brand-900">Get notified of new orders</p>
+                        <p className="text-xs text-brand-700">Turn on alerts for new orders and buyer messages — even when the dashboard is closed.</p>
+                    </div>
+                    <button onClick={turnOn} disabled={busy} className="flex-shrink-0 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50">{busy ? '…' : 'Enable'}</button>
+                    <button onClick={dismiss} aria-label="Dismiss" className="flex-shrink-0 text-gray-400 hover:text-gray-600 w-7 h-7 flex items-center justify-center">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+            );
+        };
+
         const App = () => {
             const [currentUser, setCurrentUser] = useState(null);
             const [locked, setLocked] = useState(false);
@@ -5528,6 +5603,12 @@
                 });
                 return () => { try { sub.subscription.unsubscribe(); } catch (e) {} };
             }, []);
+
+            // Keep this device's seller push subscription current once unlocked
+            // (no-op unless the seller already granted notification permission).
+            useEffect(() => {
+                if (currentUser && !locked) { try { syncSellerPush(currentUser.id); } catch (e) {} }
+            }, [currentUser, locked]);
 
             const onAuthed = (seller) => {
                 setCurrentUser(seller);
@@ -5679,6 +5760,7 @@
                     <main className="lg:ml-64 min-h-screen pb-20 lg:pb-0">
                         <div className="max-w-6xl mx-auto px-4 lg:px-8 py-5 lg:py-8">
                             <div className="tab-content">
+                                <SellerPushPrompt sellerId={currentUser.id} />
                                 {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} onNavigate={setCurrentTab} onLowStockUpdate={setLowStockCount} />}
                                 {currentTab === 'products' && <ProductsScreen seller={currentUser} onLowStockUpdate={setLowStockCount} />}
                                 {currentTab === 'inventory' && <InventoryScreen seller={currentUser} onLowStockUpdate={setLowStockCount} />}
