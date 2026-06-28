@@ -3531,7 +3531,6 @@
                         .from('orders')
                         .insert({
                             seller_id: seller.id,
-                            order_number: generateOrderNumber(),
                             customer_name: formData.customer_name,
                             customer_phone: formData.customer_phone.replace(/\s+/g, ''),
                             total: parseFloat(formData.total),
@@ -3547,12 +3546,21 @@
 
                     for (const item of formData.items) {
                         if (item.product_name) {
+                            // Resolve the chosen variant so stock restores correctly if cancelled.
+                            let vColor = null, vSize = null;
+                            if (item.product_id && item.variantIdx !== '' && item.variantIdx != null) {
+                                const p = products.find(x => x.id === item.product_id);
+                                const v = p && productVariants(p)[item.variantIdx];
+                                if (v) { vColor = v.color || null; vSize = v.size || null; }
+                            }
                             await supabase.from('order_items').insert({
                                 order_id: data.id,
                                 product_id: item.product_id || null,
                                 product_name: item.product_name,
                                 quantity: parseInt(item.quantity) || 1,
-                                unit_price: parseFloat(item.price) || 0
+                                unit_price: parseFloat(item.price) || 0,
+                                variant_color: vColor,
+                                variant_size: vSize
                             });
                         }
                     }

@@ -579,6 +579,9 @@
             const [confirmBusy, setConfirmBusy] = useState('');
             const [showDispute, setShowDispute] = useState(false);
             const [disputeNote, setDisputeNote] = useState('');
+            const [showCancel, setShowCancel] = useState(false);
+            const [cancelNote, setCancelNote] = useState('');
+            const [cancelBusy, setCancelBusy] = useState(false);
             const [showPayModal, setShowPayModal] = useState(false);
             const [payProofFile, setPayProofFile] = useState(null);
             const [payProofBusy, setPayProofBusy] = useState(false);
@@ -717,6 +720,32 @@
                     window.toast('Something went wrong. Please try again.', 'error');
                 }
                 setConfirmBusy('');
+            };
+
+            // Buyer cancels their own order (allowed until it's out for delivery).
+            // Stock is restored and the seller is notified, server-side.
+            const CANCELLABLE = ['new', 'confirmed', 'preparing', 'paid', 'ready_for_pickup'];
+            const cancelOrder = async () => {
+                if (!activeToken || cancelBusy) return;
+                setCancelBusy(true);
+                try {
+                    const { data, error: rpcErr } = await supabase.rpc('buyer_cancel_order', {
+                        p_token: activeToken, p_reason: cancelNote || null });
+                    if (rpcErr || !data || data.error) {
+                        window.toast((data && data.message) || 'Could not cancel just now. Please try again.', 'error');
+                    } else {
+                        setOrder(o => Object.assign({}, o, {
+                            status: 'cancelled', delivery_status: 'cancelled',
+                            buyer_cancelled_at: new Date().toISOString(),
+                            buyer_cancel_reason: cancelNote || null
+                        }));
+                        setShowCancel(false); setCancelNote('');
+                        window.toast('Your order has been cancelled. The seller has been notified.', 'success');
+                    }
+                } catch (e) {
+                    window.toast('Something went wrong. Please try again.', 'error');
+                }
+                setCancelBusy(false);
             };
 
             // Upload optional proof then record payment confirmation in one action.
@@ -1148,7 +1177,14 @@
                                             {order.status === 'cancelled' ? (
                                                 <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
                                                     <p className="text-sm font-bold text-red-700">✕ Order Cancelled</p>
-                                                    <p className="text-xs text-red-600 mt-1">This order has been cancelled. Message the seller below if you have any questions.</p>
+                                                    {order.buyer_cancelled_at ? (
+                                                        <>
+                                                            <p className="text-xs text-red-600 mt-1">You cancelled this order · {new Date(order.buyer_cancelled_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                                            {order.buyer_cancel_reason && <p className="text-xs text-red-500 mt-1 italic">"{order.buyer_cancel_reason}"</p>}
+                                                        </>
+                                                    ) : (
+                                                        <p className="text-xs text-red-600 mt-1">This order has been cancelled. Message the seller below if you have any questions.</p>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="space-y-0">
@@ -1245,6 +1281,34 @@
                                                         className="w-full text-center text-amber-700 hover:text-amber-800 font-semibold py-2 text-sm transition">
                                                         ⚠ Report a problem with this order
                                                     </button>
+                                                )}
+
+                                                {/* Buyer cancellation — allowed until the order is out for delivery */}
+                                                {CANCELLABLE.includes(order.status) && (
+                                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                                        {showCancel ? (
+                                                            <div className="border border-red-200 rounded-xl p-3">
+                                                                <label className="text-xs font-semibold text-gray-700">Cancel this order?</label>
+                                                                <p className="text-[11px] text-gray-400 mt-0.5 mb-1.5">The seller will be notified and any reserved stock is released. Tell them why (optional).</p>
+                                                                <textarea value={cancelNote} onChange={e => setCancelNote(e.target.value)} rows="2" maxLength="500"
+                                                                    placeholder="e.g. Ordered by mistake / changed my mind"
+                                                                    className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:border-red-400" />
+                                                                <div className="flex gap-2 mt-2">
+                                                                    <button onClick={cancelOrder} disabled={cancelBusy}
+                                                                        className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg text-sm transition disabled:opacity-50">
+                                                                        {cancelBusy ? 'Cancelling…' : 'Yes, cancel my order'}
+                                                                    </button>
+                                                                    <button onClick={() => { setShowCancel(false); setCancelNote(''); }} disabled={cancelBusy}
+                                                                        className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-2 rounded-lg text-sm transition">Keep order</button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <button onClick={() => setShowCancel(true)} disabled={!!confirmBusy}
+                                                                className="w-full text-center text-gray-400 hover:text-red-600 font-medium py-1.5 text-xs transition">
+                                                                Cancel this order
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         )}
