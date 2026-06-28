@@ -199,6 +199,11 @@
             const [loaded, setLoaded] = useState(false);
             const endRef = React.useRef(null);
             const chatContainerRef = React.useRef(null);
+            // Only mark the thread read once the buyer actually sees it (scrolls it
+            // into view) — not just because the page is mounted. Otherwise an arriving
+            // seller/system message is marked read instantly and the cross-order bell
+            // never badges even though the buyer never looked at the messages.
+            const visibleRef = React.useRef(false);
 
             const load = async (markRead) => {
                 try {
@@ -216,22 +221,37 @@
 
             useEffect(() => {
                 if (!token) return;
-                load(true);
-                const iv = setInterval(() => { if (document.visibilityState === 'visible') load(true); }, 7000);
-                const onVis = () => { if (document.visibilityState === 'visible') load(true); };
+                load(false); // fetch on mount, but don't mark read until seen
+                const iv = setInterval(() => { if (document.visibilityState === 'visible') load(visibleRef.current); }, 7000);
+                const onVis = () => { if (document.visibilityState === 'visible') load(visibleRef.current); };
                 document.addEventListener('visibilitychange', onVis);
                 // Instant updates via Realtime Broadcast (DB-emitted on the public
                 // topic order-rt:<token>); polling above stays as a fallback.
                 let ch = null;
                 try {
                     ch = supabase.channel('order-rt:' + token)
-                        .on('broadcast', { event: 'msg' }, () => load(true))
+                        .on('broadcast', { event: 'msg' }, () => load(visibleRef.current))
                         .subscribe();
                 } catch (e) {}
+                // Mark read only while the messages are on screen.
+                let io = null;
+                const el = chatContainerRef.current;
+                if (el && 'IntersectionObserver' in window) {
+                    io = new IntersectionObserver((entries) => {
+                        const vis = entries.some(en => en.isIntersecting);
+                        visibleRef.current = vis;
+                        if (vis) load(true);
+                    }, { threshold: 0.25 });
+                    io.observe(el);
+                } else {
+                    visibleRef.current = true; // no IO support: keep old eager behavior
+                    load(true);
+                }
                 return () => {
                     clearInterval(iv);
                     document.removeEventListener('visibilitychange', onVis);
                     if (ch) { try { supabase.removeChannel(ch); } catch (e) {} }
+                    if (io) { try { io.disconnect(); } catch (e) {} }
                 };
             }, [token]);
 
