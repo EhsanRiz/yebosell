@@ -313,6 +313,11 @@
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                 </svg>
             ),
+            inventory: (props) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                    <path d="M20 7h-3V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v3H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z"/><line x1="9" y1="3" x2="9" y2="7"/><line x1="15" y1="3" x2="15" y2="7"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>
+                </svg>
+            ),
             edit: (props) => (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -2824,6 +2829,245 @@
             );
         };
 
+        // ===== INVENTORY: per-variant stock / sold / remaining tracker =====
+        // Stock is decremented at checkout (create_storefront_order RPC) and not
+        // restored on cancel, so: remaining = current DB stock, sold = units in
+        // non-cancelled orders, initial = remaining + sold. Per-variant sold is
+        // matched by the order_items.product_name the shop writes:
+        //   "<name> (<colour> / <size>)"  (blank dims dropped).
+        const InventoryScreen = ({ seller, onLowStockUpdate }) => {
+            const LOW = 5;
+            const [rows, setRows] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [search, setSearch] = useState('');
+            const [lowOnly, setLowOnly] = useState(false);
+
+            useEffect(() => { load(); }, [seller.id]);
+            useLiveRefresh(() => load(), { realtime: { table: 'orders', filter: 'seller_id=eq.' + seller.id } });
+
+            const load = async () => {
+                try {
+                    const { data: prods, error } = await supabase
+                        .from('products')
+                        .select('id, name, photo_url, photos, stock, variants, is_active')
+                        .eq('seller_id', seller.id)
+                        .order('name', { ascending: true });
+                    if (error) throw error;
+
+                    // Orders (id + status) then their items — count units that left inventory.
+                    const { data: ords } = await supabase.from('orders').select('id, status').eq('seller_id', seller.id);
+                    const liveOrderIds = (ords || []).filter(o => o.status !== 'cancelled').map(o => o.id);
+                    let items = [];
+                    if (liveOrderIds.length > 0) {
+                        const { data: it } = await supabase
+                            .from('order_items')
+                            .select('product_id, product_name, quantity')
+                            .in('order_id', liveOrderIds);
+                        items = it || [];
+                    }
+
+                    // sold lookup keyed by product_id -> { byName, total }
+                    const soldByPid = {};
+                    items.forEach(it => {
+                        const pid = it.product_id || '__none';
+                        if (!soldByPid[pid]) soldByPid[pid] = { byName: {}, total: 0 };
+                        const q = parseInt(it.quantity) || 0;
+                        soldByPid[pid].byName[it.product_name] = (soldByPid[pid].byName[it.product_name] || 0) + q;
+                        soldByPid[pid].total += q;
+                    });
+
+                    const out = (prods || []).map(p => {
+                        const photo = (Array.isArray(p.photos) && p.photos[0]) || p.photo_url || '';
+                        const sold = soldByPid[p.id] || { byName: {}, total: 0 };
+                        const vars = Array.isArray(p.variants) ? p.variants.filter(v => v.size || v.color) : [];
+                        let variants = [];
+                        let matchedSold = 0;
+                        if (vars.length > 0) {
+                            variants = vars.map(v => {
+                                const lbl = [v.color, v.size].filter(Boolean).join(' / ');
+                                const s = sold.byName[`${p.name} (${lbl})`] || 0;
+                                matchedSold += s;
+                                const remaining = parseInt(v.stock) || 0;
+                                return { label: lbl, sold: s, remaining, initial: remaining + s };
+                            });
+                        }
+                        const otherSold = Math.max(0, sold.total - matchedSold);
+                        const unlimited = vars.length === 0 && (p.stock === null || p.stock === undefined);
+                        const baseRemaining = vars.length === 0 ? (unlimited ? null : (parseInt(p.stock) || 0)) : null;
+                        const totalRemaining = vars.length > 0
+                            ? variants.reduce((s, v) => s + v.remaining, 0)
+                            : baseRemaining;
+                        const totalSold = sold.total;
+                        const totalInitial = totalRemaining === null ? null : totalRemaining + totalSold;
+                        return {
+                            id: p.id, name: p.name, photo, active: p.is_active,
+                            hasVariants: vars.length > 0, variants, otherSold,
+                            baseRemaining, unlimited, totalRemaining, totalSold, totalInitial
+                        };
+                    });
+                    setRows(out);
+
+                    if (onLowStockUpdate) {
+                        const cnt = out.filter(r => r.hasVariants
+                            ? r.variants.some(v => v.remaining <= LOW)
+                            : (r.baseRemaining !== null && r.baseRemaining <= LOW)).length;
+                        onLowStockUpdate(cnt);
+                    }
+                } catch (e) {
+                    console.error('Inventory load error:', e);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const isLowRow = (r) => r.hasVariants
+                ? r.variants.some(v => v.remaining <= LOW)
+                : (r.baseRemaining !== null && r.baseRemaining <= LOW);
+
+            const summary = rows.reduce((a, r) => {
+                a.skus += r.hasVariants ? r.variants.length : 1;
+                a.units += (r.totalRemaining || 0);
+                a.sold += r.totalSold;
+                const tally = (n) => { if (n <= 0) a.out++; else if (n <= LOW) a.low++; };
+                if (r.hasVariants) r.variants.forEach(v => tally(v.remaining));
+                else if (r.baseRemaining !== null) tally(r.baseRemaining);
+                return a;
+            }, { skus: 0, units: 0, sold: 0, low: 0, out: 0 });
+
+            const filtered = rows.filter(r => {
+                if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
+                if (lowOnly && !isLowRow(r)) return false;
+                return true;
+            });
+
+            const cellCls = (n) => n === null ? 'text-gray-400'
+                : n <= 0 ? 'text-red-600 font-bold'
+                : n <= LOW ? 'text-amber-700 font-bold'
+                : 'text-gray-900 font-semibold';
+
+            const StockBadge = ({ n }) => {
+                if (n === null) return <span className="text-xs text-gray-400">∞</span>;
+                const cls = n <= 0 ? 'bg-red-50 text-red-600' : n <= LOW ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700';
+                return <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded ${cls}`}>{n <= 0 ? 'Out' : n}</span>;
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto">
+                    <div className="flex items-center justify-between mb-1">
+                        <h2 className="text-xl lg:text-2xl font-bold text-gray-900">Inventory</h2>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-5">Stock, sold and remaining for every product and variant.</p>
+
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+                        <div className="card card-shadow p-4">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">SKUs</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{summary.skus}</p>
+                        </div>
+                        <div className="card card-shadow p-4">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Units in stock</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{summary.units}</p>
+                        </div>
+                        <div className="card card-shadow p-4">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Units sold</p>
+                            <p className="text-2xl font-bold text-brand-600 mt-1">{summary.sold}</p>
+                        </div>
+                        <div className="card card-shadow p-4">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Low stock</p>
+                            <p className="text-2xl font-bold text-amber-600 mt-1">{summary.low}</p>
+                        </div>
+                        <div className="card card-shadow p-4">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Out of stock</p>
+                            <p className="text-2xl font-bold text-red-600 mt-1">{summary.out}</p>
+                        </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                            placeholder="Search products…"
+                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white" />
+                        <button onClick={() => setLowOnly(v => !v)} type="button"
+                            className={`px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors flex items-center gap-2 justify-center ${lowOnly ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                            <Icons.alertTriangle style={{ width: 15, height: 15 }} />
+                            Low stock only
+                        </button>
+                    </div>
+
+                    {loading ? (
+                        <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+                    ) : filtered.length === 0 ? (
+                        <div className="card card-shadow p-10 text-center text-gray-400 text-sm">
+                            {rows.length === 0 ? 'No products yet — add products to track inventory.' : 'No products match your filters.'}
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {filtered.map(r => (
+                                <div key={r.id} className="card card-shadow overflow-hidden">
+                                    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                                        {r.photo
+                                            ? <img src={r.photo} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                                            : <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0"><Icons.products style={{ width: 18, height: 18, color: '#9ca3af' }} /></div>}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-semibold text-gray-900 text-sm truncate">{r.name}</p>
+                                            <p className="text-xs text-gray-400">
+                                                {r.hasVariants ? `${r.variants.length} variants` : 'No variants'}
+                                                {!r.active && <span className="ml-2 text-gray-400">· Hidden</span>}
+                                            </p>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Sold / In stock</p>
+                                            <p className="text-sm font-bold text-gray-900">
+                                                <span className="text-brand-600">{r.totalSold}</span>
+                                                <span className="text-gray-300 mx-1">/</span>
+                                                <span className={r.totalRemaining !== null && r.totalRemaining <= 0 ? 'text-red-600' : r.totalRemaining !== null && r.totalRemaining <= LOW ? 'text-amber-700' : 'text-gray-900'}>
+                                                    {r.totalRemaining === null ? '∞' : r.totalRemaining}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {r.hasVariants ? (
+                                        <div>
+                                            <div className="grid px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide gap-2" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                                <span>Variant</span>
+                                                <span className="text-center">Initial</span>
+                                                <span className="text-center">Sold</span>
+                                                <span className="text-center">Remaining</span>
+                                            </div>
+                                            {r.variants.map((v, i) => (
+                                                <div key={i} className="grid items-center px-4 py-2 border-t border-gray-50 gap-2" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                                    <span className="text-sm text-gray-700 truncate">{v.label}</span>
+                                                    <span className="text-center text-sm text-gray-500">{v.initial}</span>
+                                                    <span className="text-center text-sm text-brand-600 font-medium">{v.sold}</span>
+                                                    <span className="text-center"><StockBadge n={v.remaining} /></span>
+                                                </div>
+                                            ))}
+                                            {r.otherSold > 0 && (
+                                                <div className="grid items-center px-4 py-2 border-t border-gray-50 gap-2" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                                    <span className="text-sm text-gray-400 italic truncate">Other / manual orders</span>
+                                                    <span className="text-center text-sm text-gray-300">—</span>
+                                                    <span className="text-center text-sm text-gray-500 font-medium">{r.otherSold}</span>
+                                                    <span className="text-center text-sm text-gray-300">—</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="grid px-4 py-2.5 gap-2 items-center" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                            <span className="text-sm text-gray-500">Single item</span>
+                                            <span className={`text-center text-sm ${r.totalInitial === null ? 'text-gray-300' : 'text-gray-500'}`}>{r.totalInitial === null ? '—' : r.totalInitial}</span>
+                                            <span className="text-center text-sm text-brand-600 font-medium">{r.totalSold}</span>
+                                            <span className="text-center"><StockBadge n={r.baseRemaining} /></span>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         const OrdersScreen = ({ seller, focusOrderId, onFocusConsumed }) => {
             const [orders, setOrders] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -5186,7 +5430,8 @@
 
             const navItems = [
                 { id: 'dashboard', label: 'Dashboard', Icon: Icons.dashboard },
-                { id: 'products', label: 'Products', Icon: Icons.products, badge: lowStockCount },
+                { id: 'products', label: 'Products', Icon: Icons.products },
+                { id: 'inventory', label: 'Inventory', Icon: Icons.inventory, badge: lowStockCount },
                 { id: 'orders', label: 'Orders', Icon: Icons.orders },
                 { id: 'payments', label: 'Payments', Icon: Icons.payments },
                 { id: 'discounts', label: 'Discounts', Icon: Icons.discount },
@@ -5298,6 +5543,7 @@
                             <div className="tab-content">
                                 {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} onNavigate={setCurrentTab} onLowStockUpdate={setLowStockCount} />}
                                 {currentTab === 'products' && <ProductsScreen seller={currentUser} onLowStockUpdate={setLowStockCount} />}
+                                {currentTab === 'inventory' && <InventoryScreen seller={currentUser} onLowStockUpdate={setLowStockCount} />}
                                 {currentTab === 'orders' && <OrdersScreen seller={currentUser} focusOrderId={focusOrderId} onFocusConsumed={() => setFocusOrderId(null)} />}
                                 {currentTab === 'payments' && <PaymentsScreen seller={currentUser} />}
                                 {currentTab === 'discounts' && <DiscountsScreen seller={currentUser} />}
