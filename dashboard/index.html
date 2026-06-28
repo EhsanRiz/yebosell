@@ -3454,7 +3454,7 @@
                                             onChange={(e) => pickProduct(idx, e.target.value)}
                                             className="flex-1 min-w-[150px] px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
                                             <option value="">Select a product…</option>
-                                            {products.map(p => <option key={p.id} value={p.id}>{p.name}{p.price != null ? ` · M${Number(p.price).toFixed(2)}` : ''}</option>)}
+                                            {products.map(p => { const nv = productVariants(p).length; return <option key={p.id} value={p.id}>{p.name}{nv > 0 ? ` · ${nv} options` : (p.price != null ? ` · M${Number(p.price).toFixed(2)}` : '')}</option>; })}
                                             <option value="__custom">Other (type manually)</option>
                                         </select>
                                         {(() => {
@@ -3477,9 +3477,14 @@
                                         <input type="number" min="1" placeholder="Qty" value={item.quantity}
                                             onChange={(e) => updateItem(idx, { quantity: parseInt(e.target.value) || 1 })}
                                             className="w-16 px-2 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-center" />
-                                        <input type="number" step="0.01" placeholder="Price" value={item.price}
-                                            onChange={(e) => updateItem(idx, { price: e.target.value })}
-                                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" />
+                                        {/* Unit price: locked to the store price for catalog items; editable only for custom */}
+                                        <input type="number" step="0.01"
+                                            placeholder={item.custom ? 'Price' : (item.product_id && !item.price ? 'Pick option' : 'Price')}
+                                            value={item.price}
+                                            readOnly={!item.custom}
+                                            onChange={(e) => item.custom && updateItem(idx, { price: e.target.value })}
+                                            title={!item.custom ? 'Store price for this item' : undefined}
+                                            className={`w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm ${item.custom ? 'bg-gray-50' : 'bg-gray-100 text-gray-600 cursor-default'}`} />
                                         {formData.items.length > 1 && (
                                             <button onClick={() => removeItemRow(idx)} type="button"
                                                 className="text-red-400 hover:text-red-600 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
