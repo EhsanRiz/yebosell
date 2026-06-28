@@ -595,6 +595,39 @@
                 if (ord && ph) { setTimeout(() => lookupOrder(ord.toUpperCase(), ph), 100); }
             }, []);
 
+            // Keep the order itself live. The messages thread self-refreshes, but the
+            // Order Progress stepper + payment status are driven by `order`, which was
+            // only fetched once on load — so it went stale until a manual reload. Mirror
+            // the thread's Realtime Broadcast (same order-rt:<token> topic the DB emits
+            // on) plus visible-polling, refreshing silently (no spinner / no error reset).
+            useEffect(() => {
+                if (!activeToken) return;
+                const refreshOrder = async () => {
+                    try {
+                        const { data } = await supabase.rpc('get_tracked_order', { p_token: activeToken });
+                        if (data && data.order) {
+                            setOrder(data.order);
+                            setItems(data.items || []);
+                            if (data.seller) setSeller(data.seller);
+                        }
+                    } catch (e) {}
+                };
+                const iv = setInterval(() => { if (document.visibilityState === 'visible') refreshOrder(); }, 7000);
+                const onVis = () => { if (document.visibilityState === 'visible') refreshOrder(); };
+                document.addEventListener('visibilitychange', onVis);
+                let ch = null;
+                try {
+                    ch = supabase.channel('order-rt:' + activeToken)
+                        .on('broadcast', { event: 'msg' }, () => refreshOrder())
+                        .subscribe();
+                } catch (e) {}
+                return () => {
+                    clearInterval(iv);
+                    document.removeEventListener('visibilitychange', onVis);
+                    if (ch) { try { supabase.removeChannel(ch); } catch (e) {} }
+                };
+            }, [activeToken]);
+
             const loadByToken = async (token) => {
                 setLoading(true); setError(''); setSearched(true);
                 try {
@@ -1085,6 +1118,9 @@
                                                                 <div className="flex-1 pt-1">
                                                                     <p className={`text-sm font-semibold ${status === 'upcoming' ? 'text-gray-400' : 'text-gray-900'}`}>{step.label}</p>
                                                                     <p className={`text-xs ${status === 'upcoming' ? 'text-gray-300' : 'text-gray-500'}`}>{step.desc}</p>
+                                                                    {step.key === 'new' && order.created_at && (
+                                                                        <p className="text-xs text-gray-500 mt-0.5">{new Date(order.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                                                    )}
                                                                     {status === 'current' && order.delivery_updated_at && (
                                                                         <p className="text-xs text-brand-600 mt-0.5">Updated: {new Date(order.delivery_updated_at).toLocaleString()}</p>
                                                                     )}
