@@ -929,11 +929,25 @@
             const [dispTotal, setDispTotal] = useState(Number(order.total) || 0);
             const [eta, setEta] = useState(order.eta_date || '');
             const [etaSaving, setEtaSaving] = useState(false);
-            const saveEta = async (val) => {
-                setEta(val); setEtaSaving(true);
-                try { await supabase.from('orders').update({ eta_date: val || null }).eq('id', order.id); }
-                catch (e) { window.toast('Could not save the date.', 'error'); }
+            const [pendingEta, setPendingEta] = useState(null);  // a revised date awaiting a reason
+            const [etaReason, setEtaReason] = useState('');
+            // Persist the ETA. A revision (date already set) must carry a reason, which
+            // the buyer sees in the auto-notification.
+            const saveEta = async (val, reason) => {
+                setEtaSaving(true);
+                try {
+                    const upd = { eta_date: val || null };
+                    if (reason != null) upd.eta_change_reason = reason;
+                    await supabase.from('orders').update(upd).eq('id', order.id);
+                    setEta(val); setPendingEta(null); setEtaReason('');
+                } catch (e) { window.toast('Could not save the date.', 'error'); }
                 setEtaSaving(false);
+            };
+            const onEtaPick = (val) => {
+                if (!val) { return; }              // ignore clearing via the picker
+                if (!eta) { saveEta(val, null); return; }  // first time: no reason needed
+                if (val === eta) { setPendingEta(null); return; }
+                setPendingEta(val);                // revision: collect a reason first
             };
 
             const previewTotal = Math.max(0, dispTotal - dispFee + (dMethod === 'pickup' ? 0 : (parseFloat(dFee) || 0)));
@@ -1154,13 +1168,32 @@
                             )}
 
                             {/* Estimated delivery / ready date — buyer sees this on tracking */}
-                            <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estimated {dispMethod === 'pickup' ? 'ready' : 'delivery'} date</p>
-                                    <p className="text-[11px] text-gray-400">{eta ? 'Changing this notifies the buyer (message + bell) and updates their tracking page.' : 'Set automatically when you confirm — or pick a date.'}</p>
+                            <div className="bg-gray-50 rounded-xl p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Estimated {dispMethod === 'pickup' ? 'ready' : 'delivery'} date</p>
+                                        <p className="text-[11px] text-gray-400">{eta ? 'Changing this notifies the buyer (message + bell) and updates their tracking page.' : 'Set automatically when you confirm — or pick a date.'}</p>
+                                    </div>
+                                    <input type="date" value={pendingEta || eta || ''} onChange={(e) => onEtaPick(e.target.value)} disabled={etaSaving}
+                                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500" />
                                 </div>
-                                <input type="date" value={eta || ''} onChange={(e) => saveEta(e.target.value)} disabled={etaSaving}
-                                    className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                {pendingEta && (
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                        <label className="text-[11px] font-semibold text-gray-600">Reason for the change <span className="text-red-500">*</span></label>
+                                        <p className="text-[11px] text-gray-400 mb-1.5">Shown to the buyer with the new date ({new Date(pendingEta).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}).</p>
+                                        <textarea value={etaReason} onChange={(e) => setEtaReason(e.target.value)} rows="2" maxLength="200"
+                                            placeholder="e.g. Supplier delay — restocking on Friday"
+                                            className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        <div className="flex gap-2 mt-2">
+                                            <button onClick={() => saveEta(pendingEta, etaReason.trim())} disabled={etaSaving || !etaReason.trim()}
+                                                className="flex-1 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-300 text-white text-sm font-semibold py-2 rounded-lg transition-colors">
+                                                {etaSaving ? 'Saving…' : 'Update & notify buyer'}
+                                            </button>
+                                            <button onClick={() => { setPendingEta(null); setEtaReason(''); }} disabled={etaSaving}
+                                                className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold py-2 rounded-lg transition-colors">Cancel</button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Order Items */}
