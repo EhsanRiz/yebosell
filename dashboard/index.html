@@ -2011,6 +2011,7 @@
             const [uploading, setUploading] = useState(false);
             const fileInputRef = useRef(null);
             const [lightboxImg, setLightboxImg] = useState(null);
+            const [viewProduct, setViewProduct] = useState(null);   // product card detail popup
 
             useEffect(() => {
                 loadProducts();
@@ -2828,7 +2829,7 @@
 
                     {/* Lightbox */}
                     {lightboxImg && (
-                        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+                        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
                             <div className="relative max-w-3xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
                                 <img src={lightboxImg} alt="Full size" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
                                 <button onClick={() => setLightboxImg(null)}
@@ -2838,6 +2839,102 @@
                             </div>
                         </div>
                     )}
+
+                    {/* Product detail popup (click a card to open) */}
+                    {viewProduct && (() => {
+                        const p = viewProduct;
+                        const vphotos = Array.isArray(p.photos) && p.photos.length ? p.photos : (p.photo_url ? [p.photo_url] : []);
+                        const vvars = Array.isArray(p.variants) ? p.variants.filter(v => v.color || v.size) : [];
+                        const vprices = vvars.map(v => parseFloat(v.price) || p.price);
+                        const vMin = vprices.length ? Math.min(...vprices) : p.price;
+                        const vMax = vprices.length ? Math.max(...vprices) : p.price;
+                        const priceText = vvars.length ? (vMin !== vMax ? `${formatCurrency(vMin)} – ${formatCurrency(vMax)}` : formatCurrency(vMin)) : formatCurrency(p.price);
+                        const totalStock = vvars.length ? vvars.reduce((s, v) => s + (parseInt(v.stock) || 0), 0)
+                            : (p.stock === null || p.stock === undefined ? null : p.stock);
+                        const lead = p.lead_time_days;
+                        return (
+                            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setViewProduct(null)}>
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                                    {/* Header */}
+                                    <div className="flex items-start justify-between gap-3 p-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+                                        <div className="min-w-0">
+                                            <h3 className="font-bold text-gray-900 text-base leading-snug">{p.name}</h3>
+                                            <p className="text-green-600 font-bold text-lg mt-0.5">{priceText}{p.unit ? <span className="text-xs font-normal text-gray-400 ml-1">{p.unit}</span> : ''}</p>
+                                        </div>
+                                        <button onClick={() => setViewProduct(null)}
+                                            className="flex-shrink-0 text-gray-400 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <div className="p-4 space-y-4">
+                                        {/* Photos */}
+                                        {vphotos.length > 0 ? (
+                                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                                {vphotos.map((url, i) => (
+                                                    <img key={i} src={url} alt="" onClick={() => setLightboxImg(url)}
+                                                         className="h-40 w-auto rounded-xl object-cover border border-gray-100 cursor-pointer flex-shrink-0 hover:opacity-90 transition" />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="w-full h-32 rounded-xl flex items-center justify-center px-3" style={{background:'linear-gradient(135deg,#166534,#15803d)'}}>
+                                                <span className="text-white text-center font-bold text-sm">{p.name}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Status badges */}
+                                        <div className="flex flex-wrap gap-1.5">
+                                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${p.active ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{p.active ? 'Active' : 'Inactive'}</span>
+                                            {vvars.length > 0 && <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-blue-50 text-blue-700">{vvars.length} variant{vvars.length !== 1 ? 's' : ''}</span>}
+                                            {totalStock !== null && totalStock !== undefined && (
+                                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${totalStock <= 0 ? 'bg-red-50 text-red-600' : totalStock <= 5 ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-600'}`}>
+                                                    {totalStock <= 0 ? 'Out of stock' : `${totalStock} in stock`}
+                                                </span>
+                                            )}
+                                            {(p.condition === 'used' || p.condition === 'refurbished') && (
+                                                <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-amber-100 text-amber-700 capitalize">{p.condition}</span>
+                                            )}
+                                            {p.category && <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-600 capitalize">{p.category}</span>}
+                                            {lead != null && lead !== '' && <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-600">Ready in {lead} day{lead == 1 ? '' : 's'}</span>}
+                                        </div>
+
+                                        {/* Description */}
+                                        {p.description && <p className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">{p.description}</p>}
+
+                                        {/* Variant breakdown */}
+                                        {vvars.length > 0 && (
+                                            <div className="border border-gray-100 rounded-xl overflow-hidden">
+                                                <div className="grid grid-cols-3 bg-gray-50 text-[11px] font-semibold text-gray-500 uppercase tracking-wide px-3 py-2">
+                                                    <span>Variant</span><span className="text-right">Price</span><span className="text-right">Stock</span>
+                                                </div>
+                                                {vvars.map((v, i) => {
+                                                    const label = [v.size, v.color].filter(Boolean).join(' · ');
+                                                    const st = parseInt(v.stock);
+                                                    return (
+                                                        <div key={i} className="grid grid-cols-3 px-3 py-2 text-sm border-t border-gray-50">
+                                                            <span className="text-gray-800 truncate">{label || '—'}</span>
+                                                            <span className="text-right text-gray-600">{formatCurrency(parseFloat(v.price) || p.price)}</span>
+                                                            <span className={`text-right font-medium ${isNaN(st) ? 'text-gray-400' : st <= 0 ? 'text-red-600' : st <= 5 ? 'text-amber-600' : 'text-gray-700'}`}>{isNaN(st) ? '—' : st}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex gap-2 p-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-2xl">
+                                        <button onClick={() => { startEdit(p); setViewProduct(null); }}
+                                            className="flex-1 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">Edit product</button>
+                                        <button onClick={() => { toggleActive(p.id, p.active); setViewProduct({ ...p, active: !p.active }); }}
+                                            className="bg-gray-50 hover:bg-gray-100 text-gray-600 text-sm font-semibold py-2.5 px-4 rounded-lg transition-colors">{p.active ? 'Hide' : 'Show'}</button>
+                                        <button onClick={() => { deleteProduct(p.id); setViewProduct(null); }}
+                                            className="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold py-2.5 px-4 rounded-lg transition-colors">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Products Grid */}
                     {filteredProducts.length === 0 ? (
@@ -2862,12 +2959,13 @@
                                 const pMax = pvPrices.length ? Math.max(...pvPrices) : product.price;
                                 const priceLabel = pvars.length ? (pMin !== pMax ? `From ${formatCurrency(pMin)}` : formatCurrency(pMin)) : formatCurrency(product.price);
                                 return (
-                                    <div key={product.id} className="card card-shadow overflow-hidden group">
+                                    <div key={product.id} onClick={() => setViewProduct(product)}
+                                         className="card card-shadow overflow-hidden group cursor-pointer">
                                         <div className="relative">
                                             {coverPhoto ? (
                                                 <img src={coverPhoto} alt={product.name}
                                                      className="w-full h-36 lg:h-44 object-cover cursor-pointer"
-                                                     onClick={() => setLightboxImg(coverPhoto)} />
+                                                     onClick={(e) => { e.stopPropagation(); setLightboxImg(coverPhoto); }} />
                                             ) : (
                                                 <div className="w-full h-36 lg:h-44 flex items-center justify-center px-3" style={{background:'linear-gradient(135deg,#166534,#15803d)'}}>
                                                     <span className="text-white text-center font-bold text-sm leading-snug line-clamp-2" style={{textShadow:'0 1px 2px rgba(0,0,0,0.25)'}}>{product.name}</span>
@@ -2920,10 +3018,10 @@
                                                     );
                                                 })()}
                                             </div>
-                                            <div className="flex gap-1.5">
+                                            <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                                                 <button
                                                     onClick={() => startEdit(product)}
-                                                    className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold py-2 rounded-lg transition-colors"
+                                                    className="flex-1 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold py-2 rounded-lg transition-colors"
                                                 >
                                                     Edit
                                                 </button>
