@@ -3200,7 +3200,7 @@
             const [showForm, setShowForm] = useState(false);
             const [selectedOrder, setSelectedOrder] = useState(null);
             const [detailOrder, setDetailOrder] = useState(null);
-            const blankItem = () => ({ product_id: null, custom: false, product_name: '', quantity: 1, price: '' });
+            const blankItem = () => ({ product_id: null, custom: false, variantIdx: '', product_name: '', quantity: 1, price: '' });
             const [formData, setFormData] = useState({
                 customer_name: '',
                 customer_phone: '',
@@ -3211,16 +3211,17 @@
 
             useEffect(() => {
                 loadOrders();
-                supabase.from('products').select('id, name, price').eq('seller_id', seller.id).eq('is_active', true).order('name', { ascending: true })
+                supabase.from('products').select('id, name, price, variants').eq('seller_id', seller.id).eq('is_active', true).order('name', { ascending: true })
                     .then(({ data }) => setProducts(data || []));
             }, [seller.id]);
 
-            // Group digits as "XXXX XXXX" (Lesotho-first) as the seller types.
+            const productVariants = (p) => (p && Array.isArray(p.variants)) ? p.variants.filter(v => v.size || v.color) : [];
+            const variantLabel = (v) => [v.color, v.size].filter(Boolean).join(' / ');
+
+            // Group digits as "XXXX XXXX" (Lesotho local = 8 digits) as the seller types.
             const formatPhoneInput = (v) => {
-                const d = (v || '').replace(/\D/g, '').slice(0, 11);
-                if (d.length <= 4) return d;
-                if (d.length <= 8) return d.slice(0, 4) + ' ' + d.slice(4);
-                return d.slice(0, 4) + ' ' + d.slice(4, 8) + ' ' + d.slice(8);
+                const d = (v || '').replace(/\D/g, '').slice(0, 8);
+                return d.length <= 4 ? d : d.slice(0, 4) + ' ' + d.slice(4);
             };
             const recomputeTotal = (items) => {
                 const sum = items.reduce((s, it) => s + (parseFloat(it.price) || 0) * (parseInt(it.quantity) || 0), 0);
@@ -3231,10 +3232,30 @@
                 return { ...prev, items, total: recomputeTotal(items) };
             });
             const pickProduct = (idx, val) => {
-                if (val === '__custom') { updateItem(idx, { custom: true, product_id: null, product_name: '', price: '' }); return; }
-                if (!val) { updateItem(idx, { custom: false, product_id: null, product_name: '', price: '' }); return; }
+                if (val === '__custom') { updateItem(idx, { custom: true, product_id: null, variantIdx: '', product_name: '', price: '' }); return; }
+                if (!val) { updateItem(idx, { custom: false, product_id: null, variantIdx: '', product_name: '', price: '' }); return; }
                 const p = products.find(x => x.id === val);
-                if (p) updateItem(idx, { custom: false, product_id: p.id, product_name: p.name, price: p.price != null ? String(p.price) : '' });
+                if (!p) return;
+                const vars = productVariants(p);
+                if (vars.length > 0) {
+                    // Has options — wait for the seller to choose the variant + its price.
+                    updateItem(idx, { custom: false, product_id: p.id, variantIdx: '', product_name: p.name, price: '' });
+                } else {
+                    updateItem(idx, { custom: false, product_id: p.id, variantIdx: null, product_name: p.name, price: p.price != null ? String(p.price) : '' });
+                }
+            };
+            const pickVariant = (idx, vIdx) => {
+                const it = formData.items[idx];
+                const p = products.find(x => x.id === it.product_id);
+                if (!p) return;
+                if (vIdx === '') { updateItem(idx, { variantIdx: '', product_name: p.name, price: '' }); return; }
+                const v = productVariants(p)[vIdx];
+                if (!v) return;
+                updateItem(idx, {
+                    variantIdx: vIdx,
+                    product_name: `${p.name} (${variantLabel(v)})`,
+                    price: v.price != null ? String(v.price) : (p.price != null ? String(p.price) : '')
+                });
             };
             const addItemRow = () => setFormData(prev => ({ ...prev, items: [...prev.items, blankItem()] }));
             const removeItemRow = (idx) => setFormData(prev => {
@@ -3418,7 +3439,7 @@
                                         value={formData.customer_phone}
                                         onChange={(e) => setFormData(prev => ({ ...prev, customer_phone: formatPhoneInput(e.target.value) }))}
                                         placeholder="5772 7054"
-                                        maxLength={14}
+                                        maxLength={9}
                                         className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm tracking-wider focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
@@ -3436,6 +3457,18 @@
                                             {products.map(p => <option key={p.id} value={p.id}>{p.name}{p.price != null ? ` · M${Number(p.price).toFixed(2)}` : ''}</option>)}
                                             <option value="__custom">Other (type manually)</option>
                                         </select>
+                                        {(() => {
+                                            const prod = products.find(p => p.id === item.product_id);
+                                            const vars = productVariants(prod);
+                                            return vars.length > 0 ? (
+                                                <select value={item.variantIdx === null || item.variantIdx === undefined ? '' : item.variantIdx}
+                                                    onChange={(e) => pickVariant(idx, e.target.value)}
+                                                    className="flex-1 min-w-[140px] px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+                                                    <option value="">Choose option…</option>
+                                                    {vars.map((v, vi) => <option key={vi} value={vi}>{variantLabel(v)}{v.price != null ? ` · M${Number(v.price).toFixed(2)}` : ''}</option>)}
+                                                </select>
+                                            ) : null;
+                                        })()}
                                         {item.custom && (
                                             <input type="text" placeholder="Item name" value={item.product_name}
                                                 onChange={(e) => updateItem(idx, { product_name: e.target.value })}
