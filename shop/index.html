@@ -150,6 +150,7 @@
             const [reviews, setReviews] = useState([]);
             const [cart, setCart] = useState([]);
             const [wishlist, setWishlist] = useState([]);
+            const [showSavedOnly, setShowSavedOnly] = useState(false);
             const [search, setSearch] = useState('');
             const [sortBy, setSortBy] = useState('default');
             const [activeCategory, setActiveCategory] = useState('All');
@@ -194,10 +195,33 @@
                 } catch(e) {}
             }, []);
 
+            // Stable anonymous id for this browser, so seller-side like counts can
+            // dedupe without requiring the buyer to have an account/phone.
+            const getDeviceId = () => {
+                try {
+                    let d = localStorage.getItem('yebo_device');
+                    if (!d) {
+                        d = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                            : 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+                        localStorage.setItem('yebo_device', d);
+                    }
+                    return d;
+                } catch (e) { return null; }
+            };
+
             const toggleWishlist = (productId) => {
                 setWishlist(prev => {
-                    const next = prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId];
+                    const liked = !prev.includes(productId);
+                    const next = liked ? [...prev, productId] : prev.filter(id => id !== productId);
                     try { localStorage.setItem(`wishlist_${getSellerSlug()}`, JSON.stringify(next)); } catch(e) {}
+                    // Persist to the DB (best-effort) so the seller sees like counts.
+                    const dev = getDeviceId();
+                    if (dev) {
+                        supabase.rpc('set_wishlist', {
+                            p_slug: getSellerSlug(), p_product_id: productId, p_device_id: dev, p_liked: liked
+                        }).then(() => {}, () => {});
+                    }
+                    if (!liked && showSavedOnly && next.length === 0) setShowSavedOnly(false);
                     return next;
                 });
             };
@@ -294,7 +318,8 @@
                 let result = products.filter(p => {
                     const matchCategory = activeCategory === 'All' || p.category === activeCategory;
                     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.description || '').toLowerCase().includes(search.toLowerCase());
-                    return matchCategory && matchSearch;
+                    const matchSaved = !showSavedOnly || wishlist.includes(p.id);
+                    return matchCategory && matchSearch && matchSaved;
                 });
                 // Sort — out-of-stock always goes to the bottom
                 result.sort((a, b) => {
@@ -308,7 +333,7 @@
                     return 0; // default = sort_order from DB
                 });
                 return result;
-            }, [products, activeCategory, search, sortBy, reviews]);
+            }, [products, activeCategory, search, sortBy, reviews, showSavedOnly, wishlist]);
 
             const addToCart = (product) => {
                 if (isDemo) return; // Demo stores are browse-only
@@ -629,12 +654,23 @@
                                     <option value="rating">Top Rated</option>
                                 </select>
                             </div>
-                            {categories.length > 2 && (
+                            {(categories.length > 2 || wishlist.length > 0) && (
                                 <div className="flex gap-2 overflow-x-auto category-bar pb-1">
-                                    {categories.map(cat => (
-                                        <button key={cat} onClick={() => setActiveCategory(cat)}
+                                    {wishlist.length > 0 && (
+                                        <button onClick={() => setShowSavedOnly(v => !v)}
+                                            className={`category-pill whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all inline-flex items-center gap-1.5 ${
+                                                showSavedOnly
+                                                    ? 'bg-rose-500 text-white shadow-md'
+                                                    : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                                            }`}>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                                            Saved ({wishlist.length})
+                                        </button>
+                                    )}
+                                    {categories.length > 2 && categories.map(cat => (
+                                        <button key={cat} onClick={() => { setActiveCategory(cat); setShowSavedOnly(false); }}
                                             className={`category-pill whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                                                activeCategory === cat
+                                                activeCategory === cat && !showSavedOnly
                                                     ? 'bg-brand-500 text-white shadow-md'
                                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}>
@@ -655,16 +691,16 @@
                                 ) : (
                                     <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.27 6.96 8.73 5.05 8.73-5.05"/><path d="M12 22.08V12"/></svg>
                                 )}</div>
-                                <p className="text-gray-500 text-lg">{search ? 'No products match your search' : 'No products available yet'}</p>
-                                <p className="text-gray-400 text-sm mt-1">{search ? 'Try a different keyword' : 'Check back soon!'}</p>
-                                {(search || activeCategory !== 'All') && (
-                                    <button onClick={() => { setSearch(''); setActiveCategory('All'); }}
+                                <p className="text-gray-500 text-lg">{showSavedOnly ? 'No saved items yet' : search ? 'No products match your search' : 'No products available yet'}</p>
+                                <p className="text-gray-400 text-sm mt-1">{showSavedOnly ? 'Tap the heart on a product to save it here' : search ? 'Try a different keyword' : 'Check back soon!'}</p>
+                                {(search || activeCategory !== 'All' || showSavedOnly) && (
+                                    <button onClick={() => { setSearch(''); setActiveCategory('All'); setShowSavedOnly(false); }}
                                         className="mt-4 text-brand-600 text-sm font-semibold hover:underline">Clear filters</button>
                                 )}
                             </div>
                         ) : (
                             <>
-                                <p className="text-sm text-gray-400 mb-4">{filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}{activeCategory !== 'All' ? ` in ${activeCategory}` : ''}</p>
+                                <p className="text-sm text-gray-400 mb-4">{filteredProducts.length} {showSavedOnly ? 'saved ' : ''}product{filteredProducts.length !== 1 ? 's' : ''}{!showSavedOnly && activeCategory !== 'All' ? ` in ${activeCategory}` : ''}</p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                     {filteredProducts.map(product => (
                                         <ProductCard
