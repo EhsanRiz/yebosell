@@ -2217,6 +2217,7 @@
 
                     resetForm();
                     loadProducts();
+                    try { window.dispatchEvent(new Event('yebo-products-changed')); } catch (e) {}
                 } catch (err) {
                     const denied = /row-level security|policy/i.test(err.message || '') || err.code === '42501';
                     window.toast(denied
@@ -3075,6 +3076,7 @@
                     window.toast('Stock updated', 'success');
                     setEditId(null); setEdits({});
                     load();
+                    try { window.dispatchEvent(new Event('yebo-products-changed')); } catch (e) {}
                 } catch (e) {
                     const denied = /row-level security|policy/i.test(e.message || '');
                     window.toast(denied ? 'Your store is suspended — you can’t change stock until it’s reactivated.' : 'Could not update stock: ' + e.message, 'error');
@@ -5623,8 +5625,13 @@
             useEffect(() => {
                 const ch = supabase.channel('notif-orders-' + nonceRef.current)
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: 'seller_id=eq.' + seller.id }, () => load())
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: 'seller_id=eq.' + seller.id }, () => load())
                     .subscribe();
-                return () => { try { supabase.removeChannel(ch); } catch (e) {} };
+                // Instant local signal when this session edits stock/products (covers
+                // same-device edits even if products realtime isn't published).
+                const onProducts = () => load();
+                window.addEventListener('yebo-products-changed', onProducts);
+                return () => { try { supabase.removeChannel(ch); } catch (e) {} window.removeEventListener('yebo-products-changed', onProducts); };
             }, [seller.id]);
 
             useEffect(() => {
