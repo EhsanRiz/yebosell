@@ -3200,16 +3200,47 @@
             const [showForm, setShowForm] = useState(false);
             const [selectedOrder, setSelectedOrder] = useState(null);
             const [detailOrder, setDetailOrder] = useState(null);
+            const blankItem = () => ({ product_id: null, custom: false, product_name: '', quantity: 1, price: '' });
             const [formData, setFormData] = useState({
                 customer_name: '',
                 customer_phone: '',
-                items: [{ product_name: '', quantity: 1, price: '' }],
+                items: [blankItem()],
                 total: ''
             });
+            const [products, setProducts] = useState([]);
 
             useEffect(() => {
                 loadOrders();
+                supabase.from('products').select('id, name, price').eq('seller_id', seller.id).eq('is_active', true).order('name', { ascending: true })
+                    .then(({ data }) => setProducts(data || []));
             }, [seller.id]);
+
+            // Group digits as "XXXX XXXX" (Lesotho-first) as the seller types.
+            const formatPhoneInput = (v) => {
+                const d = (v || '').replace(/\D/g, '').slice(0, 11);
+                if (d.length <= 4) return d;
+                if (d.length <= 8) return d.slice(0, 4) + ' ' + d.slice(4);
+                return d.slice(0, 4) + ' ' + d.slice(4, 8) + ' ' + d.slice(8);
+            };
+            const recomputeTotal = (items) => {
+                const sum = items.reduce((s, it) => s + (parseFloat(it.price) || 0) * (parseInt(it.quantity) || 0), 0);
+                return sum > 0 ? sum.toFixed(2) : '';
+            };
+            const updateItem = (idx, patch) => setFormData(prev => {
+                const items = prev.items.map((it, i) => i === idx ? { ...it, ...patch } : it);
+                return { ...prev, items, total: recomputeTotal(items) };
+            });
+            const pickProduct = (idx, val) => {
+                if (val === '__custom') { updateItem(idx, { custom: true, product_id: null, product_name: '', price: '' }); return; }
+                if (!val) { updateItem(idx, { custom: false, product_id: null, product_name: '', price: '' }); return; }
+                const p = products.find(x => x.id === val);
+                if (p) updateItem(idx, { custom: false, product_id: p.id, product_name: p.name, price: p.price != null ? String(p.price) : '' });
+            };
+            const addItemRow = () => setFormData(prev => ({ ...prev, items: [...prev.items, blankItem()] }));
+            const removeItemRow = (idx) => setFormData(prev => {
+                const items = prev.items.filter((_, i) => i !== idx);
+                return { ...prev, items: items.length ? items : [blankItem()], total: recomputeTotal(items) };
+            });
 
             useLiveRefresh(() => loadOrders(), { realtime: { table: 'orders', filter: 'seller_id=eq.' + seller.id, onInsert: () => window.toast('New order received', 'success') } });
 
@@ -3267,7 +3298,7 @@
                             seller_id: seller.id,
                             order_number: generateOrderNumber(),
                             customer_name: formData.customer_name,
-                            customer_phone: formData.customer_phone,
+                            customer_phone: formData.customer_phone.replace(/\s+/g, ''),
                             total: parseFloat(formData.total),
                             status: 'new',
                             payment_status: 'pending',
@@ -3283,20 +3314,16 @@
                         if (item.product_name) {
                             await supabase.from('order_items').insert({
                                 order_id: data.id,
+                                product_id: item.product_id || null,
                                 product_name: item.product_name,
-                                quantity: parseInt(item.quantity),
-                                price: parseFloat(item.price)
+                                quantity: parseInt(item.quantity) || 1,
+                                unit_price: parseFloat(item.price) || 0
                             });
                         }
                     }
 
                     setShowForm(false);
-                    setFormData({
-                        customer_name: '',
-                        customer_phone: '',
-                        items: [{ product_name: '', quantity: 1, price: '' }],
-                        total: ''
-                    });
+                    setFormData({ customer_name: '', customer_phone: '', items: [blankItem()], total: '' });
                     loadOrders();
                 } catch (err) {
                     window.toast('Create order failed: ' + err.message);
@@ -3387,10 +3414,12 @@
                                     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Phone Number</label>
                                     <input
                                         type="tel"
+                                        inputMode="numeric"
                                         value={formData.customer_phone}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, customer_phone: e.target.value }))}
-                                        placeholder="e.g. 5772 7054"
-                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
+                                        onChange={(e) => setFormData(prev => ({ ...prev, customer_phone: formatPhoneInput(e.target.value) }))}
+                                        placeholder="5772 7054"
+                                        maxLength={14}
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm tracking-wider focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                                     />
                                 </div>
                             </div>
@@ -3398,46 +3427,39 @@
                             <div className="mb-4">
                                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Items</p>
                                 {formData.items.map((item, idx) => (
-                                    <div key={idx} className="flex gap-3 mb-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Product"
-                                            value={item.product_name}
-                                            onChange={(e) => {
-                                                const newItems = [...formData.items];
-                                                newItems[idx].product_name = e.target.value;
-                                                setFormData(prev => ({ ...prev, items: newItems }));
-                                            }}
-                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50"
-                                        />
-                                        <input
-                                            type="number"
-                                            placeholder="Qty"
-                                            value={item.quantity}
-                                            onChange={(e) => {
-                                                const newItems = [...formData.items];
-                                                newItems[idx].quantity = parseInt(e.target.value) || 1;
-                                                setFormData(prev => ({ ...prev, items: newItems }));
-                                            }}
-                                            className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50"
-                                        />
-                                        <input
-                                            type="number"
-                                            placeholder="Price"
-                                            value={item.price}
-                                            onChange={(e) => {
-                                                const newItems = [...formData.items];
-                                                newItems[idx].price = e.target.value;
-                                                setFormData(prev => ({ ...prev, items: newItems }));
-                                            }}
-                                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50"
-                                        />
+                                    <div key={idx} className="flex flex-wrap gap-2 mb-2 items-center">
+                                        <select
+                                            value={item.custom ? '__custom' : (item.product_id || '')}
+                                            onChange={(e) => pickProduct(idx, e.target.value)}
+                                            className="flex-1 min-w-[150px] px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+                                            <option value="">Select a product…</option>
+                                            {products.map(p => <option key={p.id} value={p.id}>{p.name}{p.price != null ? ` · M${Number(p.price).toFixed(2)}` : ''}</option>)}
+                                            <option value="__custom">Other (type manually)</option>
+                                        </select>
+                                        {item.custom && (
+                                            <input type="text" placeholder="Item name" value={item.product_name}
+                                                onChange={(e) => updateItem(idx, { product_name: e.target.value })}
+                                                className="flex-1 min-w-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                        )}
+                                        <input type="number" min="1" placeholder="Qty" value={item.quantity}
+                                            onChange={(e) => updateItem(idx, { quantity: parseInt(e.target.value) || 1 })}
+                                            className="w-16 px-2 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-center" />
+                                        <input type="number" step="0.01" placeholder="Price" value={item.price}
+                                            onChange={(e) => updateItem(idx, { price: e.target.value })}
+                                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" />
+                                        {formData.items.length > 1 && (
+                                            <button onClick={() => removeItemRow(idx)} type="button"
+                                                className="text-red-400 hover:text-red-600 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
+                                <button onClick={addItemRow} type="button" className="text-xs text-brand-600 hover:text-brand-800 font-semibold py-1">+ Add item</button>
                             </div>
 
                             <div className="mb-4 max-w-xs">
-                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Total (M)</label>
+                                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Total (M) <span className="normal-case text-gray-400 font-normal">· auto from items, editable</span></label>
                                 <input
                                     type="number"
                                     value={formData.total}
