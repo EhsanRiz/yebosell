@@ -345,8 +345,12 @@
             // Delivery fee calculation
             const sellerDeliveryMethods = seller?.delivery_methods || ['pickup'];
             const needsDelivery = formData.delivery_method && formData.delivery_method !== 'pickup';
+            // Third-party courier costs are set by the courier (weight/zone) and often
+            // paid directly to them — so we never charge a fixed fee upfront for courier;
+            // the seller confirms the actual cost with the buyer via the order chat.
+            const isCourier = formData.delivery_method === 'courier';
             const computedDeliveryFee = (() => {
-                if (!needsDelivery || !seller) return 0;
+                if (!needsDelivery || isCourier || !seller) return 0;
                 const fee = Number(seller.delivery_fee || 0);
                 if (seller.delivery_fee_type === 'free_above' && subtotalAfterDiscount >= fee) return 0;
                 return fee;
@@ -780,7 +784,7 @@
                                             {[
                                                 { value: 'pickup', label: "I'll Pickup", icon: '🏪', desc: 'Collect from seller', fee: 'Free' },
                                                 { value: 'self_delivery', label: 'Seller Delivery', icon: '🚗', desc: 'Delivered to your address', fee: seller?.delivery_fee > 0 ? (seller?.delivery_fee_type === 'free_above' ? `M${Number(seller.delivery_fee).toFixed(0)} (free above M${Number(seller.delivery_fee).toFixed(0)})` : `M${Number(seller.delivery_fee).toFixed(2)}`) : 'Free' },
-                                                { value: 'courier', label: 'Courier / Third Party', icon: '📦', desc: 'Via courier service', fee: seller?.delivery_fee > 0 ? `M${Number(seller.delivery_fee).toFixed(2)}` : 'Free' }
+                                                { value: 'courier', label: 'Courier / Third Party', icon: '📦', desc: 'Via courier service', fee: 'Quoted by seller' }
                                             ].filter(m => sellerDeliveryMethods.includes(m.value)).map(m => (
                                                 <label key={m.value} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${formData.delivery_method === m.value ? 'border-brand-500 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}>
                                                     <input type="radio" name="delivery" value={m.value} checked={formData.delivery_method === m.value}
@@ -814,6 +818,13 @@
                                                 <textarea required value={formData.delivery_address} onChange={e => setFormData({...formData, delivery_address: e.target.value})}
                                                     placeholder="Full street address, area, city..." rows="2"
                                                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-gray-50 resize-none"/>
+                                            </div>
+                                        )}
+                                        {/* Courier fee explainer — not charged upfront */}
+                                        {isCourier && (
+                                            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                                                <p className="font-bold text-amber-900 mb-0.5">📦 Courier fee not included</p>
+                                                <p>The courier sets the cost by parcel size &amp; destination. {seller?.business_name || 'The seller'} will confirm the delivery fee with you (or you'll pay the courier on collection) after you place the order — you can chat with them on your tracking page.</p>
                                             </div>
                                         )}
                                         {/* Delivery notes from seller */}
@@ -1003,7 +1014,11 @@
                                     {orderData.delivery_method && orderData.delivery_method !== 'pickup' && (
                                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
                                             <p className="font-bold text-amber-900 mb-0.5 flex items-center gap-1"><TruckIcon /> Delivery</p>
-                                            <p>Your order will be delivered to the address you provided.</p>
+                                            {orderData.delivery_method === 'courier' ? (
+                                                <p>Sent via courier. The delivery fee isn't included above — {orderData.seller_name} will confirm the courier cost with you (or you'll pay the courier on collection).</p>
+                                            ) : (
+                                                <p>Your order will be delivered to the address you provided.</p>
+                                            )}
                                         </div>
                                     )}
                                     <a href={`https://wa.me/${window.waNumber(orderData.seller_phone)}?text=Hi, I just placed order %23${orderData.order_number} for ${formatCurrency(orderData.total)} on your store.`}

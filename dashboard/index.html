@@ -870,6 +870,35 @@
             const [uploading, setUploading] = useState(false);
             const docInputRef = useRef(null);
 
+            // Editable delivery method + fee — lets the seller settle the courier cost
+            // after quoting it (or switch the buyer to pickup/self-delivery if they
+            // decline). disp* mirror the saved values so the modal reflects edits live.
+            const [editDelivery, setEditDelivery] = useState(false);
+            const [dMethod, setDMethod] = useState(order.delivery_method || 'pickup');
+            const [dFee, setDFee] = useState(order.delivery_fee != null ? String(order.delivery_fee) : '0');
+            const [dSaving, setDSaving] = useState(false);
+            const [dispMethod, setDispMethod] = useState(order.delivery_method);
+            const [dispFee, setDispFee] = useState(Number(order.delivery_fee) || 0);
+            const [dispTotal, setDispTotal] = useState(Number(order.total) || 0);
+
+            const previewTotal = Math.max(0, dispTotal - dispFee + (dMethod === 'pickup' ? 0 : (parseFloat(dFee) || 0)));
+            const saveDelivery = async () => {
+                if (dSaving) return;
+                setDSaving(true);
+                try {
+                    const fee = dMethod === 'pickup' ? 0 : (parseFloat(dFee) || 0);
+                    const newTotal = Math.max(0, dispTotal - dispFee + fee);
+                    const { error } = await supabase.from('orders')
+                        .update({ delivery_method: dMethod, delivery_fee: fee, total: newTotal })
+                        .eq('id', order.id);
+                    if (error) throw error;
+                    setDispMethod(dMethod); setDispFee(fee); setDispTotal(newTotal);
+                    setEditDelivery(false);
+                    window.toast('Delivery updated — message the buyer so they see the new total.', 'success');
+                } catch (e) { window.toast('Could not update: ' + e.message, 'error'); }
+                setDSaving(false);
+            };
+
             const loadDocs = (oid) => {
                 supabase.from('order_documents')
                     .select('id, storage_path, file_name, content_type, doc_type, source, created_at')
@@ -936,7 +965,7 @@
                 try {
                     const { data: pays } = await supabase.from('payments').select('amount,status').eq('order_id', order.id);
                     const paid = (pays || []).filter(p => p.status === 'confirmed').reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-                    const outstanding = Math.max(0, (parseFloat(order.total) || 0) - paid);
+                    const outstanding = Math.max(0, dispTotal - paid);
                     if (outstanding > 0) {
                         const { error: pErr } = await supabase.from('payments').insert({
                             seller_id: order.seller_id, order_id: order.id, amount: outstanding,
@@ -1016,9 +1045,45 @@
                             {/* Delivery & Payment method */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="bg-gray-50 rounded-xl p-3">
-                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Delivery</p>
-                                    <p className="text-sm font-medium text-gray-900">{DELIVERY_LABELS[order.delivery_method] || order.delivery_method || '—'}</p>
-                                    {Number(order.delivery_fee) > 0 && <p className="text-xs text-amber-600 mt-0.5">Fee: {formatCurrency(order.delivery_fee)}</p>}
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery</p>
+                                        {!editDelivery && (
+                                            <button onClick={() => { setDMethod(dispMethod || 'pickup'); setDFee(String(dispFee || 0)); setEditDelivery(true); }}
+                                                className="text-[11px] font-semibold text-brand-600 hover:text-brand-800">Edit</button>
+                                        )}
+                                    </div>
+                                    {editDelivery ? (
+                                        <div className="space-y-2">
+                                            <select value={dMethod} onChange={e => setDMethod(e.target.value)}
+                                                className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                                                <option value="pickup">Customer Pickup</option>
+                                                <option value="self_delivery">Seller Delivery</option>
+                                                <option value="courier">Courier / Third Party</option>
+                                            </select>
+                                            {dMethod !== 'pickup' && (
+                                                <div>
+                                                    <label className="block text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">{dMethod === 'courier' ? 'Courier fee (M)' : 'Delivery fee (M)'}</label>
+                                                    <input type="number" min="0" step="0.01" value={dFee} onChange={e => setDFee(e.target.value)}
+                                                        placeholder="0.00"
+                                                        className="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                                </div>
+                                            )}
+                                            <p className="text-[10px] text-gray-500">New order total: <span className="font-semibold text-gray-700">{formatCurrency(previewTotal)}</span></p>
+                                            <div className="flex gap-2">
+                                                <button onClick={saveDelivery} disabled={dSaving}
+                                                    className="flex-1 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold py-1.5 rounded-lg disabled:opacity-50">{dSaving ? 'Saving…' : 'Save'}</button>
+                                                <button onClick={() => setEditDelivery(false)}
+                                                    className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold py-1.5 rounded-lg">Cancel</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm font-medium text-gray-900">{DELIVERY_LABELS[dispMethod] || dispMethod || '—'}</p>
+                                            {dispMethod === 'courier' && dispFee <= 0
+                                                ? <p className="text-xs text-blue-600 mt-0.5">Courier — fee to confirm</p>
+                                                : (dispFee > 0 && <p className="text-xs text-amber-600 mt-0.5">Fee: {formatCurrency(dispFee)}</p>)}
+                                        </>
+                                    )}
                                 </div>
                                 <div className="bg-gray-50 rounded-xl p-3">
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Payment</p>
@@ -1065,7 +1130,7 @@
                             {/* Total */}
                             <div className="border-t border-gray-200 pt-4 flex items-center justify-between">
                                 <p className="text-sm font-semibold text-gray-500">Order Total</p>
-                                <p className="text-2xl font-bold text-green-600">{formatCurrency(order.total)}</p>
+                                <p className="text-2xl font-bold text-green-600">{formatCurrency(dispTotal)}</p>
                             </div>
 
                             {/* Order documents (proofs, receipts, delivery proof) — shared with buyer */}
@@ -4739,10 +4804,10 @@
                             </div>
                         </div>
 
-                        {/* Delivery Fee (only if delivery/courier enabled) */}
-                        {(deliveryMethods.includes('self_delivery') || deliveryMethods.includes('courier')) && (
+                        {/* Seller-delivery fee (your own delivery only; courier is quoted per order) */}
+                        {deliveryMethods.includes('self_delivery') && (
                             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-                                <p className="text-xs font-semibold text-amber-800">Delivery Fee — charged when customer selects delivery (pickup is always free)</p>
+                                <p className="text-xs font-semibold text-amber-800">Seller Delivery Fee — charged when a customer picks "Seller Delivery" (pickup is always free)</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-600 mb-1">Fee Type</label>
@@ -4760,6 +4825,14 @@
                                             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Courier fee explainer — not a fixed upfront charge */}
+                        {deliveryMethods.includes('courier') && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <p className="text-xs font-semibold text-blue-900 mb-1">📦 Third-party courier fee</p>
+                                <p className="text-xs text-blue-800">Courier orders are <span className="font-semibold">not charged a fixed delivery fee at checkout</span> — the courier sets the cost by parcel size &amp; destination. The buyer sees "fee confirmed by seller", and you tell them the actual courier cost (or have them pay the courier on collection) via the order chat. Add timing/courier details in the Delivery Notes below.</p>
                             </div>
                         )}
 
