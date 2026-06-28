@@ -1283,10 +1283,16 @@
                                                     </button>
                                                 )}
 
-                                                {/* Buyer cancellation — allowed until the order is out for delivery */}
-                                                {CANCELLABLE.includes(order.status) && (
+                                                {/* Buyer cancellation — the button stays visible; once the order is
+                                                    out for delivery / delivered it explains why it can't be cancelled. */}
+                                                {order.status !== 'cancelled' && (
                                                     <div className="mt-3 pt-3 border-t border-gray-100">
-                                                        {showCancel ? (
+                                                        {!showCancel ? (
+                                                            <button onClick={() => setShowCancel(true)} disabled={!!confirmBusy}
+                                                                className="w-full text-center text-gray-400 hover:text-red-600 font-medium py-1.5 text-xs transition">
+                                                                Cancel this order
+                                                            </button>
+                                                        ) : CANCELLABLE.includes(order.status) ? (
                                                             <div className="border border-red-200 rounded-xl p-3">
                                                                 <label className="text-xs font-semibold text-gray-700">Cancel this order?</label>
                                                                 <p className="text-[11px] text-gray-400 mt-0.5 mb-1.5">The seller will be notified and any reserved stock is released. Tell them why (optional).</p>
@@ -1303,10 +1309,16 @@
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <button onClick={() => setShowCancel(true)} disabled={!!confirmBusy}
-                                                                className="w-full text-center text-gray-400 hover:text-red-600 font-medium py-1.5 text-xs transition">
-                                                                Cancel this order
-                                                            </button>
+                                                            <div className="border border-gray-200 bg-gray-50 rounded-xl p-3">
+                                                                <p className="text-xs text-gray-600">
+                                                                    {order.status === 'delivered'
+                                                                        ? "This order has already been delivered, so it can't be cancelled here."
+                                                                        : "This order is already on its way, so it can't be cancelled here."}
+                                                                    {' '}Please message the seller below if you need help.
+                                                                </p>
+                                                                <button onClick={() => setShowCancel(false)}
+                                                                    className="mt-2 text-xs font-semibold text-gray-500 hover:text-gray-700">Got it</button>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 )}
