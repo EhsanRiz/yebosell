@@ -670,6 +670,17 @@
                 setLoading(false);
             };
 
+            // From the bell: open the order (if not already shown) and jump straight to
+            // its messages, so the buyer reads the update without hunting for the thread.
+            const openOrderToMessages = (tok) => {
+                const sameOrder = tok === activeToken;
+                if (!sameOrder) loadByToken(tok);
+                setTimeout(() => {
+                    const el = document.getElementById('order-messages');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, sameOrder ? 80 : 500);
+            };
+
             // Buyer-side confirmation: records the buyer's own assertion (paid /
             // received / problem) independently of the seller, into the order thread.
             const confirmOrder = async (action, note) => {
@@ -867,7 +878,7 @@
                                     ? <p className="text-xs text-gray-400">from <span className="font-semibold text-gray-600">{seller.business_name}</span></p>
                                     : <p className="text-xs text-gray-400">Powered by YeboSell</p>}
                             </div>
-                            <BuyerBell onOpenOrder={loadByToken} />
+                            <BuyerBell onOpenOrder={openOrderToMessages} />
                         </div>
                     </div>
 
@@ -1225,7 +1236,7 @@
                                         {activeToken && <PushPrompt />}
 
                                         {/* In-app chat */}
-                                        {activeToken && <BuyerThread token={activeToken} sellerName={seller && seller.business_name} />}
+                                        {activeToken && <div id="order-messages"><BuyerThread token={activeToken} sellerName={seller && seller.business_name} /></div>}
                                     </div>
                                 </div>
                             </div>
