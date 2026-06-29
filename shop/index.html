@@ -86,6 +86,16 @@
         const SITE_URL = window.SITE_URL;
         const formatCurrency = window.formatCurrency;
         const generateOrderNumber = window.generateOrderNumber;
+        // Normalise a seller's bank_details into a list of accounts (supports the new
+        // multi-account array and the legacy single flat account).
+        const bankAccountList = (bank) => {
+            if (!bank) return [];
+            if (Array.isArray(bank.accounts) && bank.accounts.length)
+                return bank.accounts.filter(a => a && (a.bank_name || a.account_number || a.account_holder));
+            if (bank.bank_name || bank.account_number)
+                return [{ bank_name: bank.bank_name, account_holder: bank.account_holder, account_number: bank.account_number, branch_code: bank.branch_code }];
+            return [];
+        };
 
         // ==================== ICONS ====================
         const HeartIcon = ({ filled }) => filled
@@ -896,14 +906,18 @@
                                             ))}
                                         </div>
                                         {/* Show details for the selected method */}
-                                        {formData.payment_method === 'eft' && seller?.bank_details && (seller.bank_details.account_number || seller.bank_details.bank_name) && (
-                                            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
-                                                <p className="font-bold text-blue-900">Bank Details for EFT:</p>
-                                                {seller.bank_details.bank_name && <p>Bank: {seller.bank_details.bank_name}</p>}
-                                                {seller.bank_details.account_holder && <p>Account Holder: {seller.bank_details.account_holder}</p>}
-                                                {seller.bank_details.account_number && <p>Account No: {seller.bank_details.account_number}</p>}
-                                                {seller.bank_details.branch_code && <p>Branch Code: {seller.bank_details.branch_code}</p>}
-                                                {seller.bank_details.reference && <p>Reference: {seller.bank_details.reference}</p>}
+                                        {formData.payment_method === 'eft' && bankAccountList(seller?.bank_details).length > 0 && (
+                                            <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-2">
+                                                <p className="font-bold text-blue-900">Bank Details for EFT{bankAccountList(seller.bank_details).length > 1 ? ' (pay into any one)' : ''}:</p>
+                                                {bankAccountList(seller.bank_details).map((acct, i) => (
+                                                    <div key={i} className={i > 0 ? 'pt-2 border-t border-blue-200 space-y-0.5' : 'space-y-0.5'}>
+                                                        {acct.bank_name && <p>Bank: {acct.bank_name}</p>}
+                                                        {acct.account_holder && <p>Account Holder: {acct.account_holder}</p>}
+                                                        {acct.account_number && <p>Account No: {acct.account_number}</p>}
+                                                        {acct.branch_code && <p>Branch Code: {acct.branch_code}</p>}
+                                                    </div>
+                                                ))}
+                                                {seller.bank_details.reference && <p className="pt-1">Reference: {seller.bank_details.reference}</p>}
                                             </div>
                                         )}
                                         {formData.payment_method === 'ecocash' && seller?.payment_options?.ecocash?.number && (
@@ -2112,14 +2126,18 @@
                             )}
 
                             {/* Bank Details */}
-                            {bank.bank_name && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-1">
-                                    <p className="font-bold text-blue-900">Bank Details for EFT:</p>
-                                    {bank.bank_name && <p>Bank: {bank.bank_name}</p>}
-                                    {bank.account_holder && <p>Account Holder: {bank.account_holder}</p>}
-                                    {bank.account_number && <p>Account No: {bank.account_number}</p>}
-                                    {bank.branch_code && <p>Branch Code: {bank.branch_code}</p>}
-                                    {bank.reference && <p>Reference: {bank.reference}</p>}
+                            {bankAccountList(bank).length > 0 && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 space-y-2">
+                                    <p className="font-bold text-blue-900">Bank Details for EFT{bankAccountList(bank).length > 1 ? ' (pay into any one)' : ''}:</p>
+                                    {bankAccountList(bank).map((acct, i) => (
+                                        <div key={i} className={i > 0 ? 'pt-2 border-t border-blue-200 space-y-0.5' : 'space-y-0.5'}>
+                                            {acct.bank_name && <p>Bank: {acct.bank_name}</p>}
+                                            {acct.account_holder && <p>Account Holder: {acct.account_holder}</p>}
+                                            {acct.account_number && <p>Account No: {acct.account_number}</p>}
+                                            {acct.branch_code && <p>Branch Code: {acct.branch_code}</p>}
+                                        </div>
+                                    ))}
+                                    {bank.reference && <p className="pt-1">Reference: {bank.reference}</p>}
                                 </div>
                             )}
 

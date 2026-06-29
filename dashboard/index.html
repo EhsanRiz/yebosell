@@ -5036,10 +5036,22 @@
             };
 
             // ---- Payment Options (accepted methods + per-method details) ----
-            const [bankDetails, setBankDetails] = useState({
-                bank_name: '', account_holder: '', account_number: '', branch_code: '', reference: '',
-                ...(seller.bank_details || {})
+            // EFT now supports multiple bank accounts (stored in bank_details.accounts).
+            // Normalise: use the accounts array if present, else wrap the legacy flat
+            // single-account shape, else start with one blank account.
+            const _initBank = seller.bank_details || {};
+            const _blankAcct = { bank_name: '', account_holder: '', account_number: '', branch_code: '' };
+            const [bankReference, setBankReference] = useState(_initBank.reference || '');
+            const [bankAccounts, setBankAccounts] = useState(() => {
+                if (Array.isArray(_initBank.accounts) && _initBank.accounts.length)
+                    return _initBank.accounts.map(a => ({ ..._blankAcct, ...a }));
+                if (_initBank.bank_name || _initBank.account_number)
+                    return [{ ..._blankAcct, bank_name: _initBank.bank_name || '', account_holder: _initBank.account_holder || '', account_number: _initBank.account_number || '', branch_code: _initBank.branch_code || '' }];
+                return [{ ..._blankAcct }];
             });
+            const updateBankAccount = (i, patch) => setBankAccounts(prev => prev.map((a, idx) => idx === i ? { ...a, ...patch } : a));
+            const addBankAccount = () => setBankAccounts(prev => [...prev, { ..._blankAcct }]);
+            const removeBankAccount = (i) => setBankAccounts(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
             const [payOpts, setPayOpts] = useState({
                 methods: ['eft'], cash_note: '',
                 ...(seller.payment_options || {}),
@@ -5053,6 +5065,11 @@
             const saveBank = async () => {
                 setSavingBank(true);
                 try {
+                    const cleanAccts = bankAccounts.filter(a => a.bank_name || a.account_number || a.account_holder);
+                    // Mirror the first account into the legacy flat fields so any
+                    // not-yet-updated consumer still shows the primary account.
+                    const primary = cleanAccts[0] || {};
+                    const bankDetails = { ...primary, reference: bankReference, accounts: cleanAccts };
                     const { error } = await supabase.from('sellers').update({ bank_details: bankDetails, payment_options: payOpts }).eq('id', seller.id);
                     if (error) throw error;
                     const updated = { ...seller, bank_details: bankDetails, payment_options: payOpts };
@@ -5271,19 +5288,33 @@
                                 ))}
                             </div>
                         </div>
-                        {/* EFT details */}
+                        {/* EFT details — one or more bank accounts */}
                         {hasPayMethod('eft') && (
                             <div className="border-t border-gray-100 pt-4 space-y-4">
                                 <p className="text-xs font-bold text-gray-700">Bank Transfer (EFT) details</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <SettingsInputField label="Bank Name" value={bankDetails.bank_name} onChange={v => setBankDetails({...bankDetails, bank_name: v})} placeholder="e.g. FNB, Capitec" />
-                                    <SettingsInputField label="Account Holder" value={bankDetails.account_holder} onChange={v => setBankDetails({...bankDetails, account_holder: v})} placeholder="Name on account" />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <SettingsInputField label="Account Number" value={bankDetails.account_number} onChange={v => setBankDetails({...bankDetails, account_number: v})} placeholder="Account number" />
-                                    <SettingsInputField label="Branch Code" value={bankDetails.branch_code} onChange={v => setBankDetails({...bankDetails, branch_code: v})} placeholder="Branch code" />
-                                </div>
-                                <SettingsInputField label="Payment Reference" value={bankDetails.reference} onChange={v => setBankDetails({...bankDetails, reference: v})} placeholder="e.g. Order number" />
+                                {bankAccounts.map((acct, i) => (
+                                    <div key={i} className="border border-gray-200 rounded-xl p-3 space-y-3 bg-gray-50/40">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Bank account {i + 1}</span>
+                                            {bankAccounts.length > 1 && (
+                                                <button type="button" onClick={() => removeBankAccount(i)} className="text-xs text-red-500 hover:text-red-700 font-semibold">Remove</button>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <SettingsInputField label="Bank Name" value={acct.bank_name} onChange={v => updateBankAccount(i, { bank_name: v })} placeholder="e.g. FNB, Capitec" />
+                                            <SettingsInputField label="Account Holder" value={acct.account_holder} onChange={v => updateBankAccount(i, { account_holder: v })} placeholder="Name on account" />
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <SettingsInputField label="Account Number" value={acct.account_number} onChange={v => updateBankAccount(i, { account_number: v })} placeholder="Account number" />
+                                            <SettingsInputField label="Branch Code" value={acct.branch_code} onChange={v => updateBankAccount(i, { branch_code: v })} placeholder="Branch code" />
+                                        </div>
+                                    </div>
+                                ))}
+                                <button type="button" onClick={addBankAccount}
+                                    className="w-full text-xs text-gray-500 hover:text-brand-600 border border-dashed border-gray-300 hover:border-brand-300 rounded-lg py-2 transition font-semibold">
+                                    + Add another bank account
+                                </button>
+                                <SettingsInputField label="Payment Reference (shared)" value={bankReference} onChange={setBankReference} placeholder="e.g. Use your order number" />
                             </div>
                         )}
                         {/* EcoCash details */}

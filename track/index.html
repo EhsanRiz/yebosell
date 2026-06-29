@@ -80,6 +80,15 @@
         const supabase = window.supabaseClient;
         const formatCurrency = window.formatCurrency;
         const getStatusColor = window.getStatusColor;
+        // Normalise bank_details into a list of accounts (multi-account array or legacy flat).
+        const bankAccountList = (bank) => {
+            if (!bank) return [];
+            if (Array.isArray(bank.accounts) && bank.accounts.length)
+                return bank.accounts.filter(a => a && (a.bank_name || a.account_number || a.account_holder));
+            if (bank.bank_name || bank.account_number)
+                return [{ bank_name: bank.bank_name, account_holder: bank.account_holder, account_number: bank.account_number, branch_code: bank.branch_code }];
+            return [];
+        };
         const getStatusLabel = window.getStatusLabel;
         const SUPABASE_URL = window.SUPABASE_URL;
         const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY;
@@ -330,7 +339,8 @@
             const bank = seller.bank_details || {};
             const eco = po.ecocash || {};
             const mpesa = po.mpesa || {};
-            const hasBank = bank.account_number || bank.bank_name;
+            const bankAccts = bankAccountList(bank);
+            const hasBank = bankAccts.length > 0;
             const methods = (po.methods && po.methods.length) ? po.methods : (hasBank ? ['eft'] : []);
             const show = {
                 eft: methods.includes('eft') && hasBank,
@@ -350,12 +360,16 @@
                     <div className="space-y-3 text-sm text-green-900">
                         {show.eft && (
                             <div>
-                                <p className="font-bold">Bank Transfer (EFT)</p>
-                                {bank.bank_name && <p>Bank: {bank.bank_name}</p>}
-                                {bank.account_holder && <p>Account holder: {bank.account_holder}</p>}
-                                {bank.account_number && <p>Account no: {bank.account_number}</p>}
-                                {bank.branch_code && <p>Branch code: {bank.branch_code}</p>}
-                                <p>Reference: {bank.reference || order.order_number}</p>
+                                <p className="font-bold">Bank Transfer (EFT){bankAccts.length > 1 ? ' — pay into any one' : ''}</p>
+                                {bankAccts.map((acct, i) => (
+                                    <div key={i} className={i > 0 ? 'mt-1.5 pt-1.5 border-t border-green-200' : ''}>
+                                        {acct.bank_name && <p>Bank: {acct.bank_name}</p>}
+                                        {acct.account_holder && <p>Account holder: {acct.account_holder}</p>}
+                                        {acct.account_number && <p>Account no: {acct.account_number}</p>}
+                                        {acct.branch_code && <p>Branch code: {acct.branch_code}</p>}
+                                    </div>
+                                ))}
+                                <p className="mt-1">Reference: {bank.reference || order.order_number}</p>
                             </div>
                         )}
                         {show.ecocash && (
