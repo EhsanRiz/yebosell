@@ -4,7 +4,7 @@
 -- Derive a short uppercase store code from the business name: initials of the
 -- first up-to-4 words, or the first 4 letters of a single-word name.
 create or replace function public.make_order_code(p_name text)
-returns text language sql immutable as $$
+returns text language sql immutable set search_path = '' as $$
   with parts as (
     select upper(regexp_replace(word,'[^A-Za-z0-9]','','g')) as word, ord
     from unnest(regexp_split_to_array(trim(coalesce(p_name,'')), '\s+')) with ordinality as t(word, ord)
