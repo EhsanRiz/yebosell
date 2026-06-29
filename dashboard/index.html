@@ -2725,7 +2725,7 @@
                                             </button>
                                         </div>
                                         <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                                            <div className="grid px-3 py-1.5 bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wide gap-2" style={{gridTemplateColumns:'1fr 88px 68px 28px'}}>
+                                            <div className="grid grid-cols-[1fr_56px_44px_28px] sm:grid-cols-[1fr_88px_68px_28px] px-2 sm:px-3 py-1.5 bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wide gap-1.5 sm:gap-2">
                                                 <span>{optGroups[0].label}</span>
                                                 <span className="text-right">Price (M)</span>
                                                 <span className="text-center">Stock</span>
@@ -2734,7 +2734,7 @@
                                             {optGroups[0].values.map((v, vi) => {
                                                 const mi = varMatrix.findIndex(m => m.d1 === v);
                                                 return (
-                                                    <div key={vi} className="grid items-center gap-2 px-2 py-1.5 border-t border-gray-100" style={{gridTemplateColumns:'1fr 88px 68px 28px'}}>
+                                                    <div key={vi} className="grid grid-cols-[1fr_56px_44px_28px] sm:grid-cols-[1fr_88px_68px_28px] items-center gap-1.5 sm:gap-2 px-2 py-1.5 border-t border-gray-100">
                                                         <input type="text" value={v}
                                                             onChange={e => renameGroupValue(0, vi, e.target.value)}
                                                             placeholder={optGroups[0].label === 'Size' ? 'e.g. Small' : optGroups[0].label === 'Colour' || optGroups[0].label === 'Color' ? 'e.g. Red' : 'e.g. Value'}
@@ -2816,13 +2816,13 @@
                                         {/* Combination matrix */}
                                         {varMatrix.length > 0 ? (
                                             <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                                                <div className="grid px-3 py-1.5 bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wide gap-2" style={{gridTemplateColumns:'1fr 88px 68px'}}>
+                                                <div className="grid grid-cols-[1fr_56px_44px] sm:grid-cols-[1fr_88px_68px] px-2 sm:px-3 py-1.5 bg-gray-50 text-[10px] font-semibold text-gray-500 uppercase tracking-wide gap-1.5 sm:gap-2">
                                                     <span>{optGroups[0].label} / {optGroups[1].label}</span>
                                                     <span className="text-right">Price (M)</span>
                                                     <span className="text-center">Stock</span>
                                                 </div>
                                                 {varMatrix.map((m, mi) => (
-                                                    <div key={mi} className="grid items-center gap-2 px-3 py-1.5 border-t border-gray-100" style={{gridTemplateColumns:'1fr 88px 68px'}}>
+                                                    <div key={mi} className="grid grid-cols-[1fr_56px_44px] sm:grid-cols-[1fr_88px_68px] items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 border-t border-gray-100">
                                                         <span className="text-sm font-medium text-gray-700 truncate">{m.d1} <span className="text-gray-400">/</span> {m.d2}</span>
                                                         <input type="number" step="0.01" value={m.price}
                                                             onChange={e => updateMatrix(mi, 'price', e.target.value)}
@@ -3392,14 +3392,14 @@
 
                                     {r.hasVariants ? (
                                         <div>
-                                            <div className="grid px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide gap-2" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                            <div className="grid grid-cols-[1fr_48px_44px_60px] sm:grid-cols-[1fr_70px_70px_80px] px-2 sm:px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide gap-1.5 sm:gap-2">
                                                 <span>Variant</span>
                                                 <span className="text-center">Initial</span>
                                                 <span className="text-center">Sold</span>
                                                 <span className="text-center">Remaining</span>
                                             </div>
                                             {r.variants.map((v, i) => (
-                                                <div key={i} className="grid items-center px-4 py-2 border-t border-gray-50 gap-2" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                                <div key={i} className="grid grid-cols-[1fr_48px_44px_60px] sm:grid-cols-[1fr_70px_70px_80px] items-center px-2 sm:px-4 py-2 border-t border-gray-50 gap-1.5 sm:gap-2">
                                                     <span className={`text-sm truncate ${isVarNeverStocked(v) ? 'text-gray-400' : 'text-gray-700'}`}>{v.label}</span>
                                                     <span className="text-center text-sm text-gray-500">{v.initial}</span>
                                                     <span className="text-center text-sm text-brand-600 font-medium">{v.sold}</span>
@@ -3412,7 +3412,7 @@
                                                 </div>
                                             ))}
                                             {r.otherSold > 0 && (
-                                                <div className="grid items-center px-4 py-2 border-t border-gray-50 gap-2" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                                <div className="grid grid-cols-[1fr_48px_44px_60px] sm:grid-cols-[1fr_70px_70px_80px] items-center px-2 sm:px-4 py-2 border-t border-gray-50 gap-1.5 sm:gap-2">
                                                     <span className="text-sm text-gray-400 italic truncate">Other / manual orders</span>
                                                     <span className="text-center text-sm text-gray-300">—</span>
                                                     <span className="text-center text-sm text-gray-500 font-medium">{r.otherSold}</span>
@@ -3421,7 +3421,7 @@
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="grid px-4 py-2.5 gap-2 items-center" style={{ gridTemplateColumns: '1fr 70px 70px 80px' }}>
+                                        <div className="grid grid-cols-[1fr_48px_44px_60px] sm:grid-cols-[1fr_70px_70px_80px] px-2 sm:px-4 py-2.5 gap-1.5 sm:gap-2 items-center">
                                             <span className="text-sm text-gray-500">Single item</span>
                                             <span className={`text-center text-sm ${r.totalInitial === null ? 'text-gray-300' : 'text-gray-500'}`}>{r.totalInitial === null ? '—' : r.totalInitial}</span>
                                             <span className="text-center text-sm text-brand-600 font-medium">{r.totalSold}</span>
