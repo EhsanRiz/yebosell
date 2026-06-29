@@ -109,6 +109,9 @@
             } catch (e) {}
         };
 
+        // YeboSell platform support line (WhatsApp Business) — escalation only;
+        // a buyer's first contact is the seller via the in-app thread above.
+        const YEBOSELL_SUPPORT_WA = '+26657299369';
         // ---- Web Push (Phase 2): subscribe the device + register its order tokens ----
         const VAPID_PUBLIC = 'BAOUC3r1CqP-_UxUWmX_237sTfOwseK0N2xR2FBxIU-RdKNHybH99rJlHIEwqyaScb4eFUFjBV6TlEUAEjcLpbg';
         const pushSupported = () =>
@@ -1384,7 +1387,16 @@
                     )}
 
                     {/* Footer */}
-                    <footer className="text-center py-8 text-xs text-gray-400">
+                    <footer className="text-center py-8 text-xs text-gray-400 space-y-2">
+                        <div>
+                            <a href={window.whatsappLink(YEBOSELL_SUPPORT_WA, 'Hi YeboSell support, I need help with an order.')}
+                               target="_blank" rel="noopener noreferrer"
+                               className="inline-flex items-center gap-1.5 font-semibold text-brand-600 hover:underline">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                Contact YeboSell support
+                            </a>
+                            <p className="text-[11px] text-gray-400 mt-1">For help the seller can’t resolve. For order questions, message the seller above.</p>
+                        </div>
                         <p>Powered by <a href="https://yebosell.com" className="font-semibold hover:underline"><span className="text-brand-600">Yebo</span><span className="text-amber-500">Sell</span></a></p>
                     </footer>
                 </div>
