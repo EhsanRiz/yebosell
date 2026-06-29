@@ -5873,7 +5873,7 @@
                         )}
                     </button>
                     {open && (
-                        <div className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-80 max-w-[88vw] bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden`}>
+                        <div className={`fixed left-2 right-2 top-16 w-auto lg:absolute lg:top-auto lg:mt-2 lg:w-80 lg:max-w-[88vw] ${align === 'left' ? 'lg:right-auto lg:left-0' : 'lg:left-auto lg:right-0'} bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden`}>
                             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
                                 <p className="font-bold text-sm text-gray-900">Notifications</p>
                                 <div className="flex items-center gap-2">
