@@ -1518,22 +1518,24 @@
                     setTopProducts(topProds);
                     setAllOrdersData(allOrders);
 
-                    // Low stock detection (threshold: 5 units)
+                    // Low stock = running low (1..threshold). A 0 is "out" or never
+                    // stocked, not "low", so it isn't flagged here.
                     const LOW_STOCK_THRESHOLD = 5;
+                    const isLowVal = (n) => typeof n === 'number' && n > 0 && n <= LOW_STOCK_THRESHOLD;
                     const lowStock = products.filter(p => {
                         if (!p.is_active) return false;
                         const vars = Array.isArray(p.variants) ? p.variants : [];
                         if (vars.length > 0) {
-                            return vars.some(v => typeof v.stock === 'number' && v.stock <= LOW_STOCK_THRESHOLD);
+                            return vars.some(v => isLowVal(v.stock));
                         }
-                        return typeof p.stock === 'number' && p.stock <= LOW_STOCK_THRESHOLD;
+                        return isLowVal(p.stock);
                     }).map(p => {
                         const vars = Array.isArray(p.variants) ? p.variants : [];
                         let lowestStock = p.stock;
                         let lowVariants = [];
                         if (vars.length > 0) {
-                            lowVariants = vars.filter(v => typeof v.stock === 'number' && v.stock <= LOW_STOCK_THRESHOLD);
-                            lowestStock = Math.min(...vars.map(v => typeof v.stock === 'number' ? v.stock : 999));
+                            lowVariants = vars.filter(v => isLowVal(v.stock));
+                            lowestStock = lowVariants.length ? Math.min(...lowVariants.map(v => v.stock)) : 999;
                         }
                         return { ...p, lowestStock, lowVariants };
                     }).sort((a, b) => a.lowestStock - b.lowestStock);
@@ -2108,9 +2110,10 @@
                     setProducts(mapped);
                     if (onLowStockUpdate) {
                         const LOW = 5;
+                        const isLow = (n) => typeof n === 'number' && n > 0 && n <= LOW;
                         const cnt = mapped.filter(p => {
-                            if (p.variants && p.variants.length > 0) return p.variants.some(v => typeof v.stock === 'number' && v.stock <= LOW);
-                            return typeof p.stock === 'number' && p.stock <= LOW;
+                            if (p.variants && p.variants.length > 0) return p.variants.some(v => isLow(v.stock));
+                            return isLow(p.stock);
                         }).length;
                         onLowStockUpdate(cnt);
                     }
