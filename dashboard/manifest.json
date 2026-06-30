@@ -1,6 +1,7 @@
 {
-  "name": "YeboSell — Seller",
-  "short_name": "YeboSell",
+  "id": "/dashboard/",
+  "name": "YeboSell Seller",
+  "short_name": "YeboSell Seller",
   "description": "Manage your store, orders and payments on YeboSell.",
   "start_url": "/dashboard/",
   "scope": "/",
