@@ -1,12 +1,9 @@
-// YeboSell — send-push edge function (Web Push / Phase 2)
-// Invoked by the push_on_message DB trigger (pg_net) on every non-buyer order
-// message. Fans out a web-push notification to every device subscribed to that
-// order's track_token. Custom-authed via the x-push-key header (no Supabase
-// JWT), so deploy with --no-verify-jwt.
-//
-// Secrets live in public.private_config (service-role only), NOT in env:
-//   vapid_private_key, vapid_public_key, vapid_subject, push_shared_secret
-// SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are auto-injected by Supabase.
+// YeboSell — send-push edge function (Web Push)
+// buyer (default): notify devices subscribed to the order's track_token.
+// seller (audience='seller'): notify the store's own devices. event in
+//   {new_order, message(default), fee_warning, fee_suspended}.
+// Custom-authed via x-push-key (no JWT) -> --no-verify-jwt.
+// Secrets in public.private_config: vapid_*, push_shared_secret. SUPABASE_* auto-injected.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -31,73 +28,11 @@ async function config(): Promise<Record<string, string>> {
   return out;
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (req.method !== "POST") return json({ error: "method" }, 405);
-
-  const cfg = await config();
-
-  // Custom auth: shared secret from the trigger.
-  if (!cfg.push_shared_secret || req.headers.get("x-push-key") !== cfg.push_shared_secret) {
-    return json({ error: "unauthorized" }, 401);
-  }
-  if (!cfg.vapid_private_key || !cfg.vapid_public_key) return json({ error: "no_vapid" }, 500);
-
-  let body: { order_id?: string; sender?: string; kind?: string; preview?: string; audience?: string; event?: string } = {};
-  try { body = await req.json(); } catch { /* ignore */ }
-  if (!body.order_id) return json({ error: "no_order" }, 400);
-
-  // Resolve order → token, order number, seller.
-  const { data: ord } = await admin
-    .from("orders")
-    .select("track_token, order_number, seller_id, customer_name, sellers(business_name)")
-    .eq("id", body.order_id)
-    .maybeSingle();
-  if (!ord) return json({ error: "no_order_row" }, 200);
-
-  const token = ord.track_token as string;
-  // deno-lint-ignore no-explicit-any
-  const sellerName = ((ord as any).sellers?.business_name as string) || "Seller";
-  const preview = (body.preview || "").trim();
-  const toSeller = body.audience === "seller";
-
-  // Pick recipients + payload by audience.
-  let subs: Array<{ endpoint: string; keys: { p256dh: string; auth: string } }> | null = null;
-  let payload: string;
-
-  if (toSeller) {
-    if (!ord.seller_id) return json({ sent: 0 });
-    const { data } = await admin
-      .from("push_subscriptions")
-      .select("endpoint, keys")
-      .eq("seller_id", ord.seller_id);
-    subs = data as typeof subs;
-    const title = body.event === "new_order" ? "New order received" : (ord.order_number || "New message");
-    const text = body.event === "new_order"
-      ? `${preview || "A buyer"} placed order ${ord.order_number || ""}`.trim()
-      : `${preview || "New message"}`;
-    payload = JSON.stringify({ title, body: text, url: "/dashboard/", tag: `seller-${body.order_id}` });
-  } else {
-    if (!token) return json({ error: "no_token" }, 200);
-    const { data } = await admin
-      .from("push_subscriptions")
-      .select("endpoint, keys")
-      .contains("tokens", [token]);
-    subs = data as typeof subs;
-    const title = ord.order_number || "Your order";
-    const text =
-      body.kind === "status" ? (preview || "Order status updated")
-      : body.sender === "admin" ? `YeboSell Support: ${preview}`
-      : `${sellerName}: ${preview || "New message"}`;
-    payload = JSON.stringify({ title, body: text, url: `/track/?t=${token}`, tag: `order-${token}` });
-  }
-
-  if (!subs || !subs.length) return json({ sent: 0 });
-
-  webpush.setVapidDetails(cfg.vapid_subject || "mailto:support@yebosell.co.za", cfg.vapid_public_key, cfg.vapid_private_key);
+// deno-lint-ignore no-explicit-any
+async function fanout(subs: any[] | null, payload: string) {
   let sent = 0;
   const dead: string[] = [];
-  await Promise.all((subs as Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>).map(async (s) => {
+  await Promise.all((subs || []).map(async (s) => {
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload);
       sent++;
@@ -108,6 +43,74 @@ Deno.serve(async (req: Request) => {
     }
   }));
   if (dead.length) await admin.from("push_subscriptions").delete().in("endpoint", dead);
+  return { sent, pruned: dead.length };
+}
 
-  return json({ sent, pruned: dead.length });
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return json({ error: "method" }, 405);
+
+  const cfg = await config();
+  if (!cfg.push_shared_secret || req.headers.get("x-push-key") !== cfg.push_shared_secret) {
+    return json({ error: "unauthorized" }, 401);
+  }
+  if (!cfg.vapid_private_key || !cfg.vapid_public_key) return json({ error: "no_vapid" }, 500);
+
+  // deno-lint-ignore no-explicit-any
+  let body: any = {};
+  try { body = await req.json(); } catch { /* ignore */ }
+  if (!body.order_id) return json({ error: "no_order" }, 400);
+
+  webpush.setVapidDetails(cfg.vapid_subject || "mailto:support@yebosell.co.za", cfg.vapid_public_key, cfg.vapid_private_key);
+  const preview = (body.preview || "").trim();
+
+  // ----- Seller audience: notify the store's own devices -----
+  if (body.audience === "seller") {
+    const { data: ord } = await admin
+      .from("orders").select("seller_id, order_number").eq("id", body.order_id).maybeSingle();
+    if (!ord || !ord.seller_id) return json({ error: "no_seller" }, 200);
+    const num = ord.order_number || "Order";
+    const { data: subs } = await admin
+      .from("push_subscriptions").select("endpoint, keys").eq("seller_id", ord.seller_id);
+    if (!subs || !subs.length) return json({ sent: 0 });
+    let title: string, text: string, tag = `seller-${body.order_id}`;
+    if (body.event === "new_order") {
+      title = "New order received";
+      text = `${preview || "A buyer"} placed order ${num}`;
+    } else if (body.event === "fee_warning") {
+      title = "Platform fees due";
+      text = preview || "Settle your YeboSell fees to keep your store open.";
+      tag = `fee-${ord.seller_id}`;
+    } else if (body.event === "fee_suspended") {
+      title = "Store paused — fees overdue";
+      text = preview || "Settle your YeboSell fees to reactivate your store.";
+      tag = `fee-${ord.seller_id}`;
+    } else {
+      title = `New message · ${num}`;
+      text = preview || "New message from the buyer";
+    }
+    const payload = JSON.stringify({ title, body: text, url: "/dashboard/", tag });
+    return json(await fanout(subs, payload));
+  }
+
+  // ----- Buyer audience (default): notify devices subscribed to this order -----
+  const { data: ord } = await admin
+    .from("orders").select("track_token, order_number, sellers(business_name)").eq("id", body.order_id).maybeSingle();
+  if (!ord || !ord.track_token) return json({ error: "no_token" }, 200);
+
+  const token = ord.track_token as string;
+  // deno-lint-ignore no-explicit-any
+  const sellerName = ((ord as any).sellers?.business_name as string) || "Seller";
+  const title = (ord.order_number as string) || "Your order";
+  const text =
+    body.kind === "status" ? (preview || "Order status updated")
+    : body.sender === "admin" ? `YeboSell Support: ${preview}`
+    : `${sellerName}: ${preview || "New message"}`;
+
+  const { data: subs } = await admin
+    .from("push_subscriptions").select("endpoint, keys").contains("tokens", [token]);
+  if (!subs || !subs.length) return json({ sent: 0 });
+
+  const payload = JSON.stringify({ title, body: text, url: `/track/?t=${token}`, tag: `order-${token}` });
+  return json(await fanout(subs, payload));
 });
