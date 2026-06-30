@@ -10,6 +10,25 @@ window.SITE_URL = window.location.origin || 'https://yebosell.com';
 window.BRAND_NAME = 'YeboSell';
 window.BRAND_TAGLINE = 'Sell smarter. Reach further. Grow together.';
 
+// Mobile keyboard UX: on phones the on-screen keyboard persists as long as an
+// input keeps focus — tapping empty space or scrolling away doesn't close it.
+// Dismiss it when the user taps/scrolls onto anything that isn't an interactive
+// control, so moving on from a field closes the keyboard. Tapping another field,
+// button, select, link or label still works naturally (focus just moves there).
+(function () {
+    var dismissKeyboard = function (e) {
+        var ae = document.activeElement;
+        if (!ae) return;
+        var tag = ae.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && !ae.isContentEditable) return;
+        var t = e.target;
+        if (t === ae) return;
+        if (t && t.closest && t.closest('input, textarea, select, button, a, label, [contenteditable], [role="button"]')) return;
+        ae.blur();
+    };
+    document.addEventListener('pointerdown', dismissKeyboard, true);
+})();
+
 // Initialize Supabase
 window.supabaseClient = null;
 try {
