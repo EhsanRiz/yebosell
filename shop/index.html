@@ -84,6 +84,8 @@
         const supabase = window.supabaseClient;
         const SUPABASE_URL = window.SUPABASE_URL;
         const SITE_URL = window.SITE_URL;
+        // Current published buyer terms version. Must match the dashboard's TERMS_VERSION.
+        const TERMS_VERSION = '2026-06-30';
         const formatCurrency = window.formatCurrency;
         const generateOrderNumber = window.generateOrderNumber;
         // Normalise a seller's bank_details into a list of accounts (supports the new
@@ -181,6 +183,11 @@
             const closeLightbox = () => setLightbox({ open: false, photos: [], index: 0 });
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [submittingOrder, setSubmittingOrder] = useState(false);
+            // Buyer terms acceptance — required at checkout; remembered per device so a
+            // returning buyer who already accepted this version starts pre-ticked.
+            const [acceptedTerms, setAcceptedTerms] = useState(() => {
+                try { return localStorage.getItem('yebo_buyer_terms') === TERMS_VERSION; } catch (e) { return false; }
+            });
             const [showTrackOrder, setShowTrackOrder] = useState(false);
             const [trackingOrder, setTrackingOrder] = useState(null);
             const [discountCode, setDiscountCode] = useState('');
@@ -424,6 +431,7 @@
                 if (!formData.delivery_method) { window.toast('Please select a delivery method'); return; }
                 if ((formData.delivery_method === 'self_delivery' || formData.delivery_method === 'courier') && !formData.delivery_address.trim()) { window.toast('Please enter a delivery address'); return; }
                 if (cart.length === 0) { window.toast('Cart is empty'); return; }
+                if (!acceptedTerms) { window.toast('Please agree to the buyer terms to place your order'); return; }
                 setSubmittingOrder(true);
                 try {
                     const orderItems = cart.map(i => {
@@ -449,7 +457,8 @@
                         p_notes: formData.notes,
                         p_discount_code: discountApplied ? discountApplied.code : null,
                         p_discount_amount: discountAmount,
-                        p_items: orderItems
+                        p_items: orderItems,
+                        p_buyer_terms_version: TERMS_VERSION
                     });
                     if (orderError || !result || result.error) { window.toast((result && result.message) || 'Failed to create order. Please try again.'); setSubmittingOrder(false); return; }
                     const orderNumber = result.order_number;
@@ -471,6 +480,8 @@
                     setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount, delivery_method: formData.delivery_method, delivery_fee: computedDeliveryFee, pickup_address: seller.pickup_address });
                     // Save buyer info for next time
                     try { localStorage.setItem(`buyer_${getSellerSlug()}`, JSON.stringify({ name: formData.name, phone: formData.phone })); } catch(e) {}
+                    // Remember this device accepted the current buyer terms (pre-ticks next time)
+                    try { localStorage.setItem('yebo_buyer_terms', TERMS_VERSION); } catch(e) {}
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
                     setSubmittingOrder(false); setDiscountApplied(null); setDiscountCode(''); setDiscountError('');
                 } catch (err) { setSubmittingOrder(false); window.toast('An error occurred. Please try again.'); }
@@ -1023,7 +1034,11 @@
                                             <span className="text-sm font-semibold text-gray-900">Total</span>
                                             <span className="text-lg font-bold text-gray-900">{formatCurrency(finalTotal)}</span>
                                         </div>
-                                        <button type="submit" disabled={submittingOrder} className={`w-full font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${submittingOrder ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}>
+                                        <label className="flex items-start gap-2.5 mb-3 cursor-pointer select-none">
+                                            <input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 accent-brand-500 flex-shrink-0" />
+                                            <span className="text-xs text-gray-600 leading-snug">By placing this order I agree to pay {seller.business_name || 'the seller'} in full for the goods and any delivery fee, and I accept the <a href="/terms/" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">YeboSell buyer terms</a>.</span>
+                                        </label>
+                                        <button type="submit" disabled={submittingOrder || !acceptedTerms} className={`w-full font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${(submittingOrder || !acceptedTerms) ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}>
                                             {submittingOrder ? (<><svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="text-white">Placing Order...</span></>) : 'Place Order'}
                                         </button>
                                     </div>

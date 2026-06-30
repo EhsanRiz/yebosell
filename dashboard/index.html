@@ -120,6 +120,9 @@
         const VAPID_PUBLIC = 'BAOUC3r1CqP-_UxUWmX_237sTfOwseK0N2xR2FBxIU-RdKNHybH99rJlHIEwqyaScb4eFUFjBV6TlEUAEjcLpbg';
         // YeboSell platform support line (also a WhatsApp Business number).
         const YEBOSELL_SUPPORT_WA = '+26657299369';
+        // Current published terms version. Bump when the seller/buyer agreement changes
+        // so existing users are re-prompted to accept. Must match shop's TERMS_VERSION.
+        const TERMS_VERSION = '2026-06-30';
         const pushSupported = () =>
             (typeof window !== 'undefined') && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
         function urlB64ToUint8Array(b64) {
@@ -6119,6 +6122,60 @@
             );
         };
 
+        // Blocking seller agreement — shown on first login (or after the terms change)
+        // until the seller ticks the box and accepts. Records acceptance server-side via
+        // seller_accept_terms so it persists across devices.
+        const SellerAgreementModal = ({ sellerId, onAccepted }) => {
+            const [agreed, setAgreed] = useState(false);
+            const [saving, setSaving] = useState(false);
+            const [err, setErr] = useState('');
+            const accept = async () => {
+                if (!agreed || saving) return;
+                setSaving(true); setErr('');
+                try {
+                    const { error } = await supabase.rpc('seller_accept_terms', { p_seller_id: sellerId, p_version: TERMS_VERSION });
+                    if (error) throw error;
+                    await onAccepted();
+                } catch (e) {
+                    setErr('Could not save your acceptance. Please check your connection and try again.');
+                    setSaving(false);
+                }
+            };
+            return (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="bg-brand-600 text-white px-5 py-4 flex items-center gap-3 flex-shrink-0">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+                            <h3 className="font-bold text-base">Seller Agreement</h3>
+                        </div>
+                        <div className="p-5 space-y-3 overflow-y-auto">
+                            <p className="text-sm text-gray-700">Before you continue, please review and accept the YeboSell Seller Terms. In short:</p>
+                            <ul className="text-sm text-gray-700 list-disc pl-5 space-y-1.5">
+                                <li>YeboSell charges a <strong>5% platform fee</strong> on the goods subtotal of each paid order (your first 10 paid orders are free).</li>
+                                <li>Platform fees accrue to your account as a running balance, and you agree to <strong>settle your outstanding balance</strong> on request.</li>
+                                <li>If your balance reaches the warning level you’ll be reminded; if it reaches the suspension level your store may be paused until you settle.</li>
+                                <li>YeboSell never holds your sales proceeds — buyers pay you directly. The platform fee is a separate amount you owe YeboSell.</li>
+                                <li>You are responsible for the quality, safety and legality of your products.</li>
+                            </ul>
+                            <a href="/terms/" target="_blank" rel="noopener noreferrer" className="text-sm text-brand-600 hover:text-brand-700 font-medium underline">Read the full Terms of Service</a>
+                            <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+                                <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0" />
+                                <span className="text-sm text-gray-800">I have read and agree to the YeboSell Seller Terms, including the platform fee and my obligation to settle outstanding fees.</span>
+                            </label>
+                            {err && <p className="text-sm text-red-600">{err}</p>}
+                        </div>
+                        <div className="p-5 pt-0 flex-shrink-0">
+                            <button onClick={accept} disabled={!agreed || saving}
+                                className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition flex items-center justify-center gap-2">
+                                {saving ? <Spinner size="sm" /> : 'Agree & Continue'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // Dismissible banner prompting the seller to enable push (new orders / messages).
         const SellerPushPrompt = ({ sellerId }) => {
             const [perm, setPerm] = useState(pushSupported() ? Notification.permission : 'unsupported');
@@ -6217,26 +6274,30 @@
             // Watch this seller's account status so a suspension (set by an admin
             // while they're logged in) surfaces a banner + bell notice without a
             // re-login. Polls while visible; refreshes on tab return.
+            const refreshAccount = React.useCallback(async () => {
+                if (!currentUser) return;
+                try {
+                    const { data } = await supabase.rpc('seller_account_status', { p_seller_id: currentUser.id });
+                    if (data) setAccount({
+                        status: data.seller_status || 'active', reason: data.suspension_reason || null,
+                        feeState: data.fee_state || 'ok', outstanding: Number(data.outstanding) || 0,
+                        warningThreshold: data.warning_threshold != null ? Number(data.warning_threshold) : null,
+                        suspensionThreshold: data.suspension_threshold != null ? Number(data.suspension_threshold) : null,
+                        termsVersion: data.terms_version || null, loaded: true
+                    });
+                } catch (e) {}
+            }, [currentUser]);
+
             useEffect(() => {
                 if (!currentUser || locked) return;
                 let alive = true;
-                const check = async () => {
-                    try {
-                        const { data } = await supabase.rpc('seller_account_status', { p_seller_id: currentUser.id });
-                        if (alive && data) setAccount({
-                            status: data.seller_status || 'active', reason: data.suspension_reason || null,
-                            feeState: data.fee_state || 'ok', outstanding: Number(data.outstanding) || 0,
-                            warningThreshold: data.warning_threshold != null ? Number(data.warning_threshold) : null,
-                            suspensionThreshold: data.suspension_threshold != null ? Number(data.suspension_threshold) : null
-                        });
-                    } catch (e) {}
-                };
+                const check = () => { if (alive) refreshAccount(); };
                 check();
                 const iv = setInterval(() => { if (document.visibilityState === 'visible') check(); }, 60000);
                 const onVis = () => { if (document.visibilityState === 'visible') check(); };
                 document.addEventListener('visibilitychange', onVis);
                 return () => { alive = false; clearInterval(iv); document.removeEventListener('visibilitychange', onVis); };
-            }, [currentUser, locked]);
+            }, [currentUser, locked, refreshAccount]);
 
             const onAuthed = (seller) => {
                 setCurrentUser(seller);
@@ -6413,6 +6474,9 @@
                     </main>
 
                     {showSuspend && <SuspensionModal status={account.status} reason={account.reason} onClose={() => setShowSuspend(false)} />}
+
+                    {account.loaded && account.termsVersion !== TERMS_VERSION &&
+                        <SellerAgreementModal sellerId={currentUser.id} onAccepted={refreshAccount} />}
 
                     {/* ======= MOBILE BOTTOM NAVIGATION (hidden on desktop) ======= */}
                     <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
