@@ -31,7 +31,7 @@ YeboSell is an order-management web app for informal sellers in **Lesotho & Sout
 
 ## Testing
 - Backend/RLS/RPCs: SQL via the Supabase MCP or `psql` (service role bypasses RLS — to test anon, use the anon key).
-- Browser E2E: not built-in to Claude Code. Add **Playwright** for automated flows, or test manually. Core flows to cover: buyer storefront→checkout→track; seller register→add product→order→status→notify; admin drill-down→suspend/reset→audit.
+- Browser E2E: **Playwright is set up** (`npm test`; config + tests in `tests/`, see `tests/README.md`). A local static server serves the repo root. Static-page tests (terms/landing/privacy) run offline; React-page tests (dashboard/shop/track) need outbound network for the CDNs and self-skip when it's unavailable. The managed remote env has a pre-installed Chromium (auto-detected by `playwright.config.js`) — don't run `npx playwright install` there. Core flows still to cover: buyer storefront→checkout→track; seller register→add product→order→status→notify; admin drill-down→suspend/reset→audit.
 - Demo stores block checkout (`is_demo=true`); flip a seller's `is_demo` to test real ordering, then restore.
 
 ## Conventions / gotchas
