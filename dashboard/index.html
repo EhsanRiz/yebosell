@@ -6208,6 +6208,9 @@
             const [saving, setSaving] = useState(false);
             const [err, setErr] = useState('');
             const ready = agreed && name.trim() && place.trim();
+            // Decline & leave — acceptance is voluntary, so the seller can opt out and is
+            // sent to the public website. They stay signed in, so returning re-shows this.
+            const decline = () => { window.location.href = '/'; };
             const accept = async () => {
                 if (!ready || saving) return;
                 setSaving(true); setErr('');
@@ -6233,7 +6236,11 @@
                     <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="bg-brand-600 text-white px-5 py-4 flex items-center gap-3 flex-shrink-0">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
-                            <h3 className="font-bold text-base">Seller Agreement</h3>
+                            <h3 className="font-bold text-base flex-1">Seller Agreement</h3>
+                            <button onClick={decline} aria-label="Decline and return to website" title="Decline and return to website"
+                                className="-mr-1 p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition flex-shrink-0">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
                         </div>
                         <div className="p-5 space-y-3 overflow-y-auto">
                             <p className="text-sm text-gray-700">Before you continue, please review and accept the YeboSell Seller Terms. In short:</p>
@@ -6269,6 +6276,7 @@
                                 {saving ? <Spinner size="sm" /> : 'Sign & Continue'}
                             </button>
                             <p className="text-[11px] text-gray-400 text-center mt-2">A PDF copy of your signed agreement will download automatically. You can re-download it any time from Settings.</p>
+                            <button onClick={decline} className="w-full text-xs text-gray-400 hover:text-gray-600 font-medium mt-1.5">Don’t agree? Return to the website</button>
                         </div>
                     </div>
                 </div>
