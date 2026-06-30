@@ -6,6 +6,31 @@
     <title>YeboSell — Dashboard</title>
     <link rel="icon" type="image/png" href="/assets/favicon.png">
 
+    <!-- Installable seller app (Add to Home Screen) -->
+    <link rel="manifest" href="/dashboard/manifest.json">
+    <meta name="theme-color" content="#15803d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="YeboSell">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
+    <script>
+        // Register the service worker on load (needed for install) and capture the
+        // install prompt so Settings can offer a "Download YeboSell" button.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+        }
+        window.__yeboInstall = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.__yeboInstall = e;
+            window.dispatchEvent(new Event('yebo-installable'));
+        });
+        window.addEventListener('appinstalled', () => {
+            window.__yeboInstall = null;
+            window.dispatchEvent(new Event('yebo-installed'));
+        });
+    </script>
+
     <!-- Shared Dependencies -->
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -5100,11 +5125,57 @@
                 setSavingSocial(false);
             };
 
+            // ---- Install the YeboSell app (PWA "Download") ----
+            const [installEvt, setInstallEvt] = useState((typeof window !== 'undefined' && window.__yeboInstall) || null);
+            const [installed, setInstalled] = useState(false);
+            const [showIosHelp, setShowIosHelp] = useState(false);
+            const isIOS = /iphone|ipad|ipod/i.test((typeof navigator !== 'undefined' && navigator.userAgent) || '');
+            useEffect(() => {
+                const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+                setInstalled(standalone);
+                const onAvail = () => setInstallEvt(window.__yeboInstall || null);
+                const onDone = () => { setInstallEvt(null); setInstalled(true); };
+                window.addEventListener('yebo-installable', onAvail);
+                window.addEventListener('yebo-installed', onDone);
+                return () => { window.removeEventListener('yebo-installable', onAvail); window.removeEventListener('yebo-installed', onDone); };
+            }, []);
+            const doInstall = async () => {
+                if (installEvt) {
+                    installEvt.prompt();
+                    try { await installEvt.userChoice; } catch (e) {}
+                    window.__yeboInstall = null; setInstallEvt(null);
+                } else if (isIOS) {
+                    setShowIosHelp(true);
+                } else {
+                    showFlash('To install, open your browser menu and choose “Install app” / “Add to Home screen”.');
+                }
+            };
+
             // Helpers — defined outside render to prevent re-creation
 
             return (
                 <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+
+                    {/* Get the app — install to home screen */}
+                    {!installed && (
+                        <div className="bg-gradient-to-br from-brand-600 to-brand-500 rounded-2xl p-5 text-white flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="font-bold text-sm">Get the YeboSell app</p>
+                                <p className="text-xs text-white/80 leading-snug">Install it on your phone for one-tap access and alerts — no app store needed.</p>
+                                {showIosHelp && (
+                                    <p className="text-[11px] text-white/90 mt-1.5 bg-white/10 rounded-lg px-2 py-1.5">On iPhone: tap the <b>Share</b> button, then <b>Add to Home Screen</b>.</p>
+                                )}
+                            </div>
+                            <button onClick={doInstall}
+                                className="flex-shrink-0 bg-white text-brand-700 font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-brand-50 transition-colors">
+                                Download
+                            </button>
+                        </div>
+                    )}
 
                     {/* Flash message */}
                     {flash.show && (
