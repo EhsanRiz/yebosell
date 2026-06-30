@@ -69,6 +69,6 @@ test('checkout shows place-of-signing and a gated Place Order button', async ({ 
 
   // The buyer signing field and gated submit must be present.
   await expect(page.getByText('Place of signing')).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText(/electronic signature/i)).toBeVisible();
+  await expect(page.getByText(/I confirm my name above is my electronic signature/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /Place Order/i })).toBeDisabled();
 });
