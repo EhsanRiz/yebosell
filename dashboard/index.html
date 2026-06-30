@@ -5824,11 +5824,12 @@
                 low_stock: ['#b45309', '#fef3c7'],
                 out_stock: ['#b91c1c', '#fee2e2'],
                 suspended: ['#b91c1c', '#fee2e2'],
+                fee_warning: ['#b45309', '#fef3c7'],
             };
             const tone = map[type] || ['#6b7280', '#f3f4f6'];
             return (
                 <span className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: tone[1], color: tone[0] }}>
-                    {type === 'dispute' || type === 'suspended' ? <Icons.alert /> : type === 'confirm' ? <Icons.check /> : type === 'new_order' ? <Icons.orders style={{ width: 14, height: 14 }} /> : (type === 'low_stock' || type === 'out_stock') ? <Icons.alertTriangle style={{ width: 14, height: 14 }} /> : <Icons.chat />}
+                    {type === 'dispute' || type === 'suspended' || type === 'fee_warning' ? <Icons.alert /> : type === 'confirm' ? <Icons.check /> : type === 'new_order' ? <Icons.orders style={{ width: 14, height: 14 }} /> : (type === 'low_stock' || type === 'out_stock') ? <Icons.alertTriangle style={{ width: 14, height: 14 }} /> : <Icons.chat />}
                 </span>
             );
         };
@@ -5988,7 +5989,14 @@
                 who: account.status === 'deactivated' ? 'Store deactivated' : 'Store suspended',
                 text: 'Your store is offline — tap to see why and how to reactivate.', order_number: ''
             } : null;
-            const allEvents = suspendedEvent ? [suspendedEvent, ...events] : events;
+            // Fee warning (notify-only): outstanding fees crossed the warning line but
+            // not the suspension cap. Store stays open.
+            const feeWarnEvent = (account && account.feeState === 'warning' && !suspendedEvent) ? {
+                key: 'fee_warning', type: 'fee_warning', nav: 'dashboard', noTime: true, unread: true,
+                who: 'Platform fees due',
+                text: 'You owe ' + formatCurrency(account.outstanding || 0) + ' — settle to avoid your store being paused.', order_number: ''
+            } : null;
+            const allEvents = [suspendedEvent, feeWarnEvent, ...events].filter(Boolean);
 
             const unread = allEvents.filter(e => e.unread).length;
 
@@ -6057,6 +6065,19 @@
             );
         };
 
+        // Notify-only warning shown when outstanding fees cross the warning line but
+        // the store is still open (below the suspension cap).
+        const FeeWarningBanner = ({ outstanding, cap, onSettle }) => (
+            <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl px-4 py-3 flex items-center gap-3">
+                <div className="text-amber-600 flex-shrink-0"><Icons.alert /></div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-amber-900">Platform fees due: {formatCurrency(outstanding)}</p>
+                    <p className="text-xs text-amber-800">Please settle{cap ? ' before your balance reaches ' + formatCurrency(cap) : ''} to keep your store open.</p>
+                </div>
+                <button onClick={onSettle} className="flex-shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">View</button>
+            </div>
+        );
+
         // Explains why a store is suspended and how to get it back online.
         const SuspensionModal = ({ status, reason, onClose }) => {
             const deactivated = status === 'deactivated';
@@ -6084,7 +6105,7 @@
                                     <li>Contact YeboSell support to review and lift the suspension.</li>
                                 </ul>
                             </div>
-                            <a href="https://wa.me/27761080024?text=Hi%20YeboSell%2C%20my%20store%20is%20suspended%20%E2%80%94%20I%27d%20like%20to%20reactivate%20it."
+                            <a href={window.whatsappLink(YEBOSELL_SUPPORT_WA, "Hi YeboSell, my store is suspended — I'd like to reactivate it.")}
                                 target="_blank" rel="noopener"
                                 className="flex items-center justify-center gap-2 w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-2.5 rounded-xl transition">
                                 <Icons.whatsapp /> Contact YeboSell Support
@@ -6200,7 +6221,12 @@
                 const check = async () => {
                     try {
                         const { data } = await supabase.rpc('seller_account_status', { p_seller_id: currentUser.id });
-                        if (alive && data) setAccount({ status: data.seller_status || 'active', reason: data.suspension_reason || null });
+                        if (alive && data) setAccount({
+                            status: data.seller_status || 'active', reason: data.suspension_reason || null,
+                            feeState: data.fee_state || 'ok', outstanding: Number(data.outstanding) || 0,
+                            warningThreshold: data.warning_threshold != null ? Number(data.warning_threshold) : null,
+                            suspensionThreshold: data.suspension_threshold != null ? Number(data.suspension_threshold) : null
+                        });
                     } catch (e) {}
                 };
                 check();
@@ -6369,6 +6395,8 @@
                             <div className="tab-content">
                                 {(account.status === 'suspended' || account.status === 'deactivated') &&
                                     <SuspendedBanner status={account.status} onDetails={() => setShowSuspend(true)} />}
+                                {account.feeState === 'warning' && account.status !== 'suspended' && account.status !== 'deactivated' &&
+                                    <FeeWarningBanner outstanding={account.outstanding} cap={account.suspensionThreshold} onSettle={() => setCurrentTab('dashboard')} />}
                                 <SellerPushPrompt sellerId={currentUser.id} />
                                 {currentTab === 'dashboard' && <DashboardScreen seller={currentUser} onNavigate={setCurrentTab} onLowStockUpdate={setLowStockCount} />}
                                 {currentTab === 'products' && <ProductsScreen seller={currentUser} onLowStockUpdate={setLowStockCount} />}
