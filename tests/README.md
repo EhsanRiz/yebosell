@@ -14,9 +14,13 @@ BASE_URL=https://yebosell.co.za npx playwright test   # run against the live sit
 ```
 
 By default tests run against the local static server + the **live Supabase** project.
-Set `TEST_STORE_SLUG` to point the storefront tests at a different store (default:
-`naledi-boutique`, a demo store — demo stores render the full checkout UI but block the
-final order server-side, so these tests never create real data).
+
+- `TEST_STORE_SLUG` — store for the storefront *mount* test (default `naledi-boutique`, a
+  demo store). Demo stores render the storefront fine.
+- `TEST_CHECKOUT_STORE` — **real (non-demo) store slug with an in-stock product**, used by
+  the checkout-signing test. Demo stores **cannot** checkout (Add-to-Cart is replaced with
+  a "this is a demo" banner), so that test **skips** unless this is set. The walk stops
+  before submitting, so it never creates a real order.
 
 ## Two kinds of tests
 

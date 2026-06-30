@@ -9,6 +9,10 @@
 const { test, expect } = require('@playwright/test');
 
 const STORE = process.env.TEST_STORE_SLUG || 'naledi-boutique';
+// Demo stores render the storefront but CANNOT checkout (Add-to-Cart is replaced with a
+// "this is a demo" banner). To exercise the checkout signing UI, point this at a REAL
+// (non-demo) store slug that has an in-stock product. Unset -> the checkout test skips.
+const CHECKOUT_STORE = process.env.TEST_CHECKOUT_STORE;
 
 // Navigate without waiting on the (possibly blocked) CDN scripts, then wait for React to
 // actually load. Returns true if the page's React runtime is available.
@@ -34,29 +38,29 @@ test('track page mounts and shows the order lookup', async ({ page }) => {
   await expect(page.locator('#root')).not.toBeEmpty();
 });
 
-test('storefront mounts for the demo store', async ({ page }) => {
+test('storefront mounts and renders the store header', async ({ page }) => {
   const ready = await open(page, `/shop/?s=${STORE}`);
   test.skip(!ready, 'React/CDN unavailable in this environment');
   await expect(page.locator('#root')).not.toBeEmpty();
-  await expect(page.getByText('Add to Cart').first()).toBeVisible({ timeout: 15000 });
+  // The storefront sets <h1> to the store's business name once its data loads.
+  await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 15000 });
 });
 
-// Best-effort: walks to checkout and asserts the buyer signing UI. Selectors match the
-// current storefront; adjust if the checkout markup changes. Does NOT submit an order.
+// Best-effort checkout walk asserting the buyer signing UI. Demo stores cannot checkout,
+// so this is OPT-IN: set TEST_CHECKOUT_STORE to a real store slug with an in-stock product.
+// Does NOT submit an order (only verifies the signing field + gated button).
 test('checkout shows place-of-signing and a gated Place Order button', async ({ page }) => {
-  const ready = await open(page, `/shop/?s=${STORE}`);
+  test.skip(!CHECKOUT_STORE, 'Set TEST_CHECKOUT_STORE to a real (non-demo) store slug with stock — demo stores cannot checkout');
+  const ready = await open(page, `/shop/?s=${CHECKOUT_STORE}`);
   test.skip(!ready, 'React/CDN unavailable in this environment');
 
-  await page.getByText('Add to Cart').first().click({ timeout: 15000 });
+  // Open the first product (Add to Cart lives inside the product detail modal).
+  await page.getByRole('heading', { level: 1 }).first().waitFor({ timeout: 15000 });
+  await page.locator('[class*="cursor-pointer"], .product-card, img').first().click().catch(() => {});
+  await page.getByRole('button', { name: /Add to Cart/i }).first().click({ timeout: 10000 });
 
-  // Open checkout (cart drawer -> Proceed to Checkout).
-  const proceed = page.getByText('Proceed to Checkout');
-  if (await proceed.isVisible().catch(() => false)) {
-    await proceed.click();
-  } else {
-    await page.getByText(/Checkout/i).first().click().catch(() => {});
-    await proceed.click().catch(() => {});
-  }
+  // Cart drawer -> Proceed to Checkout.
+  await page.getByText('Proceed to Checkout').click({ timeout: 10000 });
 
   // The buyer signing field and gated submit must be present.
   await expect(page.getByText('Place of signing')).toBeVisible({ timeout: 10000 });
