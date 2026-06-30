@@ -15,6 +15,8 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- jsPDF (pinned) — builds the buyer's signed order-agreement PDF on demand. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="/assets/config.js?v=13"></script>
 
     <script>
@@ -86,6 +88,52 @@
         const SITE_URL = window.SITE_URL;
         // Current published buyer terms version. Must match the dashboard's TERMS_VERSION.
         const TERMS_VERSION = '2026-06-30';
+
+        // Build + download the buyer's signed order-agreement PDF from the order details.
+        // Used on the confirmation screen and (later) from the tracking page.
+        function downloadBuyerAgreementPdf({ name, place, signedAt, version, orderNumber, sellerName, total, items }) {
+            try {
+                const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+                if (!jsPDFCtor) { window.toast && window.toast('PDF tool is still loading — please try again in a moment.'); return false; }
+                const doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
+                const M = 56, W = doc.internal.pageSize.getWidth();
+                let y = M;
+                const when = signedAt ? new Date(signedAt) : new Date();
+                const whenStr = when.toLocaleString('en-GB', { dateStyle: 'long', timeStyle: 'short' });
+                const line = (txt, size, style, gap) => {
+                    doc.setFont('helvetica', style || 'normal'); doc.setFontSize(size || 11);
+                    const parts = doc.splitTextToSize(txt, W - M * 2);
+                    doc.text(parts, M, y); y += parts.length * (size || 11) * 1.35 + (gap || 0);
+                };
+                doc.setTextColor(21, 128, 61); line('YeboSell — Order Agreement', 20, 'bold', 4);
+                doc.setTextColor(120); line('A product of YeboSell by 4D Climate Solutions', 10, 'normal', 10);
+                doc.setTextColor(33);
+                line('This document records the buyer’s acceptance of the YeboSell Buyer Terms for the order below. By typing their name and place and placing the order in the YeboSell app, the buyer has provided a binding electronic signature.', 11, 'normal', 14);
+                line('Order', 13, 'bold', 6);
+                line('Order number: ' + (orderNumber || '—'), 11, 'normal', 2);
+                if (sellerName) line('Seller: ' + sellerName, 11, 'normal', 2);
+                if (Array.isArray(items) && items.length) {
+                    items.forEach(it => {
+                        const q = it.quantity || 1; const nm = it.name || it.product_name || 'Item';
+                        line('•  ' + q + ' × ' + nm, 11, 'normal', 1);
+                    });
+                }
+                if (total != null) line('Order total: ' + (window.formatCurrency ? window.formatCurrency(total) : ('M' + total)), 11, 'bold', 2);
+                y += 10;
+                line('Buyer commitment', 13, 'bold', 6);
+                line('By placing this order, the buyer commits to take delivery and to pay the seller in full for the goods and any agreed delivery fee, and accepts liability for the order as set out in the YeboSell Buyer Terms.', 11, 'normal', 12);
+                line('Electronic signature', 13, 'bold', 8);
+                line('Signed by (full name): ' + (name || '—'), 11, 'normal', 2);
+                line('Place of signing: ' + (place || '—'), 11, 'normal', 2);
+                line('Date & time: ' + whenStr, 11, 'normal', 2);
+                line('Terms version: ' + (version || '—'), 11, 'normal', 2);
+                y += 16;
+                doc.setTextColor(120);
+                line('Full terms: https://yebosell.co.za/terms  ·  Generated ' + new Date().toLocaleString('en-GB'), 9, 'normal', 0);
+                doc.save('yebosell-order-agreement-' + (orderNumber || 'order') + '.pdf');
+                return true;
+            } catch (e) { window.toast && window.toast('Could not generate the PDF.'); return false; }
+        }
         const formatCurrency = window.formatCurrency;
         const generateOrderNumber = window.generateOrderNumber;
         // Normalise a seller's bank_details into a list of accounts (supports the new
@@ -187,6 +235,11 @@
             // returning buyer who already accepted this version starts pre-ticked.
             const [acceptedTerms, setAcceptedTerms] = useState(() => {
                 try { return localStorage.getItem('yebo_buyer_terms') === TERMS_VERSION; } catch (e) { return false; }
+            });
+            // Place of signing — the buyer's typed name (formData.name) is their signature;
+            // remembered per device for convenience.
+            const [signPlace, setSignPlace] = useState(() => {
+                try { return localStorage.getItem('yebo_buyer_place') || ''; } catch (e) { return ''; }
             });
             const [showTrackOrder, setShowTrackOrder] = useState(false);
             const [trackingOrder, setTrackingOrder] = useState(null);
@@ -431,6 +484,7 @@
                 if (!formData.delivery_method) { window.toast('Please select a delivery method'); return; }
                 if ((formData.delivery_method === 'self_delivery' || formData.delivery_method === 'courier') && !formData.delivery_address.trim()) { window.toast('Please enter a delivery address'); return; }
                 if (cart.length === 0) { window.toast('Cart is empty'); return; }
+                if (!signPlace.trim()) { window.toast('Please enter your place of signing'); return; }
                 if (!acceptedTerms) { window.toast('Please agree to the buyer terms to place your order'); return; }
                 setSubmittingOrder(true);
                 try {
@@ -458,7 +512,8 @@
                         p_discount_code: discountApplied ? discountApplied.code : null,
                         p_discount_amount: discountAmount,
                         p_items: orderItems,
-                        p_buyer_terms_version: TERMS_VERSION
+                        p_buyer_terms_version: TERMS_VERSION,
+                        p_buyer_signed_place: signPlace.trim()
                     });
                     if (orderError || !result || result.error) { window.toast((result && result.message) || 'Failed to create order. Please try again.'); setSubmittingOrder(false); return; }
                     const orderNumber = result.order_number;
@@ -477,11 +532,13 @@
                         const next = [entry, ...list.filter(o => o && o.token !== trackToken)];
                         localStorage.setItem('yebosell_orders', JSON.stringify(next.slice(0, 100)));
                     } catch (e) {}
-                    setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount, delivery_method: formData.delivery_method, delivery_fee: computedDeliveryFee, pickup_address: seller.pickup_address });
+                    setOrderData({ order_number: orderNumber, total: finalTotal, items: cart, seller_phone: seller.phone, seller_name: seller.business_name, track_url: trackUrl, discount_code: discountApplied?.code, discount_amount: discountAmount, delivery_method: formData.delivery_method, delivery_fee: computedDeliveryFee, pickup_address: seller.pickup_address,
+                        signed_name: formData.name, signed_place: signPlace.trim(), signed_at: new Date().toISOString(), terms_version: TERMS_VERSION });
                     // Save buyer info for next time
                     try { localStorage.setItem(`buyer_${getSellerSlug()}`, JSON.stringify({ name: formData.name, phone: formData.phone })); } catch(e) {}
                     // Remember this device accepted the current buyer terms (pre-ticks next time)
                     try { localStorage.setItem('yebo_buyer_terms', TERMS_VERSION); } catch(e) {}
+                    try { localStorage.setItem('yebo_buyer_place', signPlace.trim()); } catch(e) {}
                     setCart([]); setShowCheckout(false); setShowConfirmation(true);
                     setSubmittingOrder(false); setDiscountApplied(null); setDiscountCode(''); setDiscountError('');
                 } catch (err) { setSubmittingOrder(false); window.toast('An error occurred. Please try again.'); }
@@ -1034,11 +1091,17 @@
                                             <span className="text-sm font-semibold text-gray-900">Total</span>
                                             <span className="text-lg font-bold text-gray-900">{formatCurrency(finalTotal)}</span>
                                         </div>
+                                        <div className="mb-3">
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">Place of signing</label>
+                                            <input type="text" value={signPlace} onChange={e => setSignPlace(e.target.value)} placeholder="e.g. Maseru"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500" />
+                                            <p className="text-[11px] text-gray-400 mt-1">Your name above (<b>{formData.name || 'your name'}</b>) is used as your electronic signature.</p>
+                                        </div>
                                         <label className="flex items-start gap-2.5 mb-3 cursor-pointer select-none">
                                             <input type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-0.5 w-4 h-4 accent-brand-500 flex-shrink-0" />
-                                            <span className="text-xs text-gray-600 leading-snug">By placing this order I agree to pay {seller.business_name || 'the seller'} in full for the goods and any delivery fee, and I accept the <a href="/terms/" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">YeboSell buyer terms</a>.</span>
+                                            <span className="text-xs text-gray-600 leading-snug">I confirm my name above is my electronic signature. By placing this order I agree to pay {seller.business_name || 'the seller'} in full for the goods and any delivery fee, and I accept the <a href="/terms/" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">YeboSell buyer terms</a>.</span>
                                         </label>
-                                        <button type="submit" disabled={submittingOrder || !acceptedTerms} className={`w-full font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${(submittingOrder || !acceptedTerms) ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}>
+                                        <button type="submit" disabled={submittingOrder || !acceptedTerms || !signPlace.trim()} className={`w-full font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 ${(submittingOrder || !acceptedTerms || !signPlace.trim()) ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 text-white'}`}>
                                             {submittingOrder ? (<><svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="text-white">Placing Order...</span></>) : 'Place Order'}
                                         </button>
                                     </div>
@@ -1110,6 +1173,16 @@
                                         <WhatsAppIcon size={18} />
                                         Message {orderData.seller_name} on WhatsApp
                                     </a>
+                                    {/* Signed order agreement PDF */}
+                                    <button onClick={() => downloadBuyerAgreementPdf({
+                                        name: orderData.signed_name, place: orderData.signed_place, signedAt: orderData.signed_at,
+                                        version: orderData.terms_version, orderNumber: orderData.order_number,
+                                        sellerName: orderData.seller_name, total: orderData.total, items: orderData.items
+                                    })}
+                                        className="flex items-center justify-center gap-2 w-full border border-brand-500 text-brand-700 hover:bg-brand-50 font-semibold py-2.5 rounded-xl transition">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        Download signed agreement (PDF)
+                                    </button>
                                     {/* Tracking link */}
                                     {orderData.track_url && (
                                         <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
