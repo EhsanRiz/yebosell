@@ -35,6 +35,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
+        env:
+          # Exercise the buyer checkout-signing flow against a real store with a
+          # no-variant, in-stock product. The test never submits an order.
+          TEST_CHECKOUT_STORE: test-store
+          TEST_CHECKOUT_PRODUCT: Classic White T-Shirt
         run: npm test
 
       - name: Upload report

@@ -13,6 +13,9 @@ const STORE = process.env.TEST_STORE_SLUG || 'naledi-boutique';
 // "this is a demo" banner). To exercise the checkout signing UI, point this at a REAL
 // (non-demo) store slug that has an in-stock product. Unset -> the checkout test skips.
 const CHECKOUT_STORE = process.env.TEST_CHECKOUT_STORE;
+// A NO-VARIANT, in-stock product in that store, so Add-to-Cart is enabled immediately
+// (variant products gate the button behind "Select a colour/size").
+const CHECKOUT_PRODUCT = process.env.TEST_CHECKOUT_PRODUCT || 'Classic White T-Shirt';
 
 // Navigate without waiting on the (possibly blocked) CDN scripts, then wait for React to
 // actually load. Returns true if the page's React runtime is available.
@@ -54,12 +57,14 @@ test('checkout shows place-of-signing and a gated Place Order button', async ({ 
   const ready = await open(page, `/shop/?s=${CHECKOUT_STORE}`);
   test.skip(!ready, 'React/CDN unavailable in this environment');
 
-  // Open the first product (Add to Cart lives inside the product detail modal).
+  // Open the specific no-variant product (Add to Cart lives inside the product modal).
   await page.getByRole('heading', { level: 1 }).first().waitFor({ timeout: 15000 });
-  await page.locator('[class*="cursor-pointer"], .product-card, img').first().click().catch(() => {});
-  await page.getByRole('button', { name: /Add to Cart/i }).first().click({ timeout: 10000 });
+  await page.getByText(CHECKOUT_PRODUCT, { exact: false }).first().click({ timeout: 15000 });
+  await page.getByRole('button', { name: /Add to Cart/i }).click({ timeout: 10000 });
 
-  // Cart drawer -> Proceed to Checkout.
+  // Close the product modal, open the cart (floating button has a .badge-cart), checkout.
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.locator('button:has(.badge-cart)').first().click({ timeout: 10000 });
   await page.getByText('Proceed to Checkout').click({ timeout: 10000 });
 
   // The buyer signing field and gated submit must be present.
