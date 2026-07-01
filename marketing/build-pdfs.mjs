@@ -22,6 +22,7 @@ function findChromium() {
 const pages = [
   { html: 'yebosell-onepager.html', pdf: 'YeboSell-One-Pager.pdf' },
   { html: 'seller-onboarding.html', pdf: 'YeboSell-Seller-Onboarding.pdf' },
+  { html: 'seller-training-guide.html', pdf: 'YeboSell-Seller-Training-Guide.pdf' },
 ];
 
 const browser = await chromium.launch({ executablePath: findChromium() });

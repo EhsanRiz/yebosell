@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>YeboSell — Seller Training Guide</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --green:#15803d; --green-dark:#166534; --green-50:#f0fdf4; --gold:#D4A017; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; }
+  html,body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; min-height: 297mm; padding: 16mm 15mm; display: flex; flex-direction: column; page-break-after: always; position: relative; }
+  .page:last-child { page-break-after: auto; }
+
+  /* header strip on content pages */
+  .rhead { display:flex; align-items:center; justify-content:space-between; padding-bottom: 8px; border-bottom: 2px solid var(--green); margin-bottom: 16px; }
+  .rhead .b { display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px; }
+  .rhead .b .g{color:var(--green-dark)} .rhead .b .a{color:var(--gold)}
+  .rhead .pg { font-size: 11px; color: var(--muted); }
+  .logo-box { width: 30px; height: 30px; border-radius: 8px; background: var(--green-dark); display:flex; align-items:center; justify-content:center; }
+
+  /* cover */
+  .cover { justify-content: center; align-items: center; text-align: center; background: linear-gradient(160deg,#f0fdf4, #ffffff 60%); }
+  .cover .logo-lg { width: 88px; height: 88px; border-radius: 22px; background: var(--green-dark); display:flex; align-items:center; justify-content:center; margin-bottom: 22px; }
+  .cover h1 { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; }
+  .cover h1 .g{color:var(--green-dark)} .cover h1 .a{color:var(--gold)}
+  .cover .sub { margin-top: 6px; font-size: 15px; color: var(--muted); }
+  .cover .title { margin-top: 40px; font-size: 30px; font-weight: 800; color: var(--ink); }
+  .cover .tline { margin-top: 8px; font-size: 14px; color: var(--muted); max-width: 130mm; }
+  .cover .meta { position: absolute; bottom: 16mm; left:0; right:0; text-align:center; font-size: 12px; color: var(--muted); }
+  .cover .meta b { color: var(--green-dark); }
+
+  h2.step { font-size: 20px; font-weight: 800; color: var(--ink); display:flex; align-items:center; gap:10px; }
+  h2.step .n { width: 30px; height:30px; border-radius:50%; background:var(--green); color:#fff; font-size:15px; font-weight:800; display:flex;align-items:center;justify-content:center; flex-shrink:0; }
+  .stepwrap { margin-bottom: 20px; }
+  .do { margin: 10px 0 0 40px; }
+  .do li { font-size: 13px; margin-bottom: 5px; color: #334155; }
+  .do li b { color: var(--ink); }
+  .tip { margin: 8px 0 0 40px; font-size: 12px; color: var(--green-dark); background: var(--green-50); border-left: 3px solid var(--green); padding: 7px 10px; border-radius: 0 8px 8px 0; }
+
+  .shot { margin: 10px 0 0 40px; border: 2px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; padding: 14px; display:flex; gap: 12px; align-items:center; }
+  .shot .ic { width: 40px; height: 40px; border-radius: 9px; background:#e2e8f0; display:flex;align-items:center;justify-content:center; flex-shrink:0; color:#64748b; }
+  .shot .cap b { font-size: 12px; color:#475569; text-transform: uppercase; letter-spacing:.05em; }
+  .shot .cap p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+  .contents li { font-size: 13.5px; margin-bottom: 7px; color:#334155; display:flex; justify-content:space-between; border-bottom:1px dotted #e2e8f0; padding-bottom:6px; }
+  .contents li b { color: var(--ink); }
+  .need { margin-top: 14px; background: var(--green-50); border:1px solid #dcfce7; border-radius: 14px; padding: 14px 16px; }
+  .need .h { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--green-dark); }
+  .need ul { margin-top: 8px; margin-left: 18px; } .need li { font-size: 13px; margin-bottom: 4px; }
+
+  .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); display:flex; justify-content:space-between; }
+  .foot b { color: var(--green-dark); }
+
+  .LOGO { }
+</style>
+</head>
+<body>
+
+<!-- SVG symbol reused everywhere -->
+<svg width="0" height="0" style="position:absolute"><symbol id="yebo" viewBox="0 0 40 40">
+  <rect x="4" y="6" width="18" height="14" rx="4" fill="#25D366"/>
+  <circle cx="9" cy="13" r="1.5" fill="white"/><circle cx="13" cy="13" r="1.5" fill="white"/><circle cx="17" cy="13" r="1.5" fill="white"/>
+  <polygon points="8,20 8,25 13,20" fill="#25D366"/>
+  <rect x="18" y="16" width="18" height="14" rx="4" fill="#D4A017"/>
+  <circle cx="23" cy="23" r="1.5" fill="#166534"/><circle cx="27" cy="23" r="1.5" fill="#166534"/><circle cx="31" cy="23" r="1.5" fill="#166534"/>
+  <polygon points="32,30 32,35 27,30" fill="#D4A017"/>
+</symbol>
+<symbol id="cam" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+</svg>
+
+<!-- ============ COVER ============ -->
+<div class="page cover">
+  <div class="logo-lg"><svg width="54" height="54"><use href="#yebo"/></svg></div>
+  <h1><span class="g">Yebo</span><span class="a">Sell</span></h1>
+  <div class="sub">Sell smarter. Reach further. Grow together.</div>
+  <div class="title">Seller Training Guide</div>
+  <div class="tline">Everything you need to open your store, add products, take orders and get paid — step by step, on your phone.</div>
+  <div class="meta">yebosell.co.za &nbsp;·&nbsp; Support on WhatsApp <b>+266 5729 9369</b><br>A product of YeboSell by 4D Climate Solutions</div>
+</div>
+
+<!-- ============ CONTENTS ============ -->
+<div class="page">
+  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span><span class="g">Yebo</span><span class="a">Sell</span> Training Guide</span></div><div class="pg">Contents</div></div>
+
+  <ul class="contents">
+    <li><span><b>1.</b> &nbsp;Log in &amp; create your account</span><span>p.3</span></li>
+    <li><span><b>2.</b> &nbsp;Sign the seller agreement</span><span>p.3</span></li>
+    <li><span><b>3.</b> &nbsp;Set up your store</span><span>p.4</span></li>
+    <li><span><b>4.</b> &nbsp;Add a product</span><span>p.4</span></li>
+    <li><span><b>5.</b> &nbsp;Edit a product</span><span>p.5</span></li>
+    <li><span><b>6.</b> &nbsp;Manage stock (inventory)</span><span>p.5</span></li>
+    <li><span><b>7.</b> &nbsp;Share your store</span><span>p.6</span></li>
+    <li><span><b>8.</b> &nbsp;Receive &amp; update an order</span><span>p.6</span></li>
+    <li><span><b>9.</b> &nbsp;Message your buyer</span><span>p.7</span></li>
+    <li><span><b>10.</b> Get paid &amp; platform fees</span><span>p.7</span></li>
+    <li><span><b>11.</b> What your customer sees</span><span>p.8</span></li>
+  </ul>
+
+  <div class="need">
+    <div class="h">Before you start — what you need</div>
+    <ul>
+      <li>A smartphone with internet (this works right in your web browser — no app store needed).</li>
+      <li>Your <b>phone number</b> to receive a sign-in code by SMS.</li>
+      <li>A few clear <b>product photos</b> and your prices.</li>
+      <li>Your <b>bank details</b> if you want buyers to pay by EFT.</li>
+    </ul>
+  </div>
+
+  <div class="foot"><span>YeboSell Seller Training Guide</span><span>Support: <b>+266 5729 9369</b></span></div>
+</div>
+
+<!-- ============ STEPS 1-2 ============ -->
+<div class="page">
+  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Getting started</span></div><div class="pg">Page 3</div></div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">1</span> Log in &amp; create your account</h2>
+    <ol class="do">
+      <li>Open <b>yebosell.co.za</b> and tap <b>Seller Login</b> (top-right menu on your phone).</li>
+      <li>Enter your <b>phone number</b> and tap continue. We send you a <b>code by SMS</b>.</li>
+      <li>Type the code, then <b>choose a 4-digit PIN</b>. The PIN unlocks the app quickly next time — no SMS needed.</li>
+      <li>Forgot your PIN later? Tap <b>“Forgot PIN”</b> and we'll text you a new code.</li>
+    </ol>
+    <div class="tip">Tip: your phone number is your login. Use the same number every time.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 1</b><p>The Seller Login screen with the phone-number field and “Send code” button.</p></div></div>
+  </div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">2</span> Sign the seller agreement</h2>
+    <ol class="do">
+      <li>The first time you log in, the <b>Seller Agreement</b> appears. It explains the 5% platform fee and that YeboSell never holds your money — buyers pay you directly.</li>
+      <li>Type your <b>full name</b> and your <b>place of signing</b> (e.g. Maseru), tick the box, and tap <b>Sign &amp; Continue</b>.</li>
+      <li>A <b>signed PDF</b> downloads to your phone automatically. You can re-download it any time from <b>Settings</b>.</li>
+    </ol>
+    <div class="tip">Tip: typing your name is your electronic signature — it's a real agreement, so read it once.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 2</b><p>The Seller Agreement pop-up showing the name + place fields and the “Sign &amp; Continue” button.</p></div></div>
+  </div>
+
+  <div class="foot"><span>YeboSell Seller Training Guide</span><span>Support: <b>+266 5729 9369</b></span></div>
+</div>
+
+<!-- ============ STEPS 3-4 ============ -->
+<div class="page">
+  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Set up &amp; add products</span></div><div class="pg">Page 4</div></div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">3</span> Set up your store</h2>
+    <ol class="do">
+      <li>Go to <b>Settings</b>. Add your <b>business name</b>, a short description, and your <b>logo</b>.</li>
+      <li>Add your <b>pickup address</b> (if buyers can collect) and your <b>delivery fee</b> if you deliver.</li>
+      <li>Under <b>bank details</b>, add the account(s) buyers should pay into by EFT — you can add more than one.</li>
+      <li>Tap <b>Save</b>.</li>
+    </ol>
+    <div class="tip">Tip: a logo and a clear store name make buyers trust you faster.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 3</b><p>The Settings screen showing Profile &amp; Store and the bank-details section.</p></div></div>
+  </div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">4</span> Add a product</h2>
+    <ol class="do">
+      <li>Open <b>Products</b> and tap <b>Add Product</b>.</li>
+      <li>Enter the <b>name</b>, <b>price</b> and <b>stock</b>, and add a clear <b>photo</b>.</li>
+      <li>Need sizes or colours? Add <b>variants</b> — each with its own stock.</li>
+      <li>Set a <b>prep time</b> (days to get ready) so buyers see a delivery estimate. Tap <b>Save</b>.</li>
+    </ol>
+    <div class="tip">Tip: bright, well-lit photos on a plain background sell best.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 4</b><p>The Add Product pop-up with name, price, photo, stock and variant fields.</p></div></div>
+  </div>
+
+  <div class="foot"><span>YeboSell Seller Training Guide</span><span>Support: <b>+266 5729 9369</b></span></div>
+</div>
+
+<!-- ============ STEPS 5-6 ============ -->
+<div class="page">
+  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Edit products &amp; stock</span></div><div class="pg">Page 5</div></div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">5</span> Edit a product</h2>
+    <ol class="do">
+      <li>In <b>Products</b>, tap the product you want to change — its details pop up.</li>
+      <li>Tap <b>Edit</b>, change the price, photo, description or stock, and tap <b>Save</b>.</li>
+      <li>To hide a product without deleting it, switch it to <b>inactive</b>. To remove it for good, tap <b>Delete</b>.</li>
+    </ol>
+    <div class="tip">Tip: keep prices current — buyers pay the price shown at checkout.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 5</b><p>A product's pop-up card with the <b>Edit</b> button visible.</p></div></div>
+  </div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">6</span> Manage stock (inventory)</h2>
+    <ol class="do">
+      <li>Open <b>Inventory</b> to see every product's stock at a glance.</li>
+      <li>Low-stock items are flagged so you can restock before you sell out.</li>
+      <li>Update a count directly, or edit the product. Stock <b>drops automatically</b> when a buyer orders.</li>
+    </ol>
+    <div class="tip">Tip: accurate stock avoids selling something you don't have.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 6</b><p>The Inventory screen with stock counts and a low-stock flag.</p></div></div>
+  </div>
+
+  <div class="foot"><span>YeboSell Seller Training Guide</span><span>Support: <b>+266 5729 9369</b></span></div>
+</div>
+
+<!-- ============ STEPS 7-8 ============ -->
+<div class="page">
+  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Sell &amp; manage orders</span></div><div class="pg">Page 6</div></div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">7</span> Share your store</h2>
+    <ol class="do">
+      <li>Tap <b>Visit</b> (or copy your store link) to open your storefront.</li>
+      <li>Share that link on <b>WhatsApp status, Facebook and Instagram</b>, or send it to a customer directly.</li>
+      <li>Anyone who opens the link can browse your products and place an order — no app needed.</li>
+    </ol>
+    <div class="tip">Tip: pin your store link to your WhatsApp “About” and social bios.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 7</b><p>Your live storefront with product cards and the store name at the top.</p></div></div>
+  </div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">8</span> Receive &amp; update an order</h2>
+    <ol class="do">
+      <li>When a buyer orders, you get a <b>notification</b> (turn on alerts when asked). Open <b>Orders</b>.</li>
+      <li>Tap the order to see items, the customer and delivery details.</li>
+      <li>Move it along the stages: <b>New → Confirmed → Preparing → Ready / Out for delivery → Delivered</b>.</li>
+      <li>If you need more time, update the delivery timeline — the buyer is told automatically (a reason is required).</li>
+    </ol>
+    <div class="tip">Tip: confirm new orders quickly — buyers love a fast first response.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 8</b><p>An open order showing the status steps and the update controls.</p></div></div>
+  </div>
+
+  <div class="foot"><span>YeboSell Seller Training Guide</span><span>Support: <b>+266 5729 9369</b></span></div>
+</div>
+
+<!-- ============ STEPS 9-10 ============ -->
+<div class="page">
+  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Talk to buyers &amp; get paid</span></div><div class="pg">Page 7</div></div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">9</span> Message your buyer</h2>
+    <ol class="do">
+      <li>Inside an order, use the <b>chat</b> to message the buyer — they see it on their tracking page and by notification.</li>
+      <li>Prefer WhatsApp? Tap <b>Message on WhatsApp</b> to open a chat with a ready-made note from your own number.</li>
+      <li>Buyers can reply, send a payment proof, or ask questions — it all stays on the order.</li>
+    </ol>
+    <div class="tip">Tip: keep it friendly and clear — good service brings repeat orders.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 9</b><p>The order chat thread with the “Message on WhatsApp” button.</p></div></div>
+  </div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">10</span> Get paid &amp; platform fees</h2>
+    <ol class="do">
+      <li>Buyers pay <b>you</b> directly — by EFT to your bank details, or cash on collection/delivery.</li>
+      <li>Once paid, mark the order <b>Paid</b>. The buyer follows everything on their tracking link.</li>
+      <li>YeboSell charges a <b>5% platform fee</b> per paid order (goods only). Your balance shows on the <b>YeboSell Account</b> card on your Dashboard; settle it when asked.</li>
+    </ol>
+    <div class="tip">Tip: YeboSell never touches your money — the fee is billed separately, not deducted from sales.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 10</b><p>The Dashboard “YeboSell Account” card showing the fee balance.</p></div></div>
+  </div>
+
+  <div class="foot"><span>YeboSell Seller Training Guide</span><span>Support: <b>+266 5729 9369</b></span></div>
+</div>
+
+<!-- ============ STEP 11 + HELP ============ -->
+<div class="page">
+  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>The buyer's side &amp; help</span></div><div class="pg">Page 8</div></div>
+
+  <div class="stepwrap">
+    <h2 class="step"><span class="n">11</span> What your customer sees</h2>
+    <ol class="do">
+      <li>Your customer opens your <b>store link</b>, adds items to a cart and checks out — entering their name, phone and delivery choice.</li>
+      <li>They agree to the buyer terms and place the order. They get a <b>tracking link</b> they can save to their phone.</li>
+      <li>From that link they follow the order status, chat with you, see your bank details, and can cancel before you dispatch.</li>
+    </ol>
+    <div class="tip">Tip: encourage buyers to “Add to Home Screen” so they get order updates.</div>
+    <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot 11</b><p>The buyer's order-tracking page with the status timeline.</p></div></div>
+  </div>
+
+  <div class="need">
+    <div class="h">Need help during the test?</div>
+    <ul>
+      <li>Chat with YeboSell on WhatsApp: <b>+266 5729 9369</b> — we're here to help you make your first sale.</li>
+      <li>Read the full terms any time at <b>yebosell.co.za/terms</b>.</li>
+      <li>Tell us what's confusing or missing — your feedback shapes the app.</li>
+    </ul>
+  </div>
+
+  <div class="foot"><span>Thank you for helping us build YeboSell.</span><span>A product of YeboSell by 4D Climate Solutions</span></div>
+</div>
+
+</body>
+</html>
