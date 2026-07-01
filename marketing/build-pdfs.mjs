@@ -30,7 +30,7 @@ const page = await browser.newPage();
 for (const { html, pdf } of pages) {
   await page.goto('file://' + path.join(dir, html), { waitUntil: 'load' });
   await page.pdf({ path: path.join(dir, pdf), format: 'A4', printBackground: true,
-                   margin: { top: '0', bottom: '0', left: '0', right: '0' } });
+                   preferCSSPageSize: true });
   console.log('wrote', pdf);
 }
 await browser.close();

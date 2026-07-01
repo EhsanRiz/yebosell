@@ -4,59 +4,52 @@
 <meta charset="UTF-8">
 <title>YeboSell — Seller Training Guide</title>
 <style>
-  @page { size: A4; margin: 0; }
+  @page { size: A4; margin: 13mm 15mm; }
+  @page cover { margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root { --green:#15803d; --green-dark:#166534; --green-50:#f0fdf4; --gold:#D4A017; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; }
   html,body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  /* full-page sheets (cover, contents) */
-  .sheet { width: 210mm; height: 297mm; padding: 16mm 15mm; display: flex; flex-direction: column; page-break-after: always; position: relative; }
+  /* COVER — full bleed via named page with 0 margin */
+  .cover { page: cover; width: 210mm; height: 297mm; padding: 16mm; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; background: linear-gradient(160deg,#f0fdf4,#ffffff 60%); position:relative; page-break-after: always; }
+  .cover .logo-lg { width: 88px; height: 88px; border-radius: 22px; background: var(--green-dark); display:flex; align-items:center; justify-content:center; margin-bottom: 22px; }
+  .cover h1 { font-size: 40px; font-weight: 800; letter-spacing:-0.02em; }
+  .cover h1 .g{color:var(--green-dark)} .cover h1 .a{color:var(--gold)}
+  .cover .sub { margin-top:6px; font-size:15px; color:var(--muted); }
+  .cover .title { margin-top:40px; font-size:30px; font-weight:800; }
+  .cover .tline { margin-top:8px; font-size:14px; color:var(--muted); max-width:130mm; }
+  .cover .meta { position:absolute; bottom:16mm; left:0; right:0; font-size:12px; color:var(--muted); }
+  .cover .meta b { color:var(--green-dark); }
 
-  /* flowing step pages */
-  .step-block { padding: 15mm 15mm 12mm; page-break-before: always; }
-
-  .rhead { display:flex; align-items:center; justify-content:space-between; padding-bottom: 8px; border-bottom: 2px solid var(--green); margin-bottom: 14px; }
+  /* CONTENTS */
+  .contents-page { page-break-after: always; }
+  .rhead { display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; border-bottom:2px solid var(--green); margin-bottom:14px; }
   .rhead .b { display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px; }
   .rhead .b .g{color:var(--green-dark)} .rhead .b .a{color:var(--gold)}
-  .rhead .pg { font-size: 11px; color: var(--muted); }
-  .logo-box { width: 30px; height: 30px; border-radius: 8px; background: var(--green-dark); display:flex; align-items:center; justify-content:center; }
-
-  /* cover */
-  .cover { justify-content: center; align-items: center; text-align: center; background: linear-gradient(160deg,#f0fdf4, #ffffff 60%); }
-  .cover .logo-lg { width: 88px; height: 88px; border-radius: 22px; background: var(--green-dark); display:flex; align-items:center; justify-content:center; margin-bottom: 22px; }
-  .cover h1 { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; }
-  .cover h1 .g{color:var(--green-dark)} .cover h1 .a{color:var(--gold)}
-  .cover .sub { margin-top: 6px; font-size: 15px; color: var(--muted); }
-  .cover .title { margin-top: 40px; font-size: 30px; font-weight: 800; color: var(--ink); }
-  .cover .tline { margin-top: 8px; font-size: 14px; color: var(--muted); max-width: 130mm; }
-  .cover .meta { position: absolute; bottom: 16mm; left:0; right:0; text-align:center; font-size: 12px; color: var(--muted); }
-  .cover .meta b { color: var(--green-dark); }
-
-  h2.step { font-size: 20px; font-weight: 800; color: var(--ink); display:flex; align-items:center; gap:10px; }
-  h2.step .n { width: 30px; height:30px; border-radius:50%; background:var(--green); color:#fff; font-size:15px; font-weight:800; display:flex;align-items:center;justify-content:center; flex-shrink:0; }
-  .do { margin: 10px 0 0 40px; }
-  .do li { font-size: 13px; margin-bottom: 5px; color: #334155; }
-  .do li b { color: var(--ink); }
-  .tip { margin: 8px 0 0 40px; font-size: 12px; color: var(--green-dark); background: var(--green-50); border-left: 3px solid var(--green); padding: 7px 10px; border-radius: 0 8px 8px 0; }
-
-  .gallery { display:flex; flex-wrap:wrap; gap: 6mm; margin: 14px 0 0 40px; }
-  .gallery figure { text-align:center; }
-  .gallery img { height: 92mm; width: auto; border:1px solid var(--line); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.09); background:#fff; display:block; }
-  .gallery figcaption { font-size: 10px; color: var(--muted); margin-top: 4px; }
-
-  .shot { margin: 12px 0 0 40px; border: 2px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; padding: 14px; display:flex; gap: 12px; align-items:center; }
-  .shot .ic { width: 40px; height: 40px; border-radius: 9px; background:#e2e8f0; display:flex;align-items:center;justify-content:center; flex-shrink:0; color:#64748b; }
-  .shot .cap b { font-size: 12px; color:#475569; text-transform: uppercase; letter-spacing:.05em; }
-  .shot .cap p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-
-  .contents li { font-size: 13.5px; margin-bottom: 7px; color:#334155; border-bottom:1px dotted #e2e8f0; padding-bottom:6px; }
-  .contents li b { color: var(--ink); }
-  .need { margin-top: 16px; background: var(--green-50); border:1px solid #dcfce7; border-radius: 14px; padding: 14px 16px; }
+  .rhead .pg { font-size:11px; color:var(--muted); }
+  .logo-box { width:30px; height:30px; border-radius:8px; background:var(--green-dark); display:flex; align-items:center; justify-content:center; }
+  .contents { column-count: 2; column-gap: 14mm; }
+  .contents li { font-size:13px; margin-bottom:7px; color:#334155; list-style:none; break-inside:avoid; }
+  .contents li b { color:var(--ink); }
+  .need { margin-top:14px; background:var(--green-50); border:1px solid #dcfce7; border-radius:14px; padding:14px 16px; break-inside:avoid; }
   .need .h { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--green-dark); }
-  .need ul { margin-top: 8px; margin-left: 18px; } .need li { font-size: 13px; margin-bottom: 4px; }
+  .need ul { margin-top:8px; margin-left:18px; } .need li { font-size:13px; margin-bottom:4px; }
 
-  .foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); display:flex; justify-content:space-between; }
-  .foot b { color: var(--green-dark); }
+  /* STEPS — flow continuously and fill each page; galleries may span a page break,
+     but individual screenshots never split, and a heading never separates from its steps. */
+  .step-block { margin-bottom: 8mm; }
+  .step-block + .step-block { border-top:1px solid var(--line); padding-top: 7mm; }
+  h2.step { font-size:19px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:10px; break-after: avoid; }
+  .do, .tip { break-inside: avoid; }
+  .gallery img { break-inside: avoid; }
+  h2.step .n { width:29px; height:29px; border-radius:50%; background:var(--green); color:#fff; font-size:14px; font-weight:800; display:flex;align-items:center;justify-content:center; flex-shrink:0; }
+  .do { margin: 9px 0 0 39px; }
+  .do li { font-size:12.5px; margin-bottom:4px; color:#334155; }
+  .do li b { color:var(--ink); }
+  .tip { margin:8px 0 0 39px; font-size:11.5px; color:var(--green-dark); background:var(--green-50); border-left:3px solid var(--green); padding:6px 10px; border-radius:0 8px 8px 0; }
+
+  .gallery { display:flex; flex-wrap:wrap; gap:5mm; margin:11px 0 0 39px; }
+  .gallery img { height: 86mm; width:auto; border:1px solid var(--line); border-radius:9px; box-shadow:0 2px 7px rgba(0,0,0,0.09); background:#fff; display:block; }
 </style>
 </head>
 <body>
@@ -68,12 +61,10 @@
   <rect x="18" y="16" width="18" height="14" rx="4" fill="#D4A017"/>
   <circle cx="23" cy="23" r="1.5" fill="#166534"/><circle cx="27" cy="23" r="1.5" fill="#166534"/><circle cx="31" cy="23" r="1.5" fill="#166534"/>
   <polygon points="32,30 32,35 27,30" fill="#D4A017"/>
-</symbol>
-<symbol id="cam" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
-</svg>
+</symbol></svg>
 
-<!-- ============ COVER ============ -->
-<div class="sheet cover">
+<!-- COVER -->
+<div class="cover">
   <div class="logo-lg"><svg width="54" height="54"><use href="#yebo"/></svg></div>
   <h1><span class="g">Yebo</span><span class="a">Sell</span></h1>
   <div class="sub">Sell smarter. Reach further. Grow together.</div>
@@ -82,10 +73,9 @@
   <div class="meta">yebosell.co.za &nbsp;·&nbsp; Support on WhatsApp <b>+266 5729 9369</b><br>A product of YeboSell by 4D Climate Solutions</div>
 </div>
 
-<!-- ============ CONTENTS ============ -->
-<div class="sheet">
+<!-- CONTENTS -->
+<div class="contents-page">
   <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span><span class="g">Yebo</span><span class="a">Sell</span> Training Guide</span></div><div class="pg">Contents</div></div>
-
   <ul class="contents">
     <li><b>1.</b> &nbsp;Log in &amp; create your account</li>
     <li><b>2.</b> &nbsp;Sign the seller agreement</li>
@@ -96,10 +86,10 @@
     <li><b>7.</b> &nbsp;Share your store</li>
     <li><b>8.</b> &nbsp;Receive &amp; update an order</li>
     <li><b>9.</b> &nbsp;Message your buyer</li>
-    <li><b>10.</b> Get paid &amp; platform fees</li>
-    <li><b>11.</b> What your customer sees</li>
+    <li><b>10.</b> Use message templates</li>
+    <li><b>11.</b> Get paid &amp; platform fees</li>
+    <li><b>12.</b> What your customer sees</li>
   </ul>
-
   <div class="need">
     <div class="h">Before you start — what you need</div>
     <ul>
@@ -109,13 +99,10 @@
       <li>Your <b>bank details</b> if you want buyers to pay by EFT.</li>
     </ul>
   </div>
-
-  <div class="foot"><span>YeboSell Seller Training Guide</span><span>Support: <b>+266 5729 9369</b></span></div>
 </div>
 
-<!-- ============ STEP 1 ============ -->
+<!-- STEP 1 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Getting started</span></div><div class="pg">Step 1</div></div>
   <h2 class="step"><span class="n">1</span> Log in &amp; create your account</h2>
   <ol class="do">
     <li>Open <b>yebosell.co.za</b> and tap the menu, then <b>Seller Login</b>.</li>
@@ -125,17 +112,16 @@
   </ol>
   <div class="tip">Tip: your phone number is your login. Use the same number every time.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%201.jpg" alt="Landing page"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%201B.jpg" alt="Menu with Seller Login"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%201C.jpg" alt="Enter phone number"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%201D.jpg" alt="Enter SMS code"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%201E.jpg" alt="Set a PIN"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%201.jpg" alt="Landing page">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%201B.jpg" alt="Menu with Seller Login">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%201C.jpg" alt="PIN sign-in">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%201D.jpg" alt="Enter phone number">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%201E.jpg" alt="Enter SMS code">
   </div>
 </div>
 
-<!-- ============ STEP 2 ============ -->
+<!-- STEP 2 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Getting started</span></div><div class="pg">Step 2</div></div>
   <h2 class="step"><span class="n">2</span> Sign the seller agreement</h2>
   <ol class="do">
     <li>The first time you log in, the <b>Seller Agreement</b> appears. It explains the 5% platform fee and that YeboSell never holds your money — buyers pay you directly.</li>
@@ -144,14 +130,13 @@
   </ol>
   <div class="tip">Tip: typing your name is your electronic signature — it's a real agreement, so read it once.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%202.jpg" alt="Seller agreement"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%202B.jpg" alt="Sign and continue"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%202.jpg" alt="Seller agreement">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%202B.jpg" alt="Sign and continue">
   </div>
 </div>
 
-<!-- ============ STEP 3 ============ -->
+<!-- STEP 3 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Set up your store</span></div><div class="pg">Step 3</div></div>
   <h2 class="step"><span class="n">3</span> Set up your store</h2>
   <ol class="do">
     <li>Go to <b>Settings</b>. Add your <b>business name</b>, a short description, and your <b>logo</b>.</li>
@@ -161,16 +146,15 @@
   </ol>
   <div class="tip">Tip: a logo and a clear store name make buyers trust you faster.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%203A.jpg" alt="Profile and store"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%203B.jpg" alt="Store details"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%203C.jpg" alt="Bank details"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%203D.jpg" alt="Save settings"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%203A.jpg" alt="Profile and store">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%203B.jpg" alt="Store details">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%203C.jpg" alt="Bank details">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%203D.jpg" alt="Save settings">
   </div>
 </div>
 
-<!-- ============ STEP 4 ============ -->
+<!-- STEP 4 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Add products</span></div><div class="pg">Step 4</div></div>
   <h2 class="step"><span class="n">4</span> Add a product</h2>
   <ol class="do">
     <li>Open <b>Products</b> and tap <b>Add Product</b>.</li>
@@ -180,14 +164,13 @@
   </ol>
   <div class="tip">Tip: bright, well-lit photos on a plain background sell best.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%204A.jpg" alt="Add product form"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%204B.jpg" alt="Product variants"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%204A.jpg" alt="Add product form">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%204B.jpg" alt="Product variants">
   </div>
 </div>
 
-<!-- ============ STEP 5 ============ -->
+<!-- STEP 5 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Edit products</span></div><div class="pg">Step 5</div></div>
   <h2 class="step"><span class="n">5</span> Edit a product</h2>
   <ol class="do">
     <li>In <b>Products</b>, tap the product you want to change — its details pop up.</li>
@@ -196,13 +179,12 @@
   </ol>
   <div class="tip">Tip: keep prices current — buyers pay the price shown at checkout.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%205A.jpg" alt="Edit a product"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%205A.jpg" alt="Edit a product">
   </div>
 </div>
 
-<!-- ============ STEP 6 ============ -->
+<!-- STEP 6 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Inventory</span></div><div class="pg">Step 6</div></div>
   <h2 class="step"><span class="n">6</span> Manage stock (inventory)</h2>
   <ol class="do">
     <li>Open <b>Inventory</b> to see every product's stock at a glance.</li>
@@ -211,13 +193,12 @@
   </ol>
   <div class="tip">Tip: accurate stock avoids selling something you don't have.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%206A.jpg" alt="Inventory"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%206A.jpg" alt="Inventory">
   </div>
 </div>
 
-<!-- ============ STEP 7 ============ -->
+<!-- STEP 7 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Share &amp; sell</span></div><div class="pg">Step 7</div></div>
   <h2 class="step"><span class="n">7</span> Share your store</h2>
   <ol class="do">
     <li>Tap <b>Visit</b> (or copy your store link) to open your storefront.</li>
@@ -226,67 +207,79 @@
   </ol>
   <div class="tip">Tip: pin your store link to your WhatsApp “About” and social bios.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%207A.jpg" alt="Your storefront"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%207B.jpg" alt="Storefront products"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%207A.jpg" alt="Your storefront">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%207B.jpg" alt="Storefront products">
   </div>
 </div>
 
-<!-- ============ STEP 8 ============ -->
+<!-- STEP 8 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Manage orders</span></div><div class="pg">Step 8</div></div>
   <h2 class="step"><span class="n">8</span> Receive &amp; update an order</h2>
   <ol class="do">
     <li>When a buyer orders, you get a <b>notification</b> (turn on alerts when asked). Open <b>Orders</b>.</li>
     <li>Tap the order to see items, the customer and delivery details.</li>
     <li>Move it along the stages: <b>New → Confirmed → Preparing → Ready / Out for delivery → Delivered</b>.</li>
-    <li>If you need more time, update the delivery timeline — the buyer is told automatically (a reason is required).</li>
+    <li>Need more time? Update the delivery timeline — the buyer is told automatically (a reason is required).</li>
   </ol>
   <div class="tip">Tip: confirm new orders quickly — buyers love a fast first response.</div>
   <div class="gallery">
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%208A.jpg" alt="Orders list"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%208B.jpg" alt="Order detail"></figure>
-    <figure><img src="../screesnshots/seller-guide/SCREENSHOT%208C.jpg" alt="Update order status"></figure>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%208A.jpg" alt="Orders list">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%208B.jpg" alt="Order detail">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%208C.jpg" alt="Update order status">
   </div>
 </div>
 
-<!-- ============ STEP 9 ============ -->
+<!-- STEP 9 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Talk to buyers</span></div><div class="pg">Step 9</div></div>
   <h2 class="step"><span class="n">9</span> Message your buyer</h2>
   <ol class="do">
     <li>Inside an order, use the <b>chat</b> to message the buyer — they see it on their tracking page and by notification.</li>
-    <li>Prefer WhatsApp? Tap <b>Message on WhatsApp</b> to open a chat with a ready-made note from your own number.</li>
+    <li>If the buyer hasn't turned on alerts, tap <b>Notify</b> to send a quick WhatsApp nudge from your own number.</li>
     <li>Buyers can reply, send a payment proof, or ask questions — it all stays on the order.</li>
   </ol>
   <div class="tip">Tip: keep it friendly and clear — good service brings repeat orders.</div>
-  <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot to add</b><p>The order chat thread with the “Message on WhatsApp” button.</p></div></div>
+  <div class="gallery">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%209A.jpg" alt="Order conversation">
+  </div>
 </div>
 
-<!-- ============ STEP 10 ============ -->
+<!-- STEP 10 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>Get paid</span></div><div class="pg">Step 10</div></div>
-  <h2 class="step"><span class="n">10</span> Get paid &amp; platform fees</h2>
+  <h2 class="step"><span class="n">10</span> Use message templates</h2>
+  <ol class="do">
+    <li>Open the <b>Templates</b> tab for ready-made messages — order confirmations, payment reminders and more.</li>
+    <li>Each template comes in <b>English and Sesotho</b>. Tap <b>Copy</b> to copy it, or <b>WhatsApp</b> to send it from your own number.</li>
+    <li>Templates save you typing and keep your messages clear and professional.</li>
+  </ol>
+  <div class="tip">Tip: a quick “order confirmed” message reassures buyers you're on it.</div>
+  <div class="gallery">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%2012.jpg" alt="Message templates">
+  </div>
+</div>
+
+<!-- STEP 11 -->
+<div class="step-block">
+  <h2 class="step"><span class="n">11</span> Get paid &amp; platform fees</h2>
   <ol class="do">
     <li>Buyers pay <b>you</b> directly — by EFT to your bank details, or cash on collection/delivery.</li>
-    <li>Once paid, mark the order <b>Paid</b>. The buyer follows everything on their tracking link.</li>
-    <li>YeboSell charges a <b>5% platform fee</b> per paid order (goods only). Your balance shows on the <b>YeboSell Account</b> card on your Dashboard; settle it when asked.</li>
+    <li>Once you've received the money, open the order and tap <b>Confirm payment</b> (mark it Paid). The buyer follows everything on their tracking link.</li>
+    <li>You can attach a <b>receipt or invoice</b> under Order Documents. YeboSell charges a <b>5% platform fee</b> per paid order (goods only) — your balance shows on the <b>YeboSell Account</b> card on your Dashboard.</li>
   </ol>
   <div class="tip">Tip: YeboSell never touches your money — the fee is billed separately, not deducted from sales.</div>
-  <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot to add</b><p>The Dashboard “YeboSell Account” card showing the fee balance.</p></div></div>
+  <div class="gallery">
+    <img src="../screesnshots/seller-guide/SCREENSHOT%2010.jpg" alt="Confirm payment on an order">
+  </div>
 </div>
 
-<!-- ============ STEP 11 + HELP ============ -->
+<!-- STEP 12 -->
 <div class="step-block">
-  <div class="rhead"><div class="b"><span class="logo-box"><svg width="18" height="18"><use href="#yebo"/></svg></span><span>The buyer's side &amp; help</span></div><div class="pg">Step 11</div></div>
-  <h2 class="step"><span class="n">11</span> What your customer sees</h2>
+  <h2 class="step"><span class="n">12</span> What your customer sees</h2>
   <ol class="do">
     <li>Your customer opens your <b>store link</b>, adds items to a cart and checks out — entering their name, phone and delivery choice.</li>
-    <li>They agree to the buyer terms and place the order. They get a <b>tracking link</b> they can save to their phone.</li>
+    <li>They agree to the buyer terms and place the order, then get a <b>tracking link</b> they can save to their phone.</li>
     <li>From that link they follow the order status, chat with you, see your bank details, and can cancel before you dispatch.</li>
   </ol>
   <div class="tip">Tip: encourage buyers to “Add to Home Screen” so they get order updates.</div>
-  <div class="shot"><div class="ic"><svg width="22" height="22"><use href="#cam"/></svg></div><div class="cap"><b>Screenshot to add</b><p>The buyer's order-tracking page with the status timeline.</p></div></div>
-
   <div class="need">
     <div class="h">Need help during the test?</div>
     <ul>
