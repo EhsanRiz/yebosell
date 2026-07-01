@@ -4,14 +4,13 @@
 <meta charset="UTF-8">
 <title>YeboSell — Seller Training Guide</title>
 <style>
-  @page { size: A4; margin: 13mm 15mm; }
-  @page cover { margin: 0; }
+  @page { size: A4; }               /* page.pdf supplies margins + header/footer */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root { --green:#15803d; --green-dark:#166534; --green-50:#f0fdf4; --gold:#D4A017; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; }
   html,body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  /* COVER — full bleed via named page with 0 margin */
-  .cover { page: cover; width: 210mm; height: 297mm; padding: 16mm; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; background: linear-gradient(160deg,#f0fdf4,#ffffff 60%); position:relative; page-break-after: always; }
+  /* COVER (fills the content area between the header/footer margins) */
+  .cover { height: 261mm; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; background: linear-gradient(160deg,#f0fdf4,#ffffff 62%); border-radius: 6px; padding: 16mm; position:relative; page-break-after: always; }
   .cover .logo-lg { width: 88px; height: 88px; border-radius: 22px; background: var(--green-dark); display:flex; align-items:center; justify-content:center; margin-bottom: 22px; }
   .cover h1 { font-size: 40px; font-weight: 800; letter-spacing:-0.02em; }
   .cover h1 .g{color:var(--green-dark)} .cover h1 .a{color:var(--gold)}
@@ -29,27 +28,28 @@
   .rhead .pg { font-size:11px; color:var(--muted); }
   .logo-box { width:30px; height:30px; border-radius:8px; background:var(--green-dark); display:flex; align-items:center; justify-content:center; }
   .contents { column-count: 2; column-gap: 14mm; }
-  .contents li { font-size:13px; margin-bottom:7px; color:#334155; list-style:none; break-inside:avoid; }
+  .contents li { font-size:13px; margin-bottom:8px; color:#334155; list-style:none; break-inside:avoid; }
   .contents li b { color:var(--ink); }
-  .need { margin-top:14px; background:var(--green-50); border:1px solid #dcfce7; border-radius:14px; padding:14px 16px; break-inside:avoid; }
+  .need { margin-top:16px; background:var(--green-50); border:1px solid #dcfce7; border-radius:14px; padding:14px 16px; break-inside:avoid; }
   .need .h { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--green-dark); }
   .need ul { margin-top:8px; margin-left:18px; } .need li { font-size:13px; margin-bottom:4px; }
 
-  /* STEPS — flow continuously and fill each page; galleries may span a page break,
-     but individual screenshots never split, and a heading never separates from its steps. */
-  .step-block { margin-bottom: 8mm; }
-  .step-block + .step-block { border-top:1px solid var(--line); padding-top: 7mm; }
+  /* STEPS */
+  .step-block { break-inside: avoid; margin-bottom: 9mm; }     /* small sections stay whole -> clean starts */
+  .step-block.wide { break-inside: auto; }                     /* image-heavy sections may span pages */
+  .step-block.newpage { page-break-before: always; }           /* force a fresh page */
+  .step-block + .step-block { border-top:1px solid var(--line); padding-top: 8mm; }
+  .step-block.newpage { border-top:none; padding-top:0; }
   h2.step { font-size:19px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:10px; break-after: avoid; }
-  .do, .tip { break-inside: avoid; }
-  .gallery img { break-inside: avoid; }
   h2.step .n { width:29px; height:29px; border-radius:50%; background:var(--green); color:#fff; font-size:14px; font-weight:800; display:flex;align-items:center;justify-content:center; flex-shrink:0; }
-  .do { margin: 9px 0 0 39px; }
+  .do { margin: 9px 0 0 39px; break-inside: avoid; }
   .do li { font-size:12.5px; margin-bottom:4px; color:#334155; }
   .do li b { color:var(--ink); }
-  .tip { margin:8px 0 0 39px; font-size:11.5px; color:var(--green-dark); background:var(--green-50); border-left:3px solid var(--green); padding:6px 10px; border-radius:0 8px 8px 0; }
+  .tip { margin:8px 0 0 39px; font-size:11.5px; color:var(--green-dark); background:var(--green-50); border-left:3px solid var(--green); padding:6px 10px; border-radius:0 8px 8px 0; break-inside:avoid; }
 
-  .gallery { display:flex; flex-wrap:wrap; gap:5mm; margin:11px 0 0 39px; }
-  .gallery img { height: 86mm; width:auto; border:1px solid var(--line); border-radius:9px; box-shadow:0 2px 7px rgba(0,0,0,0.09); background:#fff; display:block; }
+  .gallery { display:flex; flex-wrap:wrap; gap:6mm; margin:12px 0 0 0; }
+  .gallery img { width: 72mm; height:auto; border:1px solid var(--line); border-radius:9px; box-shadow:0 2px 8px rgba(0,0,0,0.10); background:#fff; display:block; break-inside:avoid; }
+  .gallery img:only-child { width: 92mm; }   /* a lone screenshot is shown smaller, not stretched */
 </style>
 </head>
 <body>
@@ -101,8 +101,8 @@
   </div>
 </div>
 
-<!-- STEP 1 -->
-<div class="step-block">
+<!-- STEP 1 (image-heavy) -->
+<div class="step-block wide">
   <h2 class="step"><span class="n">1</span> Log in &amp; create your account</h2>
   <ol class="do">
     <li>Open <b>yebosell.co.za</b> and tap the menu, then <b>Seller Login</b>.</li>
@@ -135,8 +135,8 @@
   </div>
 </div>
 
-<!-- STEP 3 -->
-<div class="step-block">
+<!-- STEP 3 (image-heavy: 4 images -> 2 + 2 across two pages) -->
+<div class="step-block wide">
   <h2 class="step"><span class="n">3</span> Set up your store</h2>
   <ol class="do">
     <li>Go to <b>Settings</b>. Add your <b>business name</b>, a short description, and your <b>logo</b>.</li>
@@ -169,7 +169,7 @@
   </div>
 </div>
 
-<!-- STEP 5 -->
+<!-- STEP 5 (fresh page) -->
 <div class="step-block">
   <h2 class="step"><span class="n">5</span> Edit a product</h2>
   <ol class="do">
@@ -197,7 +197,7 @@
   </div>
 </div>
 
-<!-- STEP 7 -->
+<!-- STEP 7 (fresh page) -->
 <div class="step-block">
   <h2 class="step"><span class="n">7</span> Share your store</h2>
   <ol class="do">
@@ -212,8 +212,8 @@
   </div>
 </div>
 
-<!-- STEP 8 -->
-<div class="step-block">
+<!-- STEP 8 (image-heavy) -->
+<div class="step-block wide">
   <h2 class="step"><span class="n">8</span> Receive &amp; update an order</h2>
   <ol class="do">
     <li>When a buyer orders, you get a <b>notification</b> (turn on alerts when asked). Open <b>Orders</b>.</li>
@@ -229,7 +229,7 @@
   </div>
 </div>
 
-<!-- STEP 9 -->
+<!-- STEP 9 (fresh page) -->
 <div class="step-block">
   <h2 class="step"><span class="n">9</span> Message your buyer</h2>
   <ol class="do">
@@ -257,7 +257,7 @@
   </div>
 </div>
 
-<!-- STEP 11 -->
+<!-- STEP 11 (fresh page) -->
 <div class="step-block">
   <h2 class="step"><span class="n">11</span> Get paid &amp; platform fees</h2>
   <ol class="do">
