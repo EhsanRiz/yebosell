@@ -141,6 +141,27 @@
                 setBusy(false);
                 setMsg(data && data.ok ? 'PIN cleared. The seller can now set a new PIN via “Forgot PIN”.' : ((data && data.message) || 'Reset failed'));
             };
+            const waiveFees = async () => {
+                if (!(await window.confirmDialog({ title: 'Waive outstanding fees?', message: `Clear the entire outstanding balance (${formatCurrency(pendingFees)}) for ${seller.business_name}? This records a waiver and, if the store was paused for fees, reactivates it.`, confirmLabel: 'Waive balance' }))) return;
+                const reason = window.prompt('Reason for the waiver (optional — logged in the audit trail):', 'Pilot testing waiver');
+                if (reason === null) return;
+                setBusy(true); setMsg('');
+                const { data } = await supabase.rpc('admin_waive_seller_fees', { p_seller_id: seller.id, p_reason: reason });
+                setBusy(false);
+                if (data && data.ok) { setMsg(data.waived > 0 ? `Waived ${formatCurrency(data.waived)}.` : 'No outstanding balance to waive.'); onRefresh(); }
+                else setMsg((data && data.message) || 'Waive failed');
+            };
+            const grantFree = async () => {
+                const raw = window.prompt(`Grant free orders to ${seller.business_name} — their next N paid orders won't be charged a fee. How many?`, '10');
+                if (raw === null) return;
+                const n = parseInt(raw, 10);
+                if (!Number.isInteger(n) || n === 0) { setMsg('Enter a whole number (e.g. 10).'); return; }
+                setBusy(true); setMsg('');
+                const { data } = await supabase.rpc('admin_grant_free_orders', { p_seller_id: seller.id, p_count: n, p_reason: 'Pilot reward' });
+                setBusy(false);
+                if (data && data.ok) { setMsg(`Free orders remaining: ${data.free_orders_remaining}.`); onRefresh(); }
+                else setMsg((data && data.message) || 'Grant failed');
+            };
             const fmtTime = (t) => t ? new Date(t).toLocaleString() : '—';
 
             return (
@@ -199,11 +220,20 @@
                             )}
                             <button disabled={busy} onClick={resetPin}
                                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition disabled:opacity-50"><Icons.key /> Reset PIN</button>
+                            {pendingFees > 0 && (
+                                <button disabled={busy} onClick={waiveFees}
+                                    className="px-3 py-2 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50">Waive fees</button>
+                            )}
+                            <button disabled={busy} onClick={grantFree}
+                                className="px-3 py-2 rounded-xl text-sm font-semibold bg-violet-50 text-violet-700 hover:bg-violet-100 transition disabled:opacity-50">Grant free orders</button>
                             <a href={`${SITE_URL}/shop/?s=${seller.slug}`} target="_blank" rel="noopener"
                                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition">
                                 <Icons.externalLink /> Storefront
                             </a>
                         </div>
+                        {(seller.free_orders_remaining > 0) && (
+                            <p className="text-xs text-violet-700 mt-2">🎁 {seller.free_orders_remaining} free order{seller.free_orders_remaining !== 1 ? 's' : ''} remaining (no fee will be charged).</p>
+                        )}
                     </div>
 
                     {/* Login activity */}
@@ -984,6 +1014,15 @@
             const [approving, setApproving] = useState(null);
             const [rejectTarget, setRejectTarget] = useState(null);
             const [rejectNotes, setRejectNotes] = useState('');
+            const [waiving, setWaiving] = useState(null);
+
+            const waiveBalance = async (s) => {
+                if (!(await window.confirmDialog({ title: 'Waive balance?', message: `Waive the outstanding ${formatCurrency(s.balance)} for ${s.business_name}? This clears their fees and reactivates the store if it was paused for fees.`, confirmLabel: 'Waive' }))) return;
+                setWaiving(s.id);
+                const { data } = await supabase.rpc('admin_waive_seller_fees', { p_seller_id: s.id, p_reason: 'Admin waiver' });
+                setWaiving(null);
+                if (data && data.ok) onRefresh();
+            };
 
             const sellerBalances = useMemo(() => sellers.map(s => {
                 const sFees = fees.filter(f => f.seller_id === s.id);
@@ -1166,10 +1205,16 @@
                                             </td>
                                             <td className="px-5 py-3">
                                                 {s.balance > 0 && (
-                                                    <button onClick={(e) => { e.stopPropagation(); setShowSettle(s); setSettleAmount(s.balance.toFixed(2)); }}
-                                                        className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-semibold hover:bg-green-100 transition">
-                                                        Record Payment
-                                                    </button>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={(e) => { e.stopPropagation(); setShowSettle(s); setSettleAmount(s.balance.toFixed(2)); }}
+                                                            className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-semibold hover:bg-green-100 transition">
+                                                            Record Payment
+                                                        </button>
+                                                        <button onClick={(e) => { e.stopPropagation(); waiveBalance(s); }} disabled={waiving === s.id}
+                                                            className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition disabled:opacity-50">
+                                                            {waiving === s.id ? '…' : 'Waive'}
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </td>
                                         </tr>
@@ -1714,7 +1759,7 @@
             const loadAllData = async (silent) => {
                 if (!silent) setLoading(true);
                 const [sellersRes, ordersRes, feesRes, settlementsRes, configRes, settlementRequestsRes] = await Promise.all([
-                    supabase.from('sellers').select('id, full_name, phone, business_name, location, preferred_language, is_active, created_at, updated_at, slug, business_description, banner_url, logo_url, business_hours, delivery_areas, social_links, address, seller_phone, is_admin, seller_status, delivery_methods, delivery_fee, delivery_fee_type, pickup_address, delivery_notes, is_demo').order('created_at', { ascending: false }),
+                    supabase.from('sellers').select('id, full_name, phone, business_name, location, preferred_language, is_active, created_at, updated_at, slug, business_description, banner_url, logo_url, business_hours, delivery_areas, social_links, address, seller_phone, is_admin, seller_status, delivery_methods, delivery_fee, delivery_fee_type, pickup_address, delivery_notes, is_demo, free_orders_remaining, fee_trial_eligible').order('created_at', { ascending: false }),
                     supabase.from('orders').select('id, order_number, seller_id, customer_name, customer_phone, total, status, payment_status, delivery_method, payment_method, discount_code, discount_amount, created_at, buyer_dispute_at').order('created_at', { ascending: false }),
                     supabase.from('platform_fees').select('*').order('created_at', { ascending: false }),
                     supabase.from('seller_settlements').select('*').order('created_at', { ascending: false }),
