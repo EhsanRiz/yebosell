@@ -7,79 +7,123 @@
   @page { size: A4; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root { --green:#15803d; --green-dark:#166534; --green-50:#f0fdf4; --gold:#D4A017; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0; }
-  html,body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { width: 210mm; min-height: 297mm; padding: 16mm 15mm 12mm; display: flex; flex-direction: column; }
-  .head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 3px solid var(--green); }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .logo-box { width: 46px; height: 46px; border-radius: 12px; background: var(--green-dark); display: flex; align-items: center; justify-content: center; }
-  .brand h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
-  .brand h1 .g { color: var(--green-dark); } .brand h1 .a { color: var(--gold); }
-  .brand .tag { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .head .kick { text-align: right; font-size: 12px; color: var(--muted); }
-  .head .kick b { color: var(--green-dark); display:block; font-size: 13px; }
+  html,body { font-family: -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:var(--ink); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { width:210mm; height:297mm; padding:13mm 14mm; display:flex; flex-direction:column; page-break-after:always; }
+  .page:last-child { page-break-after:auto; }
 
-  .title { margin-top: 22px; }
-  .title h2 { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; }
-  .title h2 .g { color: var(--green); }
-  .title p { margin-top: 6px; font-size: 13.5px; color: var(--muted); }
+  .head { display:flex; align-items:center; justify-content:space-between; padding-bottom:9px; border-bottom:3px solid var(--green); }
+  .brand { display:flex; align-items:center; gap:11px; }
+  .logo-box { width:42px; height:42px; border-radius:11px; background:var(--green-dark); display:flex; align-items:center; justify-content:center; }
+  .brand h1 { font-size:23px; font-weight:800; letter-spacing:-.02em; }
+  .brand h1 .g{color:var(--green-dark)} .brand h1 .a{color:var(--gold)}
+  .brand .tag { font-size:10.5px; color:var(--muted); margin-top:1px; }
+  .head .kick { text-align:right; font-size:11px; color:var(--muted); }
+  .head .kick b { color:var(--green-dark); display:block; font-size:12.5px; }
 
-  .steps { margin-top: 18px; display: flex; flex-direction: column; gap: 11px; }
-  .step { display: flex; gap: 13px; align-items: flex-start; }
-  .step .n { width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: #fff; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .step .body .t { font-weight: 700; font-size: 15px; }
-  .step .body .d { font-size: 12.5px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
-  .step .body .d b { color: var(--ink); }
+  .title { margin-top:13px; }
+  .title h2 { font-size:23px; font-weight:800; letter-spacing:-.02em; }
+  .title h2 .g { color:var(--green); }
+  .title p { margin-top:4px; font-size:12.5px; color:var(--muted); }
 
-  .tips { margin-top: 18px; background: var(--green-50); border: 1px solid #dcfce7; border-radius: 14px; padding: 14px 16px; }
-  .tips .h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--green-dark); }
-  .tips ul { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; list-style: none; }
-  .tips li { font-size: 12.5px; color: var(--ink); padding-left: 18px; position: relative; }
-  .tips li::before { content: "\2713"; position: absolute; left: 0; color: var(--green); font-weight: 800; }
+  .ostep { display:flex; gap:14px; align-items:center; padding:11px 0; border-bottom:1px solid var(--line); }
+  .ostep:last-of-type { border-bottom:none; }
+  .ostep .n { width:30px; height:30px; border-radius:50%; background:var(--green); color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ostep .txt { flex:1; }
+  .ostep .txt .t { font-weight:700; font-size:14.5px; }
+  .ostep .txt .d { font-size:12px; color:var(--muted); line-height:1.35; margin-top:3px; }
+  .ostep .txt .d b { color:var(--ink); }
+  .ostep img { height:48mm; width:auto; border:1px solid var(--line); border-radius:8px; box-shadow:0 2px 7px rgba(0,0,0,.1); flex-shrink:0; }
 
-  .support { margin-top: 16px; display: flex; align-items: center; gap: 12px; border: 1px dashed var(--gold); border-radius: 14px; padding: 12px 16px; }
-  .support .wa { width: 34px; height: 34px; border-radius: 9px; background: #25D366; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .support .txt { font-size: 13px; } .support .txt b { color: var(--green-dark); }
+  .tips { margin-top:13px; background:var(--green-50); border:1px solid #dcfce7; border-radius:14px; padding:13px 16px; }
+  .tips .h { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--green-dark); }
+  .tips ul { margin-top:7px; display:grid; grid-template-columns:1fr 1fr; gap:5px 20px; list-style:none; }
+  .tips li { font-size:12px; color:var(--ink); padding-left:17px; position:relative; }
+  .tips li::before { content:"\2713"; position:absolute; left:0; color:var(--green); font-weight:800; }
 
-  .foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display:flex; justify-content: space-between; align-items:flex-end; font-size: 11.5px; color: var(--muted); }
-  .foot b { color: var(--green-dark); }
-  .foot .made { text-align: right; }
+  .support { margin-top:13px; display:flex; align-items:center; gap:13px; border:1px dashed var(--gold); border-radius:14px; padding:13px 16px; }
+  .support .wa { width:34px; height:34px; border-radius:9px; background:#25D366; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .support .txt { font-size:13px; } .support .txt b { color:var(--green-dark); }
+
+  .foot { margin-top:auto; padding-top:11px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-end; font-size:11px; color:var(--muted); }
+  .foot b { color:var(--green-dark); } .foot .made { text-align:right; }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute"><symbol id="yebo" viewBox="0 0 40 40">
+  <rect x="4" y="6" width="18" height="14" rx="4" fill="#25D366"/>
+  <circle cx="9" cy="13" r="1.5" fill="white"/><circle cx="13" cy="13" r="1.5" fill="white"/><circle cx="17" cy="13" r="1.5" fill="white"/>
+  <polygon points="8,20 8,25 13,20" fill="#25D366"/>
+  <rect x="18" y="16" width="18" height="14" rx="4" fill="#D4A017"/>
+  <circle cx="23" cy="23" r="1.5" fill="#166534"/><circle cx="27" cy="23" r="1.5" fill="#166534"/><circle cx="31" cy="23" r="1.5" fill="#166534"/>
+  <polygon points="32,30 32,35 27,30" fill="#D4A017"/>
+</symbol></svg>
+
+<!-- ===== FRONT ===== -->
 <div class="page">
   <div class="head">
     <div class="brand">
-      <div class="logo-box">
-        <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
-          <rect x="4" y="6" width="18" height="14" rx="4" fill="#25D366"/>
-          <circle cx="9" cy="13" r="1.5" fill="white"/><circle cx="13" cy="13" r="1.5" fill="white"/><circle cx="17" cy="13" r="1.5" fill="white"/>
-          <polygon points="8,20 8,25 13,20" fill="#25D366"/>
-          <rect x="18" y="16" width="18" height="14" rx="4" fill="#D4A017"/>
-          <circle cx="23" cy="23" r="1.5" fill="#166534"/><circle cx="27" cy="23" r="1.5" fill="#166534"/><circle cx="31" cy="23" r="1.5" fill="#166534"/>
-          <polygon points="32,30 32,35 27,30" fill="#D4A017"/>
-        </svg>
-      </div>
-      <div>
-        <h1><span class="g">Yebo</span><span class="a">Sell</span></h1>
-        <div class="tag">Sell smarter. Reach further. Grow together.</div>
-      </div>
+      <div class="logo-box"><svg width="26" height="26"><use href="#yebo"/></svg></div>
+      <div><h1><span class="g">Yebo</span><span class="a">Sell</span></h1><div class="tag">Sell smarter. Reach further. Grow together.</div></div>
     </div>
     <div class="kick"><b>Seller Onboarding</b>Get selling in ~15 minutes</div>
   </div>
 
   <div class="title">
     <h2>Welcome — let's open <span class="g">your store</span>.</h2>
-    <p>Follow these seven steps on your phone. You'll need your phone number and a few product photos.</p>
+    <p>Follow these steps on your phone. You'll need your phone number and a few product photos.</p>
   </div>
 
-  <div class="steps">
-    <div class="step"><div class="n">1</div><div class="body"><div class="t">Create your account</div><div class="d">Go to <b>yebosell.co.za</b> and tap <b>Seller Login</b>. Enter your phone number, type the SMS code we send you, then set a 4-digit PIN to unlock the app on your device.</div></div></div>
-    <div class="step"><div class="n">2</div><div class="body"><div class="t">Sign the agreement</div><div class="d">Review the seller terms, type your <b>name</b> and <b>place of signing</b>, and tap <b>Sign &amp; Continue</b>. A signed PDF downloads automatically — you can re-download it any time from Settings.</div></div></div>
-    <div class="step"><div class="n">3</div><div class="body"><div class="t">Set up your store</div><div class="d">In <b>Settings</b>, add your business name, logo, pickup address, and your <b>bank details</b> for EFT (you can add more than one account).</div></div></div>
-    <div class="step"><div class="n">4</div><div class="body"><div class="t">Add your products</div><div class="d">Tap <b>Products &rarr; Add</b>. Enter a name, price, photo and stock. Add sizes or colours and a prep time if you need them.</div></div></div>
-    <div class="step"><div class="n">5</div><div class="body"><div class="t">Share your store</div><div class="d">Copy your store link and post it on <b>WhatsApp, Facebook or Instagram</b>. That link is your shop — anyone can browse and order.</div></div></div>
-    <div class="step"><div class="n">6</div><div class="body"><div class="t">Manage orders</div><div class="d">When a buyer orders, you get a notification. Update the order status and message the buyer right inside the app.</div></div></div>
-    <div class="step"><div class="n">7</div><div class="body"><div class="t">Get paid</div><div class="d">Buyers pay <b>you</b> directly (EFT or cash) — YeboSell never holds your money. Mark the order paid; the buyer follows everything from their tracking link.</div></div></div>
+  <div class="ostep">
+    <div class="n">1</div>
+    <div class="txt"><div class="t">Create your account</div><div class="d">Go to <b>yebosell.co.za</b>, tap <b>Seller Login</b>, enter your phone number, type the SMS code, then set a 4-digit <b>PIN</b> to unlock the app.</div></div>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%201D.jpg" alt="Sign in with SMS">
+  </div>
+  <div class="ostep">
+    <div class="n">2</div>
+    <div class="txt"><div class="t">Sign the seller agreement</div><div class="d">Review the terms, type your <b>name</b> and <b>place of signing</b>, and tap <b>Sign &amp; Continue</b>. A signed PDF is saved to your phone.</div></div>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%202.jpg" alt="Seller agreement">
+  </div>
+  <div class="ostep">
+    <div class="n">3</div>
+    <div class="txt"><div class="t">Set up your store</div><div class="d">In <b>Settings</b>, add your business name, logo, pickup address and <b>bank details</b> for EFT (you can add more than one account).</div></div>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%203D.jpg" alt="Bank details">
+  </div>
+  <div class="ostep">
+    <div class="n">4</div>
+    <div class="txt"><div class="t">Add your products</div><div class="d">Tap <b>Products &rarr; Add</b>. Enter a name, price, photo and stock. Add sizes/colours and a prep time if you need them.</div></div>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%204A.jpg" alt="Add product">
+  </div>
+
+  <div class="foot">
+    <div>Need help? WhatsApp <b>+266 5729 9369</b></div>
+    <div class="made">Onboarding · page 1 of 2</div>
+  </div>
+</div>
+
+<!-- ===== BACK ===== -->
+<div class="page">
+  <div class="head">
+    <div class="brand">
+      <div class="logo-box"><svg width="26" height="26"><use href="#yebo"/></svg></div>
+      <div><h1><span class="g">Yebo</span><span class="a">Sell</span></h1><div class="tag">Sell smarter. Reach further. Grow together.</div></div>
+    </div>
+    <div class="kick"><b>Seller Onboarding</b>Take orders &amp; get paid</div>
+  </div>
+
+  <div class="ostep" style="margin-top:12px;">
+    <div class="n">5</div>
+    <div class="txt"><div class="t">Share your store</div><div class="d">Copy your store link and post it on <b>WhatsApp, Facebook or Instagram</b>. Anyone who opens it can browse and order — no app needed.</div></div>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%207B.jpg" alt="Your storefront">
+  </div>
+  <div class="ostep">
+    <div class="n">6</div>
+    <div class="txt"><div class="t">Manage orders &amp; message buyers</div><div class="d">When a buyer orders you get a notification. Update the status (New &rarr; Delivered) and message the buyer in-app, or send a ready-made <b>template</b>.</div></div>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%208B.jpg" alt="Order detail">
+  </div>
+  <div class="ostep">
+    <div class="n">7</div>
+    <div class="txt"><div class="t">Get paid</div><div class="d">Buyers pay <b>you</b> directly (EFT or cash) — YeboSell never holds your money. Tap <b>Confirm payment</b> to mark the order paid.</div></div>
+    <img src="../screesnshots/seller-guide/SCREENSHOT%2010.jpg" alt="Confirm payment">
   </div>
 
   <div class="tips">
@@ -93,14 +137,12 @@
   </div>
 
   <div class="support">
-    <div class="wa">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.8-.9-3-1.6-4.2-3.6-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5C9.6 8.5 9 7 8.8 6.4c-.2-.5-.4-.5-.6-.5h-.5c-.2 0-.5.1-.8.3-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/><path d="M12 0C5.4 0 0 5.4 0 12c0 2.6.8 5.1 2.3 7L.8 23.5l4.6-1.5C7.2 23.2 9.6 24 12 24c6.6 0 12-5.4 12-12S18.6 0 12 0zm0 22c-2.4 0-4.6-.8-6.4-2.2l-.4-.3-2.6.9.9-2.6-.3-.4C1.8 16.6 1 14.4 1 12 1 6.5 5.5 2 12 2s10 4.5 10 10-4.5 10-10 10z"/></svg>
-    </div>
-    <div class="txt">Stuck on anything? <b>Chat with YeboSell</b> on WhatsApp <b>+266 5729 9369</b> — we're here to help you get your first sale.</div>
+    <div class="wa"><svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.8-.9-3-1.6-4.2-3.6-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5C9.6 8.5 9 7 8.8 6.4c-.2-.5-.4-.5-.6-.5h-.5c-.2 0-.5.1-.8.3-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/><path d="M12 0C5.4 0 0 5.4 0 12c0 2.6.8 5.1 2.3 7L.8 23.5l4.6-1.5C7.2 23.2 9.6 24 12 24c6.6 0 12-5.4 12-12S18.6 0 12 0zm0 22c-2.4 0-4.6-.8-6.4-2.2l-.4-.3-2.6.9.9-2.6-.3-.4C1.8 16.6 1 14.4 1 12 1 6.5 5.5 2 12 2s10 4.5 10 10-4.5 10-10 10z"/></svg></div>
+    <div class="txt">Stuck on anything? <b>Chat with YeboSell</b> on WhatsApp <b>+266 5729 9369</b> — we're here to help you make your first sale. Full terms at <b>yebosell.co.za/terms</b>.</div>
   </div>
 
   <div class="foot">
-    <div>Read the full terms at <b>yebosell.co.za/terms</b></div>
+    <div>Thank you for helping us build YeboSell.</div>
     <div class="made">A product of YeboSell<br>by 4D Climate Solutions</div>
   </div>
 </div>
